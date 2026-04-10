@@ -52,7 +52,7 @@ export const DocumentPane = memo(function DocumentPane({
         </div>
       ) : (
         <textarea
-          className="min-h-[24rem] flex-1 resize-none rounded-[1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-7 text-[var(--text-main)]"
+          className="min-h-0 flex-1 resize-none rounded-[1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-7 text-[var(--text-main)]"
           onChange={(event) => onChange(event.target.value)}
           onSelect={onSelect}
           value={content}

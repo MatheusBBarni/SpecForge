@@ -131,7 +131,7 @@ export const MainWorkspace = memo(function MainWorkspace({
       />
 
       {activeTab === "review" ? (
-        <div className="grid h-full min-h-0 gap-4 p-4 xl:grid-cols-2">
+        <div className="grid h-full min-h-0 gap-4 p-4 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-2 xl:grid-rows-1">
           <DocumentPane
             content={prdContent}
             eyebrow="Source PRD"
@@ -187,7 +187,7 @@ export const MainWorkspace = memo(function MainWorkspace({
             </div>
 
             <textarea
-              className="min-h-[24rem] flex-1 resize-none rounded-[1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-7 text-[var(--text-main)]"
+              className="min-h-0 flex-1 resize-none rounded-[1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-7 text-[var(--text-main)]"
               onChange={(event) => onEditorTabChange(activeEditorTab.path, event.target.value)}
               value={activeEditorTab.content}
             />

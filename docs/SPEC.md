@@ -75,8 +75,8 @@ Browser mode keeps a file-input fallback:
 
 * When `specContent` is empty, the spec pane swaps to a dedicated empty state with a prompt textarea and generate button.
 * The generate action sends the current PRD, the user's note, the selected model, and the selected reasoning profile through `src/lib/runtime.ts`.
-* `generate_spec_document(...)` runs the selected Claude CLI or Codex CLI in non-interactive mode from a temporary folder and returns markdown only.
-* Generated output is loaded back into the spec pane as unsaved `spec.md` content; execution remains a separate simulated flow.
+* `generate_spec_document(...)` runs the selected Claude CLI or Codex CLI in non-interactive mode from a temporary folder, resolves the active PRD path, and writes the returned markdown into a sibling `SPEC.md`/`spec.md` file beside that PRD.
+* The saved spec document metadata is returned to the frontend so the spec pane reflects the on-disk path immediately; execution remains a separate simulated flow.
 
 ### 4.4. Browser `.gitignore` behavior
 
@@ -93,7 +93,7 @@ The current Tauri commands are:
 * `read_workspace_file(filePath: string)`
 * `get_workspace_snapshot()`
 * `git_get_diff()`
-* `generate_spec_document(prdContent: string, userPrompt: string, provider: string, model: string, reasoning: string, claudePath?: string, codexPath?: string)`
+* `generate_spec_document(prdPath: string, prdContent: string, userPrompt: string, provider: string, model: string, reasoning: string, claudePath?: string, codexPath?: string)`
 * `spawn_cli_agent(specPayload: string, mode: string, model: string, reasoning: string)`
 * `approve_action()`
 * `kill_agent_process()`
@@ -123,7 +123,7 @@ The current execution runtime is **simulated**:
 
 This is a review-and-approval shell, not a real CLI orchestration engine yet.
 
-The spec generation flow is separate: it uses the configured Claude/Codex CLI to return markdown for the spec pane, but it does not mutate workspace files or replace the simulated execution loop.
+The spec generation flow is separate: it uses the configured Claude/Codex CLI to draft markdown, saves that markdown next to the active PRD, and loads the saved file into the spec pane. It does not replace the simulated execution loop.
 
 ## 7. Environment And Settings
 

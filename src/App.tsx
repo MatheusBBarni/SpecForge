@@ -216,7 +216,7 @@ function App() {
       return `${selectedProviderStatus.name} is not currently marked ready. If generation fails, update its path in Settings and refresh.`;
     }
 
-    return `This sends the current PRD and your note to ${getModelLabel(selectedModel)} and fills the spec pane with the returned markdown.`;
+    return `This sends the current PRD and your note to ${getModelLabel(selectedModel)}, saves the generated markdown next to the PRD, and loads that saved file into the spec pane.`;
   }, [
     desktopRuntime,
     prdContent,
@@ -812,6 +812,7 @@ function App() {
 
     try {
       const generatedSpec = await generateSpecDocument({
+        prdPath,
         prdContent,
         userPrompt: trimmedPrompt,
         provider: selectedModelProvider,
@@ -822,13 +823,16 @@ function App() {
       });
 
       startTransition(() => {
-        setSpecContent(generatedSpec, "spec.md");
+        setSpecContent(generatedSpec.content, generatedSpec.sourcePath);
         setSpecPaneMode("preview");
       });
       setSpecGenerationPrompt("");
       setAgentStatus("idle");
       appendTerminalOutput(
-        stampLog("spec", "Specification draft generated and loaded into the review pane.")
+        stampLog(
+          "spec",
+          `Specification draft generated, saved to ${generatedSpec.fileName}, and loaded into the review pane.`
+        )
       );
     } catch (error) {
       const message =
@@ -843,6 +847,7 @@ function App() {
     claudePath,
     codexPath,
     desktopRuntime,
+    prdPath,
     prdContent,
     selectedModel,
     selectedModelProvider,
@@ -999,10 +1004,10 @@ function App() {
   }, [appendTerminalOutput, applyAgentEvent]);
 
   return (
-    <main className="min-h-screen w-full">
+    <main className="flex h-screen min-h-0 w-full flex-col overflow-hidden">
       <AppRail />
 
-      <div className="relative flex min-h-screen min-w-0 flex-1 flex-col lg:ml-[72px]">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:ml-[72px]">
         <Routes>
           <Route
             element={

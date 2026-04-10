@@ -27,7 +27,7 @@ export const ExecutionPanel = memo(function ExecutionPanel({
   onEmergencyStop
 }: ExecutionPanelProps) {
   return (
-    <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.9fr)]">
+    <div className="grid h-full min-h-0 gap-4 grid-rows-[minmax(0,1.2fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.9fr)] xl:grid-rows-1">
       <section className="flex min-h-0 flex-col gap-4 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4">
         <div className="flex items-center gap-3 text-[var(--text-main)]">
           <Terminal className="size-5 text-[var(--accent-2)]" />

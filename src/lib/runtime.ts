@@ -135,6 +135,7 @@ export async function startAgentRun(
 }
 
 export async function generateSpecDocument(payload: {
+  prdPath: string;
   prdContent: string;
   userPrompt: string;
   provider: ModelProvider;
@@ -142,12 +143,13 @@ export async function generateSpecDocument(payload: {
   reasoning: ReasoningProfileId;
   claudePath?: string;
   codexPath?: string;
-}): Promise<string> {
+}): Promise<WorkspaceDocument> {
   if (!isTauriRuntime()) {
     throw new Error("AI spec generation requires the desktop runtime.");
   }
 
-  return invoke<string>("generate_spec_document", {
+  return invoke<WorkspaceDocument>("generate_spec_document", {
+    prdPath: payload.prdPath,
     prdContent: payload.prdContent,
     userPrompt: payload.userPrompt,
     provider: payload.provider,

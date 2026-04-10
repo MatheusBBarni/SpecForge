@@ -37,6 +37,7 @@ Today the product focuses on **review, import, diff inspection, and approval UX*
   * `spec.md`, then `spec.pdf`
 * **Missing document reset:** Opening a workspace must clear stale PRD/spec content from the previous workspace when those files are not found in the new one.
 * **Empty spec generation:** When the active spec content is empty, the spec pane must show a textbox and generate button that use the current PRD plus the user's note to draft a markdown spec through the selected desktop AI CLI.
+* **Generated spec persistence:** After generation succeeds in the desktop runtime, the markdown must be saved into the same folder as the active PRD using a sibling `SPEC.md` or `spec.md` file before the pane updates.
 
 ### 4.2. Workspace Review
 
@@ -45,6 +46,7 @@ Today the product focuses on **review, import, diff inspection, and approval UX*
 * **Workspace safety:** Frontend file opens must be limited to the currently scanned workspace. Opening a new workspace should clear file tabs from the previous workspace.
 * **Search:** The file tree must support in-app filtering through the floating search UI.
 * **Spec empty state:** The spec pane must replace the normal editor/preview view with a generation-oriented empty state whenever the spec content is blank.
+* **Saved-path visibility:** Once a spec is generated, the spec pane should reflect the saved file path rather than an unsaved placeholder path.
 
 ### 4.3. Settings and Diagnostics
 

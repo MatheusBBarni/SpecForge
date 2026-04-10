@@ -107,7 +107,7 @@ export const ControlColumn = memo(function ControlColumn({
   }, [onFilePick, onImportTargetChange]);
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto rounded-[1.5rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-5 shadow-[var(--shadow)] backdrop-blur-[30px]">
+    <section className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden rounded-[1.5rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-5 shadow-[var(--shadow)] backdrop-blur-[30px]">
       <header className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="m-0 text-[1.05rem] font-semibold text-[var(--text-main)]">
@@ -120,153 +120,155 @@ export const ControlColumn = memo(function ControlColumn({
         </div>
       </header>
 
-      <ControlSection
-        icon={<Upload />}
-        title="Ingestion"
-      >
-        <Card className={SURFACE_CARD_CLASS}>
-          <Card.Content className="flex flex-col items-center gap-5 px-4 py-6 text-center">
-            <p className="max-w-[24rem] text-balance text-lg font-medium leading-8 text-[var(--text-main)]">
-              Load source documents directly into the PRD or spec pane.
-            </p>
-            <p className="m-0 max-w-[24rem] text-sm leading-7 text-[var(--text-subtle)]">
-              {importFileSupportText}
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <Button
-                className={SECONDARY_BUTTON_CLASS}
-                onPress={handlePrdPick}
-                type="button"
-              >
-                Load PRD
-              </Button>
-              <Button
-                className={SECONDARY_BUTTON_CLASS}
-                onPress={handleSpecPick}
-                type="button"
-              >
-                Load Spec
-              </Button>
-            </div>
-            <input
-              accept={fileInputAccept}
-              className="hidden"
-              onChange={onFileChange}
-              ref={fileInputRef}
-              type="file"
-            />
-          </Card.Content>
-        </Card>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
+        <ControlSection
+          icon={<Upload />}
+          title="Ingestion"
+        >
+          <Card className={SURFACE_CARD_CLASS}>
+            <Card.Content className="flex flex-col items-center gap-5 px-4 py-6 text-center">
+              <p className="max-w-[24rem] text-balance text-lg font-medium leading-8 text-[var(--text-main)]">
+                Load source documents directly into the PRD or spec pane.
+              </p>
+              <p className="m-0 max-w-[24rem] text-sm leading-7 text-[var(--text-subtle)]">
+                {importFileSupportText}
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Button
+                  className={SECONDARY_BUTTON_CLASS}
+                  onPress={handlePrdPick}
+                  type="button"
+                >
+                  Load PRD
+                </Button>
+                <Button
+                  className={SECONDARY_BUTTON_CLASS}
+                  onPress={handleSpecPick}
+                  type="button"
+                >
+                  Load Spec
+                </Button>
+              </div>
+              <input
+                accept={fileInputAccept}
+                className="hidden"
+                onChange={onFileChange}
+                ref={fileInputRef}
+                type="file"
+              />
+            </Card.Content>
+          </Card>
 
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label className={FIELD_LABEL_CLASS} htmlFor="path-import">
-              Open from path
-            </Label>
-            <Input
-              className={FIELD_INPUT_CLASS}
-              id="path-import"
-              onChange={(event) => onImportPathChange(event.target.value)}
-              placeholder="docs/PRD.md"
-              value={importPath}
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label className={FIELD_LABEL_CLASS} htmlFor="path-import">
+                Open from path
+              </Label>
+              <Input
+                className={FIELD_INPUT_CLASS}
+                id="path-import"
+                onChange={(event) => onImportPathChange(event.target.value)}
+                placeholder="docs/PRD.md"
+                value={importPath}
+              />
+            </div>
+
+            <ControlSelectField
+              label="Load target"
+              onSelectionChange={onImportTargetChange}
+              options={DOCUMENT_TARGET_OPTIONS}
+              selectedKey={importTarget}
             />
           </div>
 
-          <ControlSelectField
-            label="Load target"
-            onSelectionChange={onImportTargetChange}
-            options={DOCUMENT_TARGET_OPTIONS}
-            selectedKey={importTarget}
-          />
-        </div>
-
-        <Button
-          className={PRIMARY_BUTTON_CLASS}
-          fullWidth
-          isDisabled={isImporting}
-          onPress={onPathImport}
-          type="button"
-        >
-          {isImporting ? "Parsing..." : "Parse Document"}
-        </Button>
-
-        {importError ? (
-          <p className="m-0 text-sm leading-6 text-[var(--danger)]">{importError}</p>
-        ) : null}
-      </ControlSection>
-
-      <ControlSection
-        icon={<Activity />}
-        title="Agent Configuration"
-      >
-        <div className="flex flex-col gap-4">
-          <ModelSelectField
-            configuredProviders={configuredModelProviders}
-            label="Agent model"
-            onSelectionChange={onModelChange}
-            selectedKey={selectedModel}
-          />
-          <ControlSelectField
-            label="Reasoning"
-            onSelectionChange={onReasoningChange}
-            options={reasoningOptions}
-            selectedKey={selectedReasoning}
-          />
-          <ControlSelectField
-            label="Approval mode"
-            onSelectionChange={onModeChange}
-            options={MODE_OPTIONS}
-            selectedKey={autonomyMode}
-          />
-        </div>
-      </ControlSection>
-
-      <ControlSection
-        icon={<ChatBubble />}
-        title="Inline Refinement"
-      >
-        <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
-          Highlight text in the spec editor to scope the next revision.
-        </p>
-
-        <Card className={SURFACE_CARD_CLASS}>
-          <Card.Content className="flex flex-col gap-3 px-5 py-5">
-            <span className="text-sm text-[var(--text-subtle)]">Selected scope</span>
-            <p className="m-0 text-lg leading-8 text-[var(--text-main)]">
-              {selectedSpecText || "No spec text selected yet."}
-            </p>
-          </Card.Content>
-        </Card>
-
-        <TextArea
-          className={TEXTAREA_CLASS}
-          onChange={(event) => onReviewPromptChange(event.target.value)}
-          placeholder="Ask the agent to tighten requirements, add endpoints, or expand acceptance criteria."
-          rows={4}
-          value={reviewPrompt}
-        />
-
-        <div className="flex flex-wrap gap-3">
-          <Button
-            className={SECONDARY_BUTTON_CLASS}
-            isDisabled={!reviewPrompt.trim()}
-            onPress={onApplyRefinement}
-            type="button"
-          >
-            <Spark />
-            Apply Refinement
-          </Button>
           <Button
             className={PRIMARY_BUTTON_CLASS}
-            isDisabled={!hasSpecContent}
-            onPress={onApproveSpec}
+            fullWidth
+            isDisabled={isImporting}
+            onPress={onPathImport}
             type="button"
           >
-            <CheckCircle />
-            {isSpecApproved ? "Approved" : "Approve Spec"}
+            {isImporting ? "Parsing..." : "Parse Document"}
           </Button>
-        </div>
-      </ControlSection>
+
+          {importError ? (
+            <p className="m-0 text-sm leading-6 text-[var(--danger)]">{importError}</p>
+          ) : null}
+        </ControlSection>
+
+        <ControlSection
+          icon={<Activity />}
+          title="Agent Configuration"
+        >
+          <div className="flex flex-col gap-4">
+            <ModelSelectField
+              configuredProviders={configuredModelProviders}
+              label="Agent model"
+              onSelectionChange={onModelChange}
+              selectedKey={selectedModel}
+            />
+            <ControlSelectField
+              label="Reasoning"
+              onSelectionChange={onReasoningChange}
+              options={reasoningOptions}
+              selectedKey={selectedReasoning}
+            />
+            <ControlSelectField
+              label="Approval mode"
+              onSelectionChange={onModeChange}
+              options={MODE_OPTIONS}
+              selectedKey={autonomyMode}
+            />
+          </div>
+        </ControlSection>
+
+        <ControlSection
+          icon={<ChatBubble />}
+          title="Inline Refinement"
+        >
+          <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
+            Highlight text in the spec editor to scope the next revision.
+          </p>
+
+          <Card className={SURFACE_CARD_CLASS}>
+            <Card.Content className="flex flex-col gap-3 px-5 py-5">
+              <span className="text-sm text-[var(--text-subtle)]">Selected scope</span>
+              <p className="m-0 text-lg leading-8 text-[var(--text-main)]">
+                {selectedSpecText || "No spec text selected yet."}
+              </p>
+            </Card.Content>
+          </Card>
+
+          <TextArea
+            className={TEXTAREA_CLASS}
+            onChange={(event) => onReviewPromptChange(event.target.value)}
+            placeholder="Ask the agent to tighten requirements, add endpoints, or expand acceptance criteria."
+            rows={4}
+            value={reviewPrompt}
+          />
+
+          <div className="flex flex-wrap gap-3">
+            <Button
+              className={SECONDARY_BUTTON_CLASS}
+              isDisabled={!reviewPrompt.trim()}
+              onPress={onApplyRefinement}
+              type="button"
+            >
+              <Spark />
+              Apply Refinement
+            </Button>
+            <Button
+              className={PRIMARY_BUTTON_CLASS}
+              isDisabled={!hasSpecContent}
+              onPress={onApproveSpec}
+              type="button"
+            >
+              <CheckCircle />
+              {isSpecApproved ? "Approved" : "Approve Spec"}
+            </Button>
+          </div>
+        </ControlSection>
+      </div>
     </section>
   );
 });

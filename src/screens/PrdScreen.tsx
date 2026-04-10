@@ -38,7 +38,7 @@ export function PrdScreen({
   inspectorColumnProps
 }: PrdScreenProps) {
   return (
-    <section className="relative flex min-h-0 flex-1 flex-col overflow-auto xl:overflow-hidden">
+    <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       {isSearchOpen ? (
         <FloatingSearch
           inputRef={searchInputRef}
@@ -47,7 +47,7 @@ export function PrdScreen({
         />
       ) : null}
 
-      <div className="grid min-h-0 flex-1 gap-4 px-4 pb-4 pt-4 lg:px-5 lg:pb-5 xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)_minmax(260px,320px)] xl:grid-rows-[auto_minmax(0,1fr)] xl:overflow-hidden">
+      <div className="grid min-h-0 flex-1 gap-4 overflow-hidden px-4 pb-4 pt-4 grid-rows-[auto_minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)] lg:px-5 lg:pb-5 xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)_minmax(260px,320px)] xl:grid-rows-[auto_minmax(0,1fr)]">
         <div className="order-1 flex items-center justify-between gap-4 rounded-[1.2rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] px-4 py-4 shadow-[var(--shadow)] backdrop-blur-xl xl:col-[2/4] xl:row-[1] xl:justify-end">
           <div className="min-w-0 xl:mr-auto">
             <h1 className="m-0 text-lg font-semibold text-[var(--text-main)]">
@@ -72,15 +72,15 @@ export function PrdScreen({
           </div>
         </div>
 
-        <div className="order-2 min-h-0 xl:col-[1] xl:row-[1/3]">
+        <div className="order-2 flex min-h-0 overflow-hidden xl:col-[1] xl:row-[1/3]">
           <ControlColumn {...controlColumnProps} />
         </div>
 
-        <div className="order-3 min-h-0 xl:col-[2] xl:row-[2]">
+        <div className="order-3 flex min-h-0 overflow-hidden xl:col-[2] xl:row-[2]">
           <MainWorkspace {...mainWorkspaceProps} />
         </div>
 
-        <div className="order-4 min-h-0 xl:col-[3] xl:row-[2]">
+        <div className="order-4 flex min-h-0 overflow-hidden xl:col-[3] xl:row-[2]">
           <InspectorColumn {...inspectorColumnProps} />
         </div>
       </div>

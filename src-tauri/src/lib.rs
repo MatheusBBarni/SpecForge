@@ -410,6 +410,7 @@ fn git_get_diff() -> Result<String, String> {
 
 #[tauri::command]
 fn generate_spec_document(
+    prd_path: String,
     prd_content: String,
     user_prompt: String,
     provider: String,
@@ -417,7 +418,7 @@ fn generate_spec_document(
     reasoning: String,
     claude_path: Option<String>,
     codex_path: Option<String>,
-) -> Result<String, String> {
+) -> Result<WorkspaceDocument, String> {
     let trimmed_prd = prd_content.trim();
     let trimmed_prompt = user_prompt.trim();
 
@@ -451,14 +452,35 @@ fn generate_spec_document(
     };
 
     let normalized_spec = strip_wrapping_code_fence(generated_spec.trim());
+    let rendered_spec = format!("{}\n", normalized_spec.trim());
 
-    if normalized_spec.trim().is_empty() {
+    if rendered_spec.trim().is_empty() {
         return Err(String::from(
             "The AI returned an empty specification. Adjust the prompt and try again.",
         ));
     }
 
-    Ok(format!("{}\n", normalized_spec.trim()))
+    let resolved_prd_path = resolve_existing_document_path(&prd_path)?;
+    let saved_spec_path = build_generated_spec_path(&resolved_prd_path);
+
+    fs::write(&saved_spec_path, rendered_spec.as_bytes()).map_err(|error| {
+        format!(
+            "Unable to save the generated spec to {}: {error}",
+            saved_spec_path.display()
+        )
+    })?;
+
+    let file_name = saved_spec_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("SPEC.md")
+        .to_string();
+
+    Ok(WorkspaceDocument {
+        content: rendered_spec,
+        source_path: saved_spec_path.display().to_string(),
+        file_name,
+    })
 }
 
 #[tauri::command]
@@ -766,6 +788,56 @@ fn resolve_workspace_file_path(
     }
 
     Ok(canonical_path)
+}
+
+fn resolve_existing_document_path(path_value: &str) -> Result<PathBuf, String> {
+    let trimmed_value = path_value.trim();
+
+    if trimmed_value.is_empty() {
+        return Err(String::from(
+            "A PRD path is required to save the generated spec.",
+        ));
+    }
+
+    let candidate = PathBuf::from(trimmed_value);
+
+    if candidate.is_absolute() {
+        return canonicalize_existing_path(&candidate).map_err(|error| {
+            format!(
+                "Unable to resolve PRD path {}: {error}",
+                candidate.display()
+            )
+        });
+    }
+
+    resolve_project_document_path(trimmed_value)
+}
+
+fn build_generated_spec_path(prd_path: &Path) -> PathBuf {
+    let file_name = prd_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .map(derive_spec_file_name)
+        .unwrap_or_else(|| String::from("SPEC.md"));
+
+    prd_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(file_name)
+}
+
+fn derive_spec_file_name(prd_file_name: &str) -> String {
+    let normalized = prd_file_name.to_ascii_lowercase();
+
+    if normalized == "prd.md" || normalized == "prd.pdf" {
+        return if prd_file_name == prd_file_name.to_ascii_lowercase() {
+            String::from("spec.md")
+        } else {
+            String::from("SPEC.md")
+        };
+    }
+
+    String::from("SPEC.md")
 }
 
 fn resolve_override_path(path_value: &str) -> PathBuf {
