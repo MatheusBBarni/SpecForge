@@ -5,8 +5,9 @@ use serde::Serialize;
 use std::{
     collections::HashMap,
     fs,
+    io::Write,
     path::{Component, Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
     sync::{Arc, Condvar, Mutex},
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -230,8 +231,12 @@ fn get_workspace_snapshot() -> Result<Vec<WorkspaceEntry>, String> {
 }
 
 fn scan_workspace_folder(root: &Path) -> Result<ScannedWorkspace, String> {
-    let canonical_root = canonicalize_existing_path(root)
-        .map_err(|error| format!("Unable to prepare workspace folder {}: {error}", root.display()))?;
+    let canonical_root = canonicalize_existing_path(root).map_err(|error| {
+        format!(
+            "Unable to prepare workspace folder {}: {error}",
+            root.display()
+        )
+    })?;
     let root_name = canonical_root
         .file_name()
         .and_then(|value| value.to_str())
@@ -267,7 +272,12 @@ fn scan_workspace_folder(root: &Path) -> Result<ScannedWorkspace, String> {
 
         let relative_path = path
             .strip_prefix(&canonical_root)
-            .map_err(|error| format!("Unable to normalize workspace path {}: {error}", path.display()))?
+            .map_err(|error| {
+                format!(
+                    "Unable to normalize workspace path {}: {error}",
+                    path.display()
+                )
+            })?
             .to_string_lossy()
             .replace('\\', "/");
 
@@ -299,7 +309,12 @@ fn scan_workspace_folder(root: &Path) -> Result<ScannedWorkspace, String> {
             continue;
         }
 
-        for (index, segment) in relative_path.split('/').collect::<Vec<_>>().iter().enumerate() {
+        for (index, segment) in relative_path
+            .split('/')
+            .collect::<Vec<_>>()
+            .iter()
+            .enumerate()
+        {
             if index == relative_path.split('/').count() - 1 {
                 break;
             }
@@ -358,7 +373,10 @@ fn scan_workspace_folder(root: &Path) -> Result<ScannedWorkspace, String> {
 fn git_get_diff() -> Result<String, String> {
     let repository = Repository::discover(project_root())
         .map_err(|error| format!("Unable to discover git repository: {error}"))?;
-    let head_tree = repository.head().ok().and_then(|head| head.peel_to_tree().ok());
+    let head_tree = repository
+        .head()
+        .ok()
+        .and_then(|head| head.peel_to_tree().ok());
     let index = repository
         .index()
         .map_err(|error| format!("Unable to inspect git index: {error}"))?;
@@ -388,6 +406,59 @@ fn git_get_diff() -> Result<String, String> {
     }
 
     Ok(rendered)
+}
+
+#[tauri::command]
+fn generate_spec_document(
+    prd_content: String,
+    user_prompt: String,
+    provider: String,
+    model: String,
+    reasoning: String,
+    claude_path: Option<String>,
+    codex_path: Option<String>,
+) -> Result<String, String> {
+    let trimmed_prd = prd_content.trim();
+    let trimmed_prompt = user_prompt.trim();
+
+    if trimmed_prd.is_empty() {
+        return Err(String::from(
+            "Load or write a PRD before generating a specification.",
+        ));
+    }
+
+    if trimmed_prompt.is_empty() {
+        return Err(String::from(
+            "Add the technical guidance you want the AI to consider.",
+        ));
+    }
+
+    let prompt_payload = build_spec_generation_prompt(trimmed_prd, trimmed_prompt);
+    let generated_spec = match provider.as_str() {
+        "codex" => run_codex_spec_generation(
+            &resolve_cli_binary("codex", codex_path.as_deref())?,
+            &model,
+            &reasoning,
+            &prompt_payload,
+        )?,
+        "claude" => run_claude_spec_generation(
+            &resolve_cli_binary("claude", claude_path.as_deref())?,
+            &model,
+            &reasoning,
+            &prompt_payload,
+        )?,
+        _ => return Err(format!("Unsupported model provider: {provider}")),
+    };
+
+    let normalized_spec = strip_wrapping_code_fence(generated_spec.trim());
+
+    if normalized_spec.trim().is_empty() {
+        return Err(String::from(
+            "The AI returned an empty specification. Adjust the prompt and try again.",
+        ));
+    }
+
+    Ok(format!("{}\n", normalized_spec.trim()))
 }
 
 #[tauri::command]
@@ -454,6 +525,7 @@ pub fn run() {
             read_workspace_file,
             get_workspace_snapshot,
             git_get_diff,
+            generate_spec_document,
             spawn_cli_agent,
             approve_action,
             kill_agent_process
@@ -524,8 +596,7 @@ fn compare_workspace_entries(left: &WorkspaceEntry, right: &WorkspaceEntry) -> s
     for index in 0..shared_length {
         if left_segments[index] != right_segments[index] {
             let left_is_directory = index < left_segments.len() - 1 || left.kind == "directory";
-            let right_is_directory =
-                index < right_segments.len() - 1 || right.kind == "directory";
+            let right_is_directory = index < right_segments.len() - 1 || right.kind == "directory";
 
             if left_is_directory != right_is_directory {
                 return if left_is_directory {
@@ -603,9 +674,12 @@ fn read_pdf_text(path: &Path) -> Result<String, String> {
     let mut page_numbers = document.get_pages().keys().copied().collect::<Vec<_>>();
     page_numbers.sort_unstable();
 
-    document
-        .extract_text(&page_numbers)
-        .map_err(|error| format!("Unable to extract PDF text from {}: {error}", path.display()))
+    document.extract_text(&page_numbers).map_err(|error| {
+        format!(
+            "Unable to extract PDF text from {}: {error}",
+            path.display()
+        )
+    })
 }
 
 fn parse_workspace_document(path: &Path) -> Result<String, String> {
@@ -616,8 +690,12 @@ fn parse_workspace_document(path: &Path) -> Result<String, String> {
         .as_deref()
     {
         Some("pdf") => read_pdf_text(path),
-        _ => fs::read_to_string(path)
-            .map_err(|error| format!("Unable to read workspace document {}: {error}", path.display())),
+        _ => fs::read_to_string(path).map_err(|error| {
+            format!(
+                "Unable to read workspace document {}: {error}",
+                path.display()
+            )
+        }),
     }
 }
 
@@ -647,8 +725,9 @@ fn resolve_project_document_path(path_value: &str) -> Result<PathBuf, String> {
     let project_root = canonicalize_existing_path(&project_root())
         .map_err(|error| format!("Unable to resolve project root: {error}"))?;
     let candidate = project_root.join(&normalized_path);
-    let resolved_path = canonicalize_existing_path(&candidate)
-        .map_err(|error| format!("Unable to resolve project document {normalized_path}: {error}"))?;
+    let resolved_path = canonicalize_existing_path(&candidate).map_err(|error| {
+        format!("Unable to resolve project document {normalized_path}: {error}")
+    })?;
 
     if !resolved_path.starts_with(&project_root) {
         return Err(String::from(
@@ -674,7 +753,9 @@ fn resolve_workspace_file_path(
     let resolved_path = active_workspace
         .files
         .get(&normalized_path)
-        .ok_or_else(|| format!("The file {normalized_path} is not part of the active workspace."))?;
+        .ok_or_else(|| {
+            format!("The file {normalized_path} is not part of the active workspace.")
+        })?;
     let canonical_path = canonicalize_existing_path(resolved_path)
         .map_err(|error| format!("Unable to resolve workspace file {normalized_path}: {error}"))?;
 
@@ -714,10 +795,10 @@ fn normalize_relative_path(path_value: &str) -> Result<String, String> {
             Component::ParentDir => {
                 return Err(String::from(
                     "Parent directory traversal is not allowed for document or workspace reads.",
-                ))
+                ));
             }
             Component::Prefix(_) | Component::RootDir => {
-                return Err(String::from("Absolute paths are not allowed here."))
+                return Err(String::from("Absolute paths are not allowed here."));
             }
         }
     }
@@ -740,8 +821,12 @@ fn parse_supported_document(path: &Path) -> Result<String, String> {
         .map(|extension| extension.to_ascii_lowercase())
         .as_deref()
     {
-        Some("md") => fs::read_to_string(path)
-            .map_err(|error| format!("Unable to read markdown document {}: {error}", path.display())),
+        Some("md") => fs::read_to_string(path).map_err(|error| {
+            format!(
+                "Unable to read markdown document {}: {error}",
+                path.display()
+            )
+        }),
         Some("pdf") => read_pdf_text(path),
         _ => Err(String::from("Only .md and .pdf documents are supported.")),
     }
@@ -774,7 +859,247 @@ fn probe_binary_version(path: &Path) -> Result<String, String> {
         return Ok(stderr);
     }
 
-    Ok(String::from("Binary detected. Version probe returned no output."))
+    Ok(String::from(
+        "Binary detected. Version probe returned no output.",
+    ))
+}
+
+fn resolve_cli_binary(binary_name: &str, override_path: Option<&str>) -> Result<PathBuf, String> {
+    if let Some(path_value) = override_path {
+        let candidate = resolve_override_path(path_value);
+
+        if !candidate.exists() {
+            return Err(format!(
+                "The configured {binary_name} path does not exist: {}",
+                candidate.display()
+            ));
+        }
+
+        return Ok(candidate);
+    }
+
+    which::which(binary_name).map_err(|_| {
+        format!(
+            "{binary_name} was not found on PATH. Set a manual binary path in Settings and refresh."
+        )
+    })
+}
+
+fn build_spec_generation_prompt(prd_content: &str, user_prompt: &str) -> String {
+    format!(
+        concat!(
+            "You are drafting a technical specification document from a PRD and operator notes.\n",
+            "Return only the final markdown for the SPEC document.\n",
+            "Do not use shell commands, tools, or external files. Work only from the provided text.\n",
+            "Use concrete technical detail, clear section headings, and explicit assumptions when the PRD leaves a gap.\n",
+            "Include architecture, workflows, data/contracts, constraints, edge cases, and acceptance criteria when relevant.\n\n",
+            "# Operator Notes\n",
+            "{user_prompt}\n\n",
+            "# PRD\n",
+            "{prd_content}\n"
+        ),
+        user_prompt = user_prompt,
+        prd_content = prd_content
+    )
+}
+
+fn run_codex_spec_generation(
+    binary_path: &Path,
+    model: &str,
+    reasoning: &str,
+    prompt_payload: &str,
+) -> Result<String, String> {
+    let temp_dir = create_spec_generation_temp_dir("codex")?;
+    let output_path = temp_dir.join("generated-spec.md");
+    let reasoning_effort = map_codex_reasoning(reasoning);
+
+    let mut command = Command::new(binary_path);
+    command
+        .current_dir(&temp_dir)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .arg("exec")
+        .arg("--color")
+        .arg("never")
+        .arg("--skip-git-repo-check")
+        .arg("--sandbox")
+        .arg("read-only")
+        .arg("--model")
+        .arg(model)
+        .arg("--config")
+        .arg(format!("model_reasoning_effort=\"{reasoning_effort}\""))
+        .arg("--output-last-message")
+        .arg(&output_path);
+
+    let result = run_command_with_stdin(&mut command, "Codex CLI", prompt_payload)
+        .and_then(|output| {
+            if !output.status.success() {
+                return Err(format_process_failure("Codex CLI", &output));
+            }
+
+            match fs::read_to_string(&output_path) {
+                Ok(content) => Ok(content),
+                Err(read_error) => {
+                    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+
+                    if !stdout.trim().is_empty() {
+                        Ok(stdout)
+                    } else {
+                        Err(format!(
+                            "Codex CLI completed, but the generated spec could not be read: {read_error}"
+                        ))
+                    }
+                }
+            }
+        });
+
+    let _ = fs::remove_dir_all(&temp_dir);
+    result
+}
+
+fn run_claude_spec_generation(
+    binary_path: &Path,
+    model: &str,
+    reasoning: &str,
+    prompt_payload: &str,
+) -> Result<String, String> {
+    let temp_dir = create_spec_generation_temp_dir("claude")?;
+    let mut command = Command::new(binary_path);
+    command
+        .current_dir(&temp_dir)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .arg("--print")
+        .arg(
+            "Using the piped PRD and operator notes, write a complete technical specification in markdown and return only the specification.",
+        )
+        .arg("--model")
+        .arg(model)
+        .arg("--output-format")
+        .arg("text")
+        .arg("--permission-mode")
+        .arg("bypassPermissions")
+        .arg("--tools")
+        .arg("")
+        .arg("--max-turns")
+        .arg("1")
+        .arg("--no-session-persistence")
+        .arg("--effort")
+        .arg(map_claude_reasoning(reasoning));
+
+    let result =
+        run_command_with_stdin(&mut command, "Claude CLI", prompt_payload).and_then(|output| {
+            if !output.status.success() {
+                return Err(format_process_failure("Claude CLI", &output));
+            }
+
+            Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        });
+
+    let _ = fs::remove_dir_all(&temp_dir);
+    result
+}
+
+fn create_spec_generation_temp_dir(prefix: &str) -> Result<PathBuf, String> {
+    let base_dir = std::env::temp_dir().join("specforge");
+    fs::create_dir_all(&base_dir)
+        .map_err(|error| format!("Unable to prepare temporary generation folder: {error}"))?;
+    let unique_suffix = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or_default();
+    let temp_dir = base_dir.join(format!("{prefix}-{unique_suffix}-{}", std::process::id()));
+
+    fs::create_dir_all(&temp_dir)
+        .map_err(|error| format!("Unable to prepare temporary generation folder: {error}"))?;
+
+    Ok(temp_dir)
+}
+
+fn run_command_with_stdin(
+    command: &mut Command,
+    display_name: &str,
+    stdin_payload: &str,
+) -> Result<std::process::Output, String> {
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("Unable to start {display_name}: {error}"))?;
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| format!("{display_name} did not expose stdin."))?;
+
+    stdin
+        .write_all(stdin_payload.as_bytes())
+        .map_err(|error| format!("Unable to send the prompt to {display_name}: {error}"))?;
+    drop(stdin);
+
+    child
+        .wait_with_output()
+        .map_err(|error| format!("{display_name} exited unexpectedly: {error}"))
+}
+
+fn format_process_failure(display_name: &str, output: &std::process::Output) -> String {
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let details = if !stderr.is_empty() {
+        stderr
+    } else if !stdout.is_empty() {
+        stdout
+    } else {
+        format!("{display_name} exited with status {}", output.status)
+    };
+
+    format!("{display_name} failed: {details}")
+}
+
+fn map_codex_reasoning(reasoning: &str) -> &str {
+    match reasoning {
+        "max" => "xhigh",
+        "high" => "high",
+        "low" => "low",
+        _ => "medium",
+    }
+}
+
+fn map_claude_reasoning(reasoning: &str) -> &str {
+    match reasoning {
+        "max" => "high",
+        "high" => "high",
+        "low" => "low",
+        _ => "medium",
+    }
+}
+
+fn strip_wrapping_code_fence(content: &str) -> String {
+    let trimmed = content.trim();
+
+    if !trimmed.starts_with("```") {
+        return trimmed.to_string();
+    }
+
+    let mut lines = trimmed.lines();
+    let Some(first_line) = lines.next() else {
+        return String::new();
+    };
+
+    if !first_line.trim_start().starts_with("```") {
+        return trimmed.to_string();
+    }
+
+    let remaining_lines = lines.collect::<Vec<_>>();
+
+    if remaining_lines
+        .last()
+        .map(|line| !line.trim_start().starts_with("```"))
+        .unwrap_or(true)
+    {
+        return trimmed.to_string();
+    }
+
+    remaining_lines[..remaining_lines.len().saturating_sub(1)].join("\n")
 }
 
 fn run_simulated_agent(
@@ -797,7 +1122,10 @@ fn run_simulated_agent(
         match stop_state(&runtime, run_id) {
             StopState::Continue => {}
             StopState::StopRequested => {
-                emit_line(&app, "Execution interrupted before the next step could run.");
+                emit_line(
+                    &app,
+                    "Execution interrupted before the next step could run.",
+                );
                 emit_state(
                     &app,
                     "halted",
@@ -814,7 +1142,10 @@ fn run_simulated_agent(
         match stop_state(&runtime, run_id) {
             StopState::Continue => {}
             StopState::StopRequested => {
-                emit_line(&app, "Execution interrupted before the next step could run.");
+                emit_line(
+                    &app,
+                    "Execution interrupted before the next step could run.",
+                );
                 emit_state(
                     &app,
                     "halted",
@@ -871,7 +1202,10 @@ fn run_simulated_agent(
         return;
     }
 
-    emit_line(&app, "Execution complete. Final diff is ready for inspection.");
+    emit_line(
+        &app,
+        "Execution complete. Final diff is ready for inspection.",
+    );
     emit_state(
         &app,
         "completed",
@@ -898,13 +1232,17 @@ fn build_simulated_steps(
         },
         SimulatedStep {
             delay_ms: 650,
-            line: String::from("Scanning CLI availability and staging the current repository diff."),
+            line: String::from(
+                "Scanning CLI availability and staging the current repository diff.",
+            ),
             milestone: "Pre-flight Check",
             gate: false,
         },
         SimulatedStep {
             delay_ms: 750,
-            line: String::from("Mapping milestones for review UI, Zustand stores, and Tauri commands."),
+            line: String::from(
+                "Mapping milestones for review UI, Zustand stores, and Tauri commands.",
+            ),
             milestone: "Milestone Planning",
             gate: false,
         },
@@ -913,7 +1251,9 @@ fn build_simulated_steps(
     if mode == "stepped" {
         steps.push(SimulatedStep {
             delay_ms: 650,
-            line: String::from("A write action is ready to execute against the approved specification."),
+            line: String::from(
+                "A write action is ready to execute against the approved specification.",
+            ),
             milestone: "Stepped Approval",
             gate: true,
         });
@@ -922,13 +1262,17 @@ fn build_simulated_steps(
     steps.extend([
         SimulatedStep {
             delay_ms: 700,
-            line: String::from("Applying Dracula theme tokens and composing the review workspace shell."),
+            line: String::from(
+                "Applying Dracula theme tokens and composing the review workspace shell.",
+            ),
             milestone: "Compose Review Workspace",
             gate: false,
         },
         SimulatedStep {
             delay_ms: 650,
-            line: String::from("Wiring project, settings, and agent stores into the execution dashboard."),
+            line: String::from(
+                "Wiring project, settings, and agent stores into the execution dashboard.",
+            ),
             milestone: "Compose Review Workspace",
             gate: false,
         },

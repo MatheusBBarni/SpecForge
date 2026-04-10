@@ -6,6 +6,7 @@ import type {
   AutonomyMode,
   EnvironmentStatus,
   ModelId,
+  ModelProvider,
   ReasoningProfileId,
   WorkspaceDocument,
   WorkspaceScanResult,
@@ -131,6 +132,30 @@ export async function startAgentRun(
   reasoning: ReasoningProfileId
 ): Promise<void> {
   await invoke("spawn_cli_agent", { specPayload, mode, model, reasoning });
+}
+
+export async function generateSpecDocument(payload: {
+  prdContent: string;
+  userPrompt: string;
+  provider: ModelProvider;
+  model: ModelId;
+  reasoning: ReasoningProfileId;
+  claudePath?: string;
+  codexPath?: string;
+}): Promise<string> {
+  if (!isTauriRuntime()) {
+    throw new Error("AI spec generation requires the desktop runtime.");
+  }
+
+  return invoke<string>("generate_spec_document", {
+    prdContent: payload.prdContent,
+    userPrompt: payload.userPrompt,
+    provider: payload.provider,
+    model: payload.model,
+    reasoning: payload.reasoning,
+    claudePath: emptyToNull(payload.claudePath),
+    codexPath: emptyToNull(payload.codexPath)
+  });
 }
 
 export async function approveAgentAction(): Promise<void> {

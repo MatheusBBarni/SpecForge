@@ -45,6 +45,7 @@ interface ControlColumnProps {
   selectedSpecText: string;
   reviewPrompt: string;
   isSpecApproved: boolean;
+  hasSpecContent: boolean;
   importPath: string;
   importTarget: DocumentTarget;
   importError: string;
@@ -73,6 +74,7 @@ export const ControlColumn = memo(function ControlColumn({
   selectedSpecText,
   reviewPrompt,
   isSpecApproved,
+  hasSpecContent,
   importPath,
   importTarget,
   importError,
@@ -256,6 +258,7 @@ export const ControlColumn = memo(function ControlColumn({
           </Button>
           <Button
             className={PRIMARY_BUTTON_CLASS}
+            isDisabled={!hasSpecContent}
             onPress={onApproveSpec}
             type="button"
           >

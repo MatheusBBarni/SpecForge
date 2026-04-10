@@ -45,6 +45,7 @@ import {
   DEFAULT_PENDING_DIFF,
   approveAgentAction,
   emergencyStop,
+  generateSpecDocument,
   getGitDiff,
   getWorkspaceSnapshot,
   isTauriRuntime,
@@ -147,6 +148,8 @@ function App() {
   );
   const [hasOpenedWorkspaceFolder, setHasOpenedWorkspaceFolder] = useState(false);
   const [workspaceFiles, setWorkspaceFiles] = useState<Record<string, WorkspaceFileSource>>({});
+  const [specGenerationPrompt, setSpecGenerationPrompt] = useState("");
+  const [specGenerationError, setSpecGenerationError] = useState("");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
@@ -160,10 +163,15 @@ function App() {
     () => filterWorkspaceEntries(workspaceEntries, deferredSearch),
     [deferredSearch, workspaceEntries]
   );
+  const selectedModelProvider = useMemo(
+    () => getModelProvider(selectedModel),
+    [selectedModel]
+  );
   const selectedSpecText = useMemo(
     () => selectedSpecRange?.text.trim() || "",
     [selectedSpecRange]
   );
+  const isGeneratingSpec = agentStatus === "generating_spec";
   const visibleDiff = pendingDiff ?? latestDiff;
   const resolvedTheme = useMemo(
     () => resolveTheme(theme, systemPrefersDark),
@@ -182,6 +190,41 @@ function App() {
 
     return providers;
   }, [environment.claude.status, environment.codex.status]);
+  const selectedProviderStatus = selectedModelProvider === "claude" ? environment.claude : environment.codex;
+  const canGenerateSpec = useMemo(
+    () =>
+      desktopRuntime &&
+      !isGeneratingSpec &&
+      prdContent.trim().length > 0 &&
+      specGenerationPrompt.trim().length > 0,
+    [desktopRuntime, isGeneratingSpec, prdContent, specGenerationPrompt]
+  );
+  const specGenerationHelperText = useMemo(() => {
+    if (!desktopRuntime) {
+      return "AI spec generation requires the desktop runtime.";
+    }
+
+    if (!prdContent.trim()) {
+      return "Load or write a PRD first. The generator combines that PRD with your note.";
+    }
+
+    if (!specGenerationPrompt.trim()) {
+      return "Add the technical guidance you want the AI to consider.";
+    }
+
+    if (selectedProviderStatus.status !== "found") {
+      return `${selectedProviderStatus.name} is not currently marked ready. If generation fails, update its path in Settings and refresh.`;
+    }
+
+    return `This sends the current PRD and your note to ${getModelLabel(selectedModel)} and fills the spec pane with the returned markdown.`;
+  }, [
+    desktopRuntime,
+    prdContent,
+    selectedModel,
+    selectedProviderStatus.name,
+    selectedProviderStatus.status,
+    specGenerationPrompt
+  ]);
 
   const refreshDiagnostics = useCallback(
     async (previousEnvironment?: EnvironmentStatus) => {
@@ -224,6 +267,11 @@ function App() {
         setSpecContent(content, path);
         setSpecPaneMode("edit");
       });
+
+      if (target === "spec") {
+        setSpecGenerationPrompt("");
+        setSpecGenerationError("");
+      }
     },
     [setPrdContent, setSpecContent, setSpecPaneMode]
   );
@@ -244,28 +292,37 @@ function App() {
       setWorkspaceRootName(rootName);
       setHasOpenedWorkspaceFolder(true);
       setWorkspaceFiles(files);
+      setSpecGenerationPrompt("");
+      setSpecGenerationError("");
 
       startTransition(() => {
-        if (prdDocument) {
-          setPrdContent(prdDocument.content, prdDocument.sourcePath);
-          loadedDocuments.push(prdDocument.fileName);
-        }
-
-        if (specDocument) {
-          setSpecContent(specDocument.content, specDocument.sourcePath);
-          setSpecPaneMode("edit");
-          loadedDocuments.push(specDocument.fileName);
-        }
+        setPrdContent(prdDocument?.content ?? "", prdDocument?.sourcePath ?? "PRD.md");
+        setSpecContent(specDocument?.content ?? "", specDocument?.sourcePath ?? "spec.md");
+        setSpecPaneMode(specDocument ? "edit" : "preview");
       });
+
+      if (prdDocument) {
+        loadedDocuments.push(prdDocument.fileName);
+      }
+
+      if (specDocument) {
+        loadedDocuments.push(specDocument.fileName);
+      }
+
+      const missingDocuments = [
+        prdDocument ? null : "PRD",
+        specDocument ? null : "spec"
+      ].filter((value): value is string => value !== null);
+      const missingDocumentNotice = formatMissingWorkspaceDocuments(missingDocuments);
 
       if (loadedDocuments.length > 0) {
         setWorkspaceNotice(
-          `Loaded ${loadedDocuments.join(" and ")} from ${rootName}.${ignoredFileCount > 0 ? ` Ignored ${ignoredFileCount} file(s) from .gitignore.` : ""}`
+          `Loaded ${loadedDocuments.join(" and ")} from ${rootName}.${missingDocumentNotice}${ignoredFileCount > 0 ? ` Ignored ${ignoredFileCount} file(s) from .gitignore.` : ""}`
         );
         appendTerminalOutput(
           stampLog(
             "workspace",
-            `Loaded workspace folder ${rootName} and detected ${loadedDocuments.join(", ")}.`
+            `Loaded workspace folder ${rootName} and detected ${loadedDocuments.join(", ")}.${missingDocumentNotice}`
           )
         );
         return;
@@ -442,9 +499,13 @@ function App() {
   );
 
   const handleApproveSpec = useCallback(() => {
+    if (!specContent.trim()) {
+      return;
+    }
+
     approveSpec();
     appendTerminalOutput(stampLog("review", "Specification approved. Build controls are now armed."));
-  }, [appendTerminalOutput, approveSpec]);
+  }, [appendTerminalOutput, approveSpec, specContent]);
 
   const handleStartBuild = useCallback(async () => {
     if (!isSpecApproved) {
@@ -697,9 +758,104 @@ function App() {
   );
 
   const handleSpecContentChange = useCallback(
-    (value: string) => setSpecContent(value, specPath),
+    (value: string) => {
+      if (value.trim()) {
+        setSpecGenerationError("");
+      }
+
+      setSpecContent(value, specPath);
+    },
     [setSpecContent, specPath]
   );
+
+  const handleSpecGenerationPromptChange = useCallback(
+    (value: string) => {
+      setSpecGenerationPrompt(value);
+
+      if (specGenerationError) {
+        setSpecGenerationError("");
+      }
+
+      if (agentStatus === "error") {
+        setAgentStatus("idle");
+      }
+    },
+    [agentStatus, setAgentStatus, specGenerationError]
+  );
+
+  const handleGenerateSpec = useCallback(async () => {
+    const trimmedPrompt = specGenerationPrompt.trim();
+
+    if (!desktopRuntime) {
+      setSpecGenerationError("AI spec generation requires the desktop runtime.");
+      return;
+    }
+
+    if (!prdContent.trim()) {
+      setSpecGenerationError("Load or write a PRD before generating a specification.");
+      return;
+    }
+
+    if (!trimmedPrompt) {
+      setSpecGenerationError("Add the technical guidance you want the AI to consider.");
+      return;
+    }
+
+    setSpecGenerationError("");
+    setAgentStatus("generating_spec");
+    appendTerminalOutput(
+      stampLog(
+        "spec",
+        `Generating a technical specification with ${getModelLabel(selectedModel)} (${getReasoningLabel(selectedModel, selectedReasoning)} reasoning).`
+      )
+    );
+
+    try {
+      const generatedSpec = await generateSpecDocument({
+        prdContent,
+        userPrompt: trimmedPrompt,
+        provider: selectedModelProvider,
+        model: selectedModel,
+        reasoning: selectedReasoning,
+        claudePath,
+        codexPath
+      });
+
+      startTransition(() => {
+        setSpecContent(generatedSpec, "spec.md");
+        setSpecPaneMode("preview");
+      });
+      setSpecGenerationPrompt("");
+      setAgentStatus("idle");
+      appendTerminalOutput(
+        stampLog("spec", "Specification draft generated and loaded into the review pane.")
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to generate a specification.";
+
+      setSpecGenerationError(message);
+      setAgentStatus("error");
+      appendTerminalOutput(stampLog("error", message));
+    }
+  }, [
+    appendTerminalOutput,
+    claudePath,
+    codexPath,
+    desktopRuntime,
+    prdContent,
+    selectedModel,
+    selectedModelProvider,
+    selectedReasoning,
+    setAgentStatus,
+    setSpecContent,
+    setSpecPaneMode,
+    specGenerationPrompt
+  ]);
+
+  const handleGenerateSpecClick = useCallback(() => {
+    void handleGenerateSpec();
+  }, [handleGenerateSpec]);
 
   useEffect(() => {
     if (hasInitializedDocumentsRef.current) {
@@ -858,6 +1014,7 @@ function App() {
                   autonomyMode,
                   fileInputRef,
                   fileInputAccept: desktopRuntime ? ".md,.pdf" : ".md",
+                  hasSpecContent: specContent.trim().length > 0,
                   importError,
                   importFileSupportText: desktopRuntime
                     ? "Desktop imports support Markdown and PDF through the native file picker."
@@ -900,21 +1057,28 @@ function App() {
                 mainWorkspaceProps={{
                   activeTab,
                   agentStatus,
+                  canGenerateSpec,
                   executionSummary,
+                  isGeneratingSpec,
                   onEditorTabChange: updateEditorTabContent,
                   onEditorTabClose: closeEditorTab,
                   onActiveTabChange: setActiveTab,
                   onApproveExecutionGate: handleApproveExecutionGateClick,
                   onEmergencyStop: handleEmergencyStopClick,
+                  onGenerateSpec: handleGenerateSpecClick,
                   openEditorTabs,
                   onPrdContentChange: handlePrdContentChange,
                   onPrdPaneModeChange: setPrdPaneMode,
                   onSpecContentChange: handleSpecContentChange,
+                  onSpecGenerationPromptChange: handleSpecGenerationPromptChange,
                   onSpecPaneModeChange: setSpecPaneMode,
                   onSpecSelect: handleSpecSelect,
                   prdContent,
                   prdPaneMode,
                   prdPath,
+                  specGenerationError,
+                  specGenerationHelperText,
+                  specGenerationPrompt,
                   specContent,
                   specPaneMode,
                   specPath,
@@ -958,3 +1122,16 @@ function App() {
 }
 
 export default App;
+
+function formatMissingWorkspaceDocuments(missingDocuments: string[]) {
+  if (missingDocuments.length === 0) {
+    return "";
+  }
+
+  if (missingDocuments.length === 1) {
+    return ` No matching ${missingDocuments[0]} file was found.`;
+  }
+
+  const finalDocument = missingDocuments[missingDocuments.length - 1];
+  return ` No matching ${missingDocuments.slice(0, -1).join(" or ")} or ${finalDocument} files were found.`;
+}

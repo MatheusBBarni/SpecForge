@@ -2,7 +2,7 @@
 
 ## 1. Product Overview
 
-**SpecForge** is a spec review workspace for desktop-first development. It helps a user load a PRD and a technical spec, inspect workspace files, review environment readiness, and step through an execution-style dashboard before handing work off to a real IDE or CLI workflow.
+**SpecForge** is a spec review workspace for desktop-first development. It helps a user load a PRD and a technical spec, inspect workspace files, review environment readiness, draft a missing spec from AI when needed, and step through an execution-style dashboard before handing work off to a real IDE or CLI workflow.
 
 Today the product focuses on **review, import, diff inspection, and approval UX**. The execution loop shown in the app is currently a **simulated agent run**, not a real Claude CLI or Codex CLI orchestration engine.
 
@@ -20,9 +20,10 @@ Today the product focuses on **review, import, diff inspection, and approval UX*
    * Use the desktop native file picker to load Markdown or PDF into the PRD or spec pane.
    * Use the browser file input to load Markdown only.
 3. **Open a workspace folder:** The user can scan a folder into the workspace tree. Desktop scanning respects `.gitignore`, and browser folder import applies root and nested `.gitignore` rules.
-4. **Review and refine:** The user can edit either document directly, switch between preview and edit, select text in the spec, and append a refinement block.
-5. **Approve and run:** Once the spec is approved, the user can launch the execution dashboard in stepped, milestone, or god mode.
-6. **Inspect the result:** The app streams simulated terminal output, shows approval gates, and renders a diff based on the current git state when available.
+4. **Handle missing specs:** If the opened workspace does not contain a matching spec file, the spec pane should be empty and show an inline generation state with a textbox plus a generate button that sends the current PRD and the user's note to the selected AI CLI.
+5. **Review and refine:** The user can edit either document directly, switch between preview and edit, select text in the spec, and append a refinement block.
+6. **Approve and run:** Once the spec is approved, the user can launch the execution dashboard in stepped, milestone, or god mode.
+7. **Inspect the result:** The app streams simulated terminal output, shows approval gates, and renders a diff based on the current git state when available.
 
 ## 4. Functional Requirements
 
@@ -34,6 +35,8 @@ Today the product focuses on **review, import, diff inspection, and approval UX*
 * **Workspace auto-detection:** When a workspace is opened, the app should try to load:
   * `PRD.md`, then `PRD.pdf`
   * `spec.md`, then `spec.pdf`
+* **Missing document reset:** Opening a workspace must clear stale PRD/spec content from the previous workspace when those files are not found in the new one.
+* **Empty spec generation:** When the active spec content is empty, the spec pane must show a textbox and generate button that use the current PRD plus the user's note to draft a markdown spec through the selected desktop AI CLI.
 
 ### 4.2. Workspace Review
 
@@ -41,6 +44,7 @@ Today the product focuses on **review, import, diff inspection, and approval UX*
 * **Workspace explorer:** The right rail must show files discovered from the active workspace and allow safe text/code file opening.
 * **Workspace safety:** Frontend file opens must be limited to the currently scanned workspace. Opening a new workspace should clear file tabs from the previous workspace.
 * **Search:** The file tree must support in-app filtering through the floating search UI.
+* **Spec empty state:** The spec pane must replace the normal editor/preview view with a generation-oriented empty state whenever the spec content is blank.
 
 ### 4.3. Settings and Diagnostics
 
@@ -59,7 +63,7 @@ Today the product focuses on **review, import, diff inspection, and approval UX*
 
 ## 5. Non-Goals For The Current Build
 
-* Real Claude CLI or Codex CLI execution against the workspace.
+* Real Claude CLI or Codex CLI execution that mutates or builds the opened workspace.
 * Automatic file mutation, test execution, or dependency repair driven by the agent.
 * Multi-user collaboration, cloud sync, or remote project state.
 * Persisted workspace editing or a save-to-disk flow for opened file tabs.

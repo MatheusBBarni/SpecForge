@@ -5,6 +5,7 @@ import { memo, useEffect, useMemo, type ChangeEvent } from "react";
 
 import { DocumentPane } from "./DocumentPane";
 import { ExecutionPanel } from "./ExecutionPanel";
+import { SpecEmptyState } from "./SpecEmptyState";
 import { WorkspaceTabBar } from "./WorkspaceTabBar";
 import type {
   AgentStatus,
@@ -23,6 +24,11 @@ interface MainWorkspaceProps {
   specContent: string;
   prdPaneMode: PaneMode;
   specPaneMode: PaneMode;
+  canGenerateSpec: boolean;
+  isGeneratingSpec: boolean;
+  specGenerationPrompt: string;
+  specGenerationError: string;
+  specGenerationHelperText: string;
   terminalOutput: string[];
   executionSummary: string | null;
   visibleDiff: string;
@@ -32,6 +38,8 @@ interface MainWorkspaceProps {
   onSpecPaneModeChange: (mode: PaneMode) => void;
   onPrdContentChange: (value: string) => void;
   onSpecContentChange: (value: string) => void;
+  onSpecGenerationPromptChange: (value: string) => void;
+  onGenerateSpec: () => void;
   onSpecSelect: (event: ChangeEvent<HTMLTextAreaElement>) => void;
   onEditorTabChange: (path: string, content: string) => void;
   onEditorTabClose: (path: string) => void;
@@ -49,6 +57,11 @@ export const MainWorkspace = memo(function MainWorkspace({
   specContent,
   prdPaneMode,
   specPaneMode,
+  canGenerateSpec,
+  isGeneratingSpec,
+  specGenerationPrompt,
+  specGenerationError,
+  specGenerationHelperText,
   terminalOutput,
   executionSummary,
   visibleDiff,
@@ -58,6 +71,8 @@ export const MainWorkspace = memo(function MainWorkspace({
   onSpecPaneModeChange,
   onPrdContentChange,
   onSpecContentChange,
+  onSpecGenerationPromptChange,
+  onGenerateSpec,
   onSpecSelect,
   onEditorTabChange,
   onEditorTabClose,
@@ -76,6 +91,7 @@ export const MainWorkspace = memo(function MainWorkspace({
     () => getDisplayDocumentPath(specPath, workspaceRootName),
     [specPath, workspaceRootName]
   );
+  const hasSpecContent = specContent.trim().length > 0;
 
   useEffect(() => {
     if (!activeEditorTab) {
@@ -124,15 +140,28 @@ export const MainWorkspace = memo(function MainWorkspace({
             onModeChange={onPrdPaneModeChange}
             title={displayPrdPath}
           />
-          <DocumentPane
-            content={specContent}
-            eyebrow="Technical Spec"
-            mode={specPaneMode}
-            onChange={onSpecContentChange}
-            onModeChange={onSpecPaneModeChange}
-            onSelect={onSpecSelect}
-            title={displaySpecPath}
-          />
+          {hasSpecContent ? (
+            <DocumentPane
+              content={specContent}
+              eyebrow="Technical Spec"
+              mode={specPaneMode}
+              onChange={onSpecContentChange}
+              onModeChange={onSpecPaneModeChange}
+              onSelect={onSpecSelect}
+              title={displaySpecPath}
+            />
+          ) : (
+            <SpecEmptyState
+              canGenerate={canGenerateSpec}
+              error={specGenerationError}
+              helperText={specGenerationHelperText}
+              isGenerating={isGeneratingSpec}
+              onGenerate={onGenerateSpec}
+              onPromptChange={onSpecGenerationPromptChange}
+              prompt={specGenerationPrompt}
+              title={displaySpecPath || "spec.md"}
+            />
+          )}
         </div>
       ) : activeTab === "execute" ? (
         <div className="h-full min-h-0 p-4">
