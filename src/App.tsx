@@ -31,7 +31,12 @@ import { ControlColumn } from "./components/ControlColumn";
 import { InspectorColumn } from "./components/InspectorColumn";
 import { MainWorkspace } from "./components/MainWorkspace";
 import { SettingsView } from "./components/SettingsView";
-import { getModelLabel, getReasoningLabel } from "./lib/agentConfig";
+import {
+  getModelLabel,
+  getModelOptions,
+  getModelProvider,
+  getReasoningLabel
+} from "./lib/agentConfig";
 import {
   DEFAULT_PENDING_DIFF,
   approveAgentAction,
@@ -62,6 +67,7 @@ import type {
   AgentStatus,
   AutonomyMode,
   EnvironmentStatus,
+  ModelProvider,
   ThemeMode,
   WorkspaceDocument
 } from "./types";
@@ -191,6 +197,19 @@ function App() {
     [theme, systemPrefersDark]
   );
   const agentStatusLabel = useMemo(() => formatAgentStatus(agentStatus), [agentStatus]);
+  const configuredModelProviders = useMemo<ModelProvider[]>(() => {
+    const providers: ModelProvider[] = [];
+
+    if (claudePath.trim() || environment.claude.status === "found") {
+      providers.push("claude");
+    }
+
+    if (codexPath.trim() || environment.codex.status === "found") {
+      providers.push("codex");
+    }
+
+    return providers;
+  }, [claudePath, codexPath, environment.claude.status, environment.codex.status]);
 
   const refreshDiagnostics = useCallback(
     async (previousEnvironment?: EnvironmentStatus) => {
@@ -686,6 +705,24 @@ function App() {
   }, [resolvedTheme]);
 
   useEffect(() => {
+    if (configuredModelProviders.length !== 1) {
+      return;
+    }
+
+    const onlyConfiguredProvider = configuredModelProviders[0];
+
+    if (getModelProvider(selectedModel) === onlyConfiguredProvider) {
+      return;
+    }
+
+    const nextModel = getModelOptions(onlyConfiguredProvider)[0]?.value;
+
+    if (nextModel) {
+      setSelectedModel(nextModel);
+    }
+  }, [configuredModelProviders, selectedModel, setSelectedModel]);
+
+  useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing) {
         return;
@@ -850,6 +887,7 @@ function App() {
                 </div>
 
                 <ControlColumn
+                  configuredModelProviders={configuredModelProviders}
                   autonomyMode={autonomyMode}
                   fileInputRef={fileInputRef}
                   importError={importError}

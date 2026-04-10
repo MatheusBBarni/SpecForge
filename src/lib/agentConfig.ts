@@ -132,8 +132,12 @@ const AGENT_MODELS: AgentModelOption[] = [
   }
 ];
 
-export function getModelOptions(): Array<SelectOption<ModelId>> {
-  return AGENT_MODELS.map((model) => ({
+export function getModelOptions(provider?: ModelProvider): Array<SelectOption<ModelId>> {
+  const filteredModels = provider
+    ? AGENT_MODELS.filter((model) => model.provider === provider)
+    : AGENT_MODELS;
+
+  return filteredModels.map((model) => ({
     value: model.id,
     label: model.label,
     hint: `${formatProvider(model.provider)} | ${model.description}`
@@ -156,6 +160,10 @@ export function getModelOption(modelId: ModelId) {
 
 export function getModelLabel(modelId: ModelId) {
   return getModelOption(modelId).label;
+}
+
+export function getModelProvider(modelId: ModelId) {
+  return getModelOption(modelId).provider;
 }
 
 export function getReasoningLabel(modelId: ModelId, profile: ReasoningProfileId) {
@@ -191,4 +199,8 @@ export function normalizeReasoningProfile(
 
 function formatProvider(provider: ModelProvider) {
   return provider === "codex" ? "Codex" : "Claude";
+}
+
+export function getProviderLabel(provider: ModelProvider) {
+  return formatProvider(provider);
 }

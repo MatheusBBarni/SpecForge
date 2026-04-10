@@ -17,20 +17,31 @@ import {
 import {
   memo,
   useCallback,
+  useEffect,
+  useMemo,
+  useState,
   type ChangeEvent,
   type Key,
   type ReactNode,
   type RefObject
 } from "react";
 
-import { getModelOptions, getReasoningOptions, type SelectOption } from "../lib/agentConfig";
-import type { AutonomyMode, ModelId, ReasoningProfileId } from "../types";
+import {
+  getModelOption,
+  getModelOptions,
+  getModelProvider,
+  getProviderLabel,
+  getReasoningOptions,
+  type SelectOption
+} from "../lib/agentConfig";
+import type { AutonomyMode, ModelId, ModelProvider, ReasoningProfileId } from "../types";
 
 type DocumentTarget = "prd" | "spec";
 
 interface ControlColumnProps {
   selectedModel: ModelId;
   selectedReasoning: ReasoningProfileId;
+  configuredModelProviders: ModelProvider[];
   autonomyMode: AutonomyMode;
   selectedSpecText: string;
   reviewPrompt: string;
@@ -56,6 +67,7 @@ interface ControlColumnProps {
 export const ControlColumn = memo(function ControlColumn({
   selectedModel,
   selectedReasoning,
+  configuredModelProviders,
   autonomyMode,
   selectedSpecText,
   reviewPrompt,
@@ -77,7 +89,6 @@ export const ControlColumn = memo(function ControlColumn({
   onApplyRefinement,
   onApproveSpec
 }: ControlColumnProps) {
-  const modelOptions = getModelOptions();
   const reasoningOptions = getReasoningOptions(selectedModel);
 
   const handlePrdPick = useCallback(() => {
@@ -182,10 +193,10 @@ export const ControlColumn = memo(function ControlColumn({
         title="Agent Configuration"
       >
         <div className="flex flex-col gap-4">
-          <ControlSelectField
+          <ModelSelectField
+            configuredProviders={configuredModelProviders}
             label="Agent model"
             onSelectionChange={onModelChange}
-            options={modelOptions}
             selectedKey={selectedModel}
           />
           <ControlSelectField
@@ -251,6 +262,117 @@ export const ControlColumn = memo(function ControlColumn({
     </section>
   );
 });
+
+interface ModelSelectFieldProps {
+  label: string;
+  selectedKey: ModelId;
+  configuredProviders: ModelProvider[];
+  onSelectionChange: (value: ModelId) => void;
+}
+
+function ModelSelectField({
+  label,
+  selectedKey,
+  configuredProviders,
+  onSelectionChange
+}: ModelSelectFieldProps) {
+  const selectedOption = getModelOption(selectedKey);
+  const hasProviderTabs = configuredProviders.length > 1;
+  const singleConfiguredProvider = configuredProviders.length === 1 ? configuredProviders[0] : null;
+  const [activeProviderTab, setActiveProviderTab] = useState<ModelProvider>(() => {
+    return singleConfiguredProvider ?? getModelProvider(selectedKey);
+  });
+
+  useEffect(() => {
+    if (singleConfiguredProvider) {
+      setActiveProviderTab(singleConfiguredProvider);
+      return;
+    }
+
+    setActiveProviderTab((currentValue) => {
+      if (hasProviderTabs && configuredProviders.includes(currentValue)) {
+        return currentValue;
+      }
+
+      return getModelProvider(selectedKey);
+    });
+  }, [configuredProviders, hasProviderTabs, selectedKey, singleConfiguredProvider]);
+
+  const visibleOptions = useMemo(() => {
+    if (singleConfiguredProvider) {
+      return getModelOptions(singleConfiguredProvider);
+    }
+
+    if (hasProviderTabs) {
+      return getModelOptions(activeProviderTab);
+    }
+
+    return getModelOptions();
+  }, [activeProviderTab, hasProviderTabs, singleConfiguredProvider]);
+
+  const handleSelectionChange = useCallback(
+    (key: Key | null) => {
+      if (key !== null) {
+        onSelectionChange(String(key) as ModelId);
+      }
+    },
+    [onSelectionChange]
+  );
+
+  return (
+    <Select
+      className="flex w-full min-w-0 flex-col gap-2"
+      onSelectionChange={handleSelectionChange}
+      selectedKey={selectedKey}
+    >
+      <Label className={FIELD_LABEL_CLASS}>{label}</Label>
+      <Select.Trigger className={SELECT_TRIGGER_CLASS}>
+        <Select.Value className="min-w-0 flex-1 truncate text-left text-[15px] text-[var(--text-main)]" />
+        <Select.Indicator className="size-4 shrink-0 text-[var(--text-subtle)]" />
+      </Select.Trigger>
+      <Select.Popover className="min-w-56 rounded-[1.15rem] border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)] backdrop-blur-xl">
+        {hasProviderTabs ? (
+          <div className="flex gap-2 px-1 pt-1 pb-3">
+            {configuredProviders.map((provider) => (
+              <button
+                className={
+                  provider === activeProviderTab ? MODEL_PROVIDER_TAB_ACTIVE_CLASS : MODEL_PROVIDER_TAB_CLASS
+                }
+                key={provider}
+                onClick={() => setActiveProviderTab(provider)}
+                type="button"
+              >
+                {getProviderLabel(provider)}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <ListBox className="outline-none">
+          {visibleOptions.map((option) => (
+            <ListBox.Item
+              className={LISTBOX_ITEM_CLASS}
+              id={option.value}
+              key={option.value}
+              textValue={option.label}
+            >
+              <div className="flex flex-col gap-1">
+                <span>{option.label}</span>
+                {option.hint ? (
+                  <small className="text-sm leading-5 text-[var(--text-subtle)]">
+                    {option.hint}
+                  </small>
+                ) : null}
+              </div>
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+      <p className="m-0 text-sm leading-6 text-[var(--text-subtle)]">
+        {`${getProviderLabel(selectedOption.provider)} | ${selectedOption.description}`}
+      </p>
+    </Select>
+  );
+}
 
 interface ControlSectionProps {
   icon: ReactNode;
@@ -363,6 +485,12 @@ const SELECT_TRIGGER_CLASS =
 
 const LISTBOX_ITEM_CLASS =
   "rounded-xl px-3 py-2.5 text-[15px] text-[var(--text-main)] outline-none transition hover:bg-white/6 data-[focused=true]:bg-white/6 data-[selected=true]:bg-white/10";
+
+const MODEL_PROVIDER_TAB_CLASS =
+  "rounded-full border border-[var(--border-soft)] bg-white/4 px-3 py-1.5 text-sm font-medium text-[var(--text-subtle)] transition hover:bg-white/8";
+
+const MODEL_PROVIDER_TAB_ACTIVE_CLASS =
+  "rounded-full border border-[var(--accent)]/40 bg-white/10 px-3 py-1.5 text-sm font-medium text-[var(--text-main)] transition";
 
 const SURFACE_CARD_CLASS =
   "border border-dashed border-[var(--border-soft)] bg-[var(--bg-surface)]/80 shadow-none";
