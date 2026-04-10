@@ -27,7 +27,6 @@ import {
 } from "react";
 
 import {
-  getModelOption,
   getModelOptions,
   getModelProvider,
   getProviderLabel,
@@ -276,7 +275,6 @@ function ModelSelectField({
   configuredProviders,
   onSelectionChange
 }: ModelSelectFieldProps) {
-  const selectedOption = getModelOption(selectedKey);
   const hasProviderTabs = configuredProviders.length > 1;
   const singleConfiguredProvider = configuredProviders.length === 1 ? configuredProviders[0] : null;
   const [activeProviderTab, setActiveProviderTab] = useState<ModelProvider>(() => {
@@ -367,9 +365,6 @@ function ModelSelectField({
           ))}
         </ListBox>
       </Select.Popover>
-      <p className="m-0 text-sm leading-6 text-[var(--text-subtle)]">
-        {`${getProviderLabel(selectedOption.provider)} | ${selectedOption.description}`}
-      </p>
     </Select>
   );
 }
@@ -411,7 +406,6 @@ function ControlSelectField<Value extends string>({
   options,
   onSelectionChange
 }: ControlSelectFieldProps<Value>) {
-  const selectedOption = options.find((option) => option.value === selectedKey);
   const handleSelectionChange = useCallback(
     (key: Key | null) => {
       if (key !== null) {
@@ -453,9 +447,6 @@ function ControlSelectField<Value extends string>({
           ))}
         </ListBox>
       </Select.Popover>
-      {selectedOption?.hint ? (
-        <p className="m-0 text-sm leading-6 text-[var(--text-subtle)]">{selectedOption.hint}</p>
-      ) : null}
     </Select>
   );
 }
