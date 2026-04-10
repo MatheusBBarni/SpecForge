@@ -5,6 +5,7 @@ import type {
   AgentEventPayload,
   AutonomyMode,
   EnvironmentStatus,
+  WorkspaceScanResult,
   WorkspaceEntry
 } from "../types";
 
@@ -65,6 +66,22 @@ export async function runEnvironmentScan(paths?: {
 
 export async function parseDocument(filePath: string): Promise<string> {
   return invoke<string>("parse_document", { filePath });
+}
+
+export async function openWorkspaceFolder(): Promise<WorkspaceScanResult | null> {
+  if (!isTauriRuntime()) {
+    return null;
+  }
+
+  return invoke<WorkspaceScanResult | null>("open_workspace_folder");
+}
+
+export async function readWorkspaceFile(filePath: string): Promise<string> {
+  if (!isTauriRuntime()) {
+    throw new Error("Desktop runtime not detected.");
+  }
+
+  return invoke<string>("read_workspace_file", { filePath });
 }
 
 export async function getWorkspaceSnapshot(): Promise<WorkspaceEntry[]> {

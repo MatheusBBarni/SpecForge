@@ -49,6 +49,21 @@ export interface WorkspaceEntry {
   depth: number;
 }
 
+export interface WorkspaceDocument {
+  content: string;
+  sourcePath: string;
+  fileName: string;
+}
+
+export interface WorkspaceScanResult {
+  rootName: string;
+  entries: WorkspaceEntry[];
+  ignoredFileCount: number;
+  filePaths: Record<string, string>;
+  prdDocument: WorkspaceDocument | null;
+  specDocument: WorkspaceDocument | null;
+}
+
 export interface EditorTab {
   id: `file:${string}`;
   title: string;

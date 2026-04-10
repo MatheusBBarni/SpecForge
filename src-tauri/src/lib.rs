@@ -1,7 +1,9 @@
 use git2::{DiffFormat, Repository};
+use ignore::WalkBuilder;
 use lopdf::Document;
 use serde::Serialize;
 use std::{
+    collections::HashMap,
     fs,
     path::{Path, PathBuf},
     process::Command,
@@ -54,6 +56,25 @@ struct WorkspaceEntry {
     path: String,
     kind: String,
     depth: usize,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceDocument {
+    content: String,
+    source_path: String,
+    file_name: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceScanResult {
+    root_name: String,
+    entries: Vec<WorkspaceEntry>,
+    ignored_file_count: usize,
+    file_paths: HashMap<String, String>,
+    prd_document: Option<WorkspaceDocument>,
+    spec_document: Option<WorkspaceDocument>,
 }
 
 #[derive(Clone, Serialize)]
@@ -117,6 +138,23 @@ fn parse_document(file_path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn open_workspace_folder() -> Result<Option<WorkspaceScanResult>, String> {
+    let Some(folder_path) = rfd::FileDialog::new().pick_folder() else {
+        return Ok(None);
+    };
+
+    scan_workspace_folder(&folder_path).map(Some)
+}
+
+#[tauri::command]
+fn read_workspace_file(file_path: String) -> Result<String, String> {
+    let resolved_path = resolve_path(&file_path);
+
+    fs::read_to_string(&resolved_path)
+        .map_err(|error| format!("Unable to read workspace file {}: {error}", resolved_path.display()))
+}
+
+#[tauri::command]
 fn get_workspace_snapshot() -> Result<Vec<WorkspaceEntry>, String> {
     let root = project_root();
     let directory = fs::read_dir(&root)
@@ -147,6 +185,121 @@ fn get_workspace_snapshot() -> Result<Vec<WorkspaceEntry>, String> {
 
     entries.sort_by(|left, right| left.kind.cmp(&right.kind).then(left.name.cmp(&right.name)));
     Ok(entries)
+}
+
+fn scan_workspace_folder(root: &Path) -> Result<WorkspaceScanResult, String> {
+    let root_name = root
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("Workspace")
+        .to_string();
+    let mut directory_entries = HashMap::<String, WorkspaceEntry>::new();
+    let mut file_entries = Vec::<WorkspaceEntry>::new();
+    let mut file_paths = HashMap::<String, String>::new();
+    let mut file_documents = Vec::<(String, PathBuf)>::new();
+
+    let walker = WalkBuilder::new(root)
+        .hidden(false)
+        .git_ignore(true)
+        .git_global(true)
+        .git_exclude(true)
+        .build();
+
+    for item in walker {
+        let entry = match item {
+            Ok(entry) => entry,
+            Err(error) => {
+                return Err(format!("Unable to walk workspace folder {}: {error}", root.display()));
+            }
+        };
+        let path = entry.path();
+
+        if path == root {
+            continue;
+        }
+
+        let relative_path = path
+            .strip_prefix(root)
+            .map_err(|error| format!("Unable to normalize workspace path {}: {error}", path.display()))?
+            .to_string_lossy()
+            .replace('\\', "/");
+
+        if relative_path.is_empty() {
+            continue;
+        }
+
+        let depth = relative_path.split('/').count().saturating_sub(1);
+        let file_name = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_string();
+
+        if entry
+            .file_type()
+            .map(|file_type| file_type.is_dir())
+            .unwrap_or(false)
+        {
+            directory_entries.insert(
+                relative_path.clone(),
+                WorkspaceEntry {
+                    name: file_name,
+                    path: relative_path,
+                    kind: String::from("directory"),
+                    depth,
+                },
+            );
+            continue;
+        }
+
+        for (index, segment) in relative_path.split('/').collect::<Vec<_>>().iter().enumerate() {
+            if index == relative_path.split('/').count() - 1 {
+                break;
+            }
+
+            let directory_path = relative_path
+                .split('/')
+                .take(index + 1)
+                .collect::<Vec<_>>()
+                .join("/");
+
+            directory_entries
+                .entry(directory_path.clone())
+                .or_insert_with(|| WorkspaceEntry {
+                    name: (*segment).to_string(),
+                    path: directory_path,
+                    kind: String::from("directory"),
+                    depth: index,
+                });
+        }
+
+        file_entries.push(WorkspaceEntry {
+            name: file_name.clone(),
+            path: relative_path.clone(),
+            kind: String::from("file"),
+            depth,
+        });
+        file_paths.insert(relative_path.clone(), path.display().to_string());
+        file_documents.push((relative_path, path.to_path_buf()));
+    }
+
+    let mut entries = directory_entries
+        .into_values()
+        .chain(file_entries)
+        .collect::<Vec<_>>();
+    entries.sort_by(compare_workspace_entries);
+
+    let prd_document = pick_workspace_document(&file_documents, &["prd.md", "prd.pdf"])?;
+    let spec_document = pick_workspace_document(&file_documents, &["spec.md", "spec.pdf"])?;
+
+    Ok(WorkspaceScanResult {
+        root_name,
+        entries,
+        ignored_file_count: 0,
+        file_paths,
+        prd_document,
+        spec_document,
+    })
 }
 
 #[tauri::command]
@@ -229,6 +382,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             run_environment_scan,
             parse_document,
+            open_workspace_folder,
+            read_workspace_file,
             get_workspace_snapshot,
             git_get_diff,
             spawn_cli_agent,
@@ -295,6 +450,87 @@ fn inspect_binary(display_name: &str, binary_name: &str, override_path: Option<&
     }
 }
 
+fn compare_workspace_entries(left: &WorkspaceEntry, right: &WorkspaceEntry) -> std::cmp::Ordering {
+    let left_segments = left.path.split('/').collect::<Vec<_>>();
+    let right_segments = right.path.split('/').collect::<Vec<_>>();
+    let shared_length = left_segments.len().min(right_segments.len());
+
+    for index in 0..shared_length {
+        if left_segments[index] != right_segments[index] {
+            let left_is_directory = index < left_segments.len() - 1 || left.kind == "directory";
+            let right_is_directory =
+                index < right_segments.len() - 1 || right.kind == "directory";
+
+            if left_is_directory != right_is_directory {
+                return if left_is_directory {
+                    std::cmp::Ordering::Less
+                } else {
+                    std::cmp::Ordering::Greater
+                };
+            }
+
+            return left_segments[index].cmp(right_segments[index]);
+        }
+    }
+
+    if left_segments.len() != right_segments.len() {
+        return left_segments.len().cmp(&right_segments.len());
+    }
+
+    if left.kind != right.kind {
+        return if left.kind == "directory" {
+            std::cmp::Ordering::Less
+        } else {
+            std::cmp::Ordering::Greater
+        };
+    }
+
+    left.path.cmp(&right.path)
+}
+
+fn pick_workspace_document(
+    files: &[(String, PathBuf)],
+    expected_names: &[&str],
+) -> Result<Option<WorkspaceDocument>, String> {
+    let mut ranked_files = files
+        .iter()
+        .filter_map(|(relative_path, absolute_path)| {
+            let file_name = absolute_path
+                .file_name()
+                .and_then(|value| value.to_str())
+                .map(|value| value.to_lowercase())?;
+
+            expected_names
+                .iter()
+                .position(|expected_name| *expected_name == file_name)
+                .map(|rank| (rank, relative_path, absolute_path))
+        })
+        .collect::<Vec<_>>();
+
+    ranked_files.sort_by(|left, right| {
+        left.0
+            .cmp(&right.0)
+            .then(relative_path_depth(left.1).cmp(&relative_path_depth(right.1)))
+            .then(left.1.cmp(right.1))
+    });
+
+    ranked_files
+        .into_iter()
+        .next()
+        .map(|(_, relative_path, absolute_path)| {
+            parse_workspace_document(absolute_path).map(|content| WorkspaceDocument {
+                content,
+                source_path: absolute_path.display().to_string(),
+                file_name: relative_path
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(relative_path)
+                    .to_string(),
+            })
+        })
+        .transpose()
+}
+
 fn read_pdf_text(path: &Path) -> Result<String, String> {
     let document = Document::load(path)
         .map_err(|error| format!("Unable to open PDF document {}: {error}", path.display()))?;
@@ -304,6 +540,23 @@ fn read_pdf_text(path: &Path) -> Result<String, String> {
     document
         .extract_text(&page_numbers)
         .map_err(|error| format!("Unable to extract PDF text from {}: {error}", path.display()))
+}
+
+fn parse_workspace_document(path: &Path) -> Result<String, String> {
+    match path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("pdf") => read_pdf_text(path),
+        _ => fs::read_to_string(path)
+            .map_err(|error| format!("Unable to read workspace document {}: {error}", path.display())),
+    }
+}
+
+fn relative_path_depth(path: &str) -> usize {
+    path.split('/').count()
 }
 
 fn project_root() -> PathBuf {

@@ -1,11 +1,10 @@
 import {
   CheckCircle,
   CodeBracketsSquare,
-  Xmark,
   Terminal,
   XmarkCircle
 } from "iconoir-react";
-import type { ChangeEvent } from "react";
+import { memo, useEffect, useMemo, type ChangeEvent } from "react";
 
 import { DiffPreview } from "./DiffPreview";
 import { MarkdownDocument } from "./MarkdownDocument";
@@ -19,6 +18,7 @@ import type {
 interface MainWorkspaceProps {
   activeTab: WorkspaceTab;
   openEditorTabs: EditorTab[];
+  workspaceRootName: string;
   prdPath: string;
   specPath: string;
   prdContent: string;
@@ -41,9 +41,10 @@ interface MainWorkspaceProps {
   onEmergencyStop: () => void;
 }
 
-export function MainWorkspace({
+export const MainWorkspace = memo(function MainWorkspace({
   activeTab,
   openEditorTabs,
+  workspaceRootName,
   prdPath,
   specPath,
   prdContent,
@@ -65,7 +66,46 @@ export function MainWorkspace({
   onApproveExecutionGate,
   onEmergencyStop
 }: MainWorkspaceProps) {
-  const activeEditorTab = openEditorTabs.find((entry) => entry.id === activeTab);
+  const activeEditorTab = useMemo(
+    () => openEditorTabs.find((entry) => entry.id === activeTab),
+    [activeTab, openEditorTabs]
+  );
+  const displayPrdPath = useMemo(
+    () => getDisplayDocumentPath(prdPath, workspaceRootName),
+    [prdPath, workspaceRootName]
+  );
+  const displaySpecPath = useMemo(
+    () => getDisplayDocumentPath(specPath, workspaceRootName),
+    [specPath, workspaceRootName]
+  );
+
+  useEffect(() => {
+    if (!activeEditorTab) {
+      return;
+    }
+
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing) {
+        return;
+      }
+
+      const isCloseShortcut =
+        (event.ctrlKey || event.metaKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "w";
+
+      if (!isCloseShortcut) {
+        return;
+      }
+
+      event.preventDefault();
+      onEditorTabClose(activeEditorTab.path);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeEditorTab, onEditorTabClose]);
 
   return (
     <section className="main-column panel">
@@ -102,7 +142,9 @@ export function MainWorkspace({
               onClick={() => onEditorTabClose(tab.path)}
               type="button"
             >
-              <Xmark />
+              <span aria-hidden="true" className="workspace-file-tab-close-mark">
+                x
+              </span>
             </button>
           </div>
         ))}
@@ -114,7 +156,7 @@ export function MainWorkspace({
             <div className="document-header">
               <div>
                 <p className="eyebrow">Source PRD</p>
-                <h2>{prdPath}</h2>
+                <h2>{displayPrdPath}</h2>
               </div>
               <div className="segmented-control">
                 <button
@@ -151,7 +193,7 @@ export function MainWorkspace({
             <div className="document-header">
               <div>
                 <p className="eyebrow">Technical Spec</p>
-                <h2>{specPath}</h2>
+                <h2>{displaySpecPath}</h2>
               </div>
               <div className="segmented-control">
                 <button
@@ -264,4 +306,23 @@ export function MainWorkspace({
       )}
     </section>
   );
+});
+
+function getDisplayDocumentPath(path: string, workspaceRootName: string) {
+  const normalizedPath = path.replace(/\\/g, "/");
+
+  if (!workspaceRootName) {
+    return normalizedPath;
+  }
+
+  const segments = normalizedPath.split("/").filter(Boolean);
+  const rootIndex = segments.findIndex(
+    (segment) => segment.toLowerCase() === workspaceRootName.toLowerCase()
+  );
+
+  if (rootIndex >= 0 && rootIndex < segments.length - 1) {
+    return segments.slice(rootIndex + 1).join("/");
+  }
+
+  return normalizedPath;
 }

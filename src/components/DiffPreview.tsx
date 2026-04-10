@@ -1,9 +1,11 @@
+import { memo, useMemo } from "react";
+
 interface DiffPreviewProps {
   diff: string;
 }
 
-export function DiffPreview({ diff }: DiffPreviewProps) {
-  const lines = diff.split(/\r?\n/);
+export const DiffPreview = memo(function DiffPreview({ diff }: DiffPreviewProps) {
+  const lines = useMemo(() => diff.split(/\r?\n/), [diff]);
 
   return (
     <div className="diff-preview">
@@ -14,7 +16,7 @@ export function DiffPreview({ diff }: DiffPreviewProps) {
       ))}
     </div>
   );
-}
+});
 
 function getDiffLineClassName(line: string) {
   if (line.startsWith("@@")) {

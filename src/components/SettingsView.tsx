@@ -9,9 +9,10 @@ import {
 } from "iconoir-react";
 import { memo } from "react";
 
-import type { EnvironmentStatus, ThemeMode } from "../types";
+import type { EnvironmentStatus, SpecAnnotation, ThemeMode } from "../types";
 
 interface SettingsViewProps {
+  annotations: SpecAnnotation[];
   environment: EnvironmentStatus;
   theme: ThemeMode;
   claudePath: string;
@@ -23,6 +24,7 @@ interface SettingsViewProps {
 }
 
 export const SettingsView = memo(function SettingsView({
+  annotations,
   environment,
   theme,
   claudePath,
@@ -143,6 +145,23 @@ export const SettingsView = memo(function SettingsView({
             without a second import step.
           </p>
         </article>
+
+        {annotations.length > 0 ? (
+          <article className="settings-panel settings-panel-wide">
+            <div className="section-title">
+              <CheckCircle />
+              <span>Workspace Notes</span>
+            </div>
+            <div className="note-stack">
+              {annotations.map((annotation) => (
+                <article className={`note-card note-card-${annotation.tone}`} key={annotation.id}>
+                  <h3>{annotation.title}</h3>
+                  <p>{annotation.body}</p>
+                </article>
+              ))}
+            </div>
+          </article>
+        ) : null}
       </div>
     </section>
   );

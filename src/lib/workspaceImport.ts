@@ -210,12 +210,31 @@ function stripRootName(path: string, rootName: string) {
 }
 
 function sortWorkspaceEntries(left: WorkspaceEntry, right: WorkspaceEntry) {
-  if (left.kind !== right.kind) {
-    return left.kind === "directory" ? -1 : 1;
+  const leftSegments = left.path.split("/");
+  const rightSegments = right.path.split("/");
+  const maxSharedDepth = Math.min(leftSegments.length, rightSegments.length);
+
+  for (let index = 0; index < maxSharedDepth; index += 1) {
+    if (leftSegments[index] === rightSegments[index]) {
+      continue;
+    }
+
+    const leftIsDirectory = index < leftSegments.length - 1 || left.kind === "directory";
+    const rightIsDirectory = index < rightSegments.length - 1 || right.kind === "directory";
+
+    if (leftIsDirectory !== rightIsDirectory) {
+      return leftIsDirectory ? -1 : 1;
+    }
+
+    return leftSegments[index].localeCompare(rightSegments[index]);
   }
 
-  if (left.depth !== right.depth) {
-    return left.depth - right.depth;
+  if (leftSegments.length !== rightSegments.length) {
+    return leftSegments.length - rightSegments.length;
+  }
+
+  if (left.kind !== right.kind) {
+    return left.kind === "directory" ? -1 : 1;
   }
 
   return left.path.localeCompare(right.path);

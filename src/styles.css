@@ -165,8 +165,9 @@ input {
 
 .app-frame {
   margin-left: 72px;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  position: relative;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 100vh;
   height: 100vh;
@@ -198,6 +199,31 @@ input {
   box-shadow: 0 18px 40px -30px rgba(0, 0, 0, 0.45);
 }
 
+.topbar-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+.floating-search {
+  position: fixed;
+  inset: 0 0 0 72px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  pointer-events: none;
+}
+
+.floating-search .topbar-search {
+  width: min(42rem, calc(100vw - 8rem));
+  border-color: var(--border-soft);
+  background: var(--bg-panel-strong);
+  backdrop-filter: blur(28px);
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+
 .topbar-search input {
   flex: 1;
   border: 0;
@@ -226,12 +252,25 @@ input {
 .workspace-grid {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr) minmax(260px, 320px);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "control main toolbar"
+    "control main inspector";
   gap: 1rem;
-  padding: 0 1.2rem 1.2rem;
+  flex: 1;
+  padding: 1rem 1.2rem 1.2rem;
   min-height: 0;
   height: 100%;
   overflow: hidden;
   align-items: stretch;
+}
+
+.workspace-toolbar {
+  grid-area: toolbar;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .panel {
@@ -252,23 +291,43 @@ input {
   gap: 1rem;
   padding: 1.2rem;
   min-height: 0;
+  min-width: 0;
 }
 
 .control-column {
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+}
+
+.workspace-grid > .control-column {
+  grid-area: control;
+}
+
+.control-column > * {
+  flex-shrink: 0;
 }
 
 .inspector-column {
+  grid-area: inspector;
   overflow: hidden;
 }
 
 .panel-header,
-.document-header,
-.section-title {
+.document-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .panel-header h1,
@@ -356,10 +415,18 @@ input {
   line-height: 1.55;
 }
 
-.control-section,
+.control-section {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  gap: 0.85rem;
+  min-height: 0;
+}
+
 .inspector-section {
   display: grid;
   gap: 0.85rem;
+  min-height: 0;
 }
 
 .dropzone {
@@ -375,30 +442,56 @@ input {
 }
 
 .field-stack {
-  display: grid;
-  gap: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
 }
 
 .field-label {
+  display: block;
   color: var(--text-subtle);
   font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .field-stack input,
+.field-stack select,
 .control-section textarea,
 .document-editor,
 .topbar-search input {
+  display: block;
   width: 100%;
   border: 1px solid var(--border-soft);
   border-radius: 1rem;
   background: rgba(0, 0, 0, 0.16);
   color: var(--text-main);
   padding: 0.85rem 0.95rem;
+  line-height: 1.35;
+  min-height: 3.1rem;
+}
+
+.field-stack select {
+  appearance: none;
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-subtle) 50%),
+    linear-gradient(135deg, var(--text-subtle) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.15rem) calc(50% - 2px),
+    calc(100% - 0.85rem) calc(50% - 2px);
+  background-size: 8px 8px, 8px 8px;
+  background-repeat: no-repeat;
+  padding-right: 2.8rem;
 }
 
 .control-section textarea,
 .document-editor {
   resize: vertical;
+}
+
+.control-section textarea {
+  min-height: 8.5rem;
 }
 
 .segmented-control {
@@ -564,12 +657,16 @@ input {
 
 /* Main workspace */
 .main-column {
+  grid-area: main;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
 .settings-route {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   padding: 0 1.2rem 1.2rem;
 }
 
@@ -687,6 +784,8 @@ input {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
+  flex: 0 0 auto;
+  max-width: 18rem;
   padding: 0.2rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.03);
@@ -706,22 +805,45 @@ input {
 }
 
 .workspace-file-tab-button {
+  max-width: 14rem;
   padding: 0.45rem 0.75rem;
   border-radius: 999px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-file-tab-close {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   width: 1.9rem;
   height: 1.9rem;
+  padding: 0;
   border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
 }
 
 .workspace-file-tab-active .workspace-file-tab-button,
 .workspace-file-tab-active .workspace-file-tab-close {
   color: var(--text-main);
+}
+
+.workspace-file-tab-close svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  stroke-width: 2.2;
+}
+
+.workspace-file-tab-close-mark {
+  display: inline-block;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .workspace-file-tab-close:hover,
@@ -791,15 +913,22 @@ input {
 
 /* Inspector */
 .tree-list {
-  display: grid;
-  gap: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
   max-height: none;
   flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.4rem;
+  scrollbar-gutter: stable both-edges;
 }
 
 .tree-entry {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.55rem;
   padding: 0.55rem 0.65rem;
   border-radius: 0.8rem;
@@ -815,17 +944,23 @@ input {
   width: 100%;
   border: 0;
   background: transparent;
+  display: flex;
+  align-items: center;
   text-align: left;
 }
 
+.tree-entry-caret,
 .tree-entry-spacer {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 1rem;
   flex: 0 0 1rem;
 }
 
 .inspector-column .inspector-section:first-of-type {
   flex: 1;
+  overflow: hidden;
   min-height: 0;
   grid-template-rows: auto auto auto minmax(0, 1fr);
 }
@@ -941,18 +1076,38 @@ input {
   background-clip: padding-box;
 }
 
+.control-column,
+.tree-list,
+.document-body,
+.console-window,
+.diff-preview {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
 @media (max-width: 1320px) {
   .workspace-grid {
     grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) minmax(18rem, auto);
+    grid-template-areas:
+      "toolbar toolbar"
+      "control main"
+      "inspector inspector";
   }
 
   .inspector-column {
-    grid-column: 1 / -1;
     min-height: 18rem;
   }
 }
 
 @media (max-width: 980px) {
+  #root,
+  .app-shell,
+  .app-frame {
+    min-height: 100vh;
+    height: auto;
+  }
+
   .app-shell {
     display: block;
   }
@@ -969,6 +1124,17 @@ input {
 
   .app-frame {
     margin-left: 0;
+    overflow: visible;
+  }
+
+  .floating-search {
+    inset: 0;
+    align-items: flex-start;
+    padding: 1rem;
+  }
+
+  .floating-search .topbar-search {
+    width: min(100%, 36rem);
   }
 
   .rail-spacer {
@@ -981,6 +1147,37 @@ input {
   .execution-layout,
   .file-editor-layout {
     grid-template-columns: 1fr;
+  }
+
+  .workspace-grid {
+    grid-template-areas:
+      "toolbar"
+      "control"
+      "main"
+      "inspector";
+    height: auto;
+    overflow: visible;
+    align-items: start;
+  }
+
+  .panel {
+    height: auto;
+  }
+
+  .control-column,
+  .inspector-column {
+    max-height: none;
+  }
+
+  .panel-header,
+  .document-header,
+  .section-title {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .tree-list {
+    max-height: none;
   }
 
   .topbar {

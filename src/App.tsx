@@ -8,9 +8,11 @@ import {
   Settings
 } from "iconoir-react";
 import {
+  useCallback,
   startTransition,
   useDeferredValue,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent
@@ -36,7 +38,9 @@ import {
   getGitDiff,
   getWorkspaceSnapshot,
   isTauriRuntime,
+  openWorkspaceFolder,
   parseDocument,
+  readWorkspaceFile,
   runEnvironmentScan,
   startAgentRun,
   subscribeToAgentEvents
@@ -53,9 +57,35 @@ import {
 import { useAgentStore } from "./store/useAgentStore";
 import { useProjectStore } from "./store/useProjectStore";
 import { useSettingsStore } from "./store/useSettingsStore";
-import type { AgentStatus, AutonomyMode, EnvironmentStatus, ThemeMode } from "./types";
+import type {
+  AgentStatus,
+  AutonomyMode,
+  EnvironmentStatus,
+  ThemeMode,
+  WorkspaceDocument
+} from "./types";
 
 type DocumentTarget = "prd" | "spec";
+
+type WorkspaceFileSource =
+  | {
+      kind: "browser";
+      file: ImportableFile;
+    }
+  | {
+      kind: "desktop";
+      sourcePath: string;
+      fileName: string;
+    };
+
+interface WorkspaceSelectionPayload {
+  rootName: string;
+  entries: ReturnType<typeof useSettingsStore.getState>["workspaceEntries"];
+  ignoredFileCount: number;
+  files: Record<string, WorkspaceFileSource>;
+  prdDocument: WorkspaceDocument | null;
+  specDocument: WorkspaceDocument | null;
+}
 
 interface FallbackStep {
   delayMs: number;
@@ -70,14 +100,63 @@ interface FallbackStep {
 function App() {
   const location = useLocation();
   const isSettingsRoute = location.pathname === "/settings";
-  const project = useProjectStore();
-  const agent = useAgentStore();
-  const settings = useSettingsStore();
+  const agentStatus = useAgentStore((state) => state.status);
+  const terminalOutput = useAgentStore((state) => state.terminalOutput);
+  const pendingDiff = useAgentStore((state) => state.pendingDiff);
+  const executionSummary = useAgentStore((state) => state.executionSummary);
+  const resetRun = useAgentStore((state) => state.resetRun);
+  const appendTerminalOutput = useAgentStore((state) => state.appendTerminalOutput);
+  const setAgentStatus = useAgentStore((state) => state.setStatus);
+  const setCurrentMilestone = useAgentStore((state) => state.setCurrentMilestone);
+  const setPendingDiff = useAgentStore((state) => state.setPendingDiff);
+  const setExecutionSummary = useAgentStore((state) => state.setExecutionSummary);
+  const applyAgentEvent = useAgentStore((state) => state.applyEvent);
+
+  const annotations = useProjectStore((state) => state.annotations);
+  const activeTab = useProjectStore((state) => state.activeTab);
+  const autonomyMode = useProjectStore((state) => state.autonomyMode);
+  const isSpecApproved = useProjectStore((state) => state.isSpecApproved);
+  const openEditorTabs = useProjectStore((state) => state.openEditorTabs);
+  const prdContent = useProjectStore((state) => state.prdContent);
+  const prdPaneMode = useProjectStore((state) => state.prdPaneMode);
+  const prdPath = useProjectStore((state) => state.prdPath);
+  const reviewPrompt = useProjectStore((state) => state.reviewPrompt);
+  const selectedModel = useProjectStore((state) => state.selectedModel);
+  const selectedSpecRange = useProjectStore((state) => state.selectedSpecRange);
+  const specContent = useProjectStore((state) => state.specContent);
+  const specPaneMode = useProjectStore((state) => state.specPaneMode);
+  const specPath = useProjectStore((state) => state.specPath);
+  const approveSpec = useProjectStore((state) => state.approveSpec);
+  const applyRefinement = useProjectStore((state) => state.applyRefinement);
+  const closeEditorTab = useProjectStore((state) => state.closeEditorTab);
+  const openEditorTab = useProjectStore((state) => state.openEditorTab);
+  const setActiveTab = useProjectStore((state) => state.setActiveTab);
+  const setAutonomyMode = useProjectStore((state) => state.setAutonomyMode);
+  const setPrdContent = useProjectStore((state) => state.setPrdContent);
+  const setPrdPaneMode = useProjectStore((state) => state.setPrdPaneMode);
+  const setReviewPrompt = useProjectStore((state) => state.setReviewPrompt);
+  const setSelectedModel = useProjectStore((state) => state.setSelectedModel);
+  const setSelectedSpecRange = useProjectStore((state) => state.setSelectedSpecRange);
+  const setSpecContent = useProjectStore((state) => state.setSpecContent);
+  const setSpecPaneMode = useProjectStore((state) => state.setSpecPaneMode);
+  const updateEditorTabContent = useProjectStore((state) => state.updateEditorTabContent);
+
+  const claudePath = useSettingsStore((state) => state.claudePath);
+  const codexPath = useSettingsStore((state) => state.codexPath);
+  const environment = useSettingsStore((state) => state.environment);
+  const theme = useSettingsStore((state) => state.theme);
+  const workspaceEntries = useSettingsStore((state) => state.workspaceEntries);
+  const setClaudePath = useSettingsStore((state) => state.setClaudePath);
+  const setCodexPath = useSettingsStore((state) => state.setCodexPath);
+  const setEnvironment = useSettingsStore((state) => state.setEnvironment);
+  const setTheme = useSettingsStore((state) => state.setTheme);
+  const setWorkspaceEntries = useSettingsStore((state) => state.setWorkspaceEntries);
   const [commandSearch, setCommandSearch] = useState("");
   const [importPath, setImportPath] = useState("docs/PRD.md");
   const [importTarget, setImportTarget] = useState<DocumentTarget>("prd");
   const [importError, setImportError] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [latestDiff, setLatestDiff] = useState(DEFAULT_PENDING_DIFF);
   const [systemPrefersDark, setSystemPrefersDark] = useState(true);
   const [workspaceRootName, setWorkspaceRootName] = useState("SpecForge");
@@ -85,25 +164,499 @@ function App() {
     "Open a folder to scan for PRD/spec files and build the workspace tree."
   );
   const [hasOpenedWorkspaceFolder, setHasOpenedWorkspaceFolder] = useState(false);
-  const [workspaceFiles, setWorkspaceFiles] = useState<Record<string, ImportableFile>>({});
+  const [workspaceFiles, setWorkspaceFiles] = useState<Record<string, WorkspaceFileSource>>({});
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const fallbackTimerRef = useRef<number | null>(null);
   const fallbackStepsRef = useRef<FallbackStep[]>([]);
   const fallbackIndexRef = useRef(0);
+  const hasInitializedDocumentsRef = useRef(false);
+  const hasScannedEnvironmentRef = useRef(false);
   const deferredSearch = useDeferredValue(commandSearch);
-  const filteredWorkspaceEntries = settings.workspaceEntries.filter((entry) =>
-    entry.path.toLowerCase().includes(deferredSearch.toLowerCase())
+  const filteredWorkspaceEntries = useMemo(
+    () => filterWorkspaceEntries(workspaceEntries, deferredSearch),
+    [deferredSearch, workspaceEntries]
   );
-  const visibleDiff = agent.pendingDiff ?? latestDiff;
-  const resolvedTheme = resolveTheme(settings.theme, systemPrefersDark);
+  const selectedSpecText = useMemo(
+    () => selectedSpecRange?.text.trim() || "",
+    [selectedSpecRange]
+  );
+  const visibleDiff = pendingDiff ?? latestDiff;
+  const resolvedTheme = useMemo(
+    () => resolveTheme(theme, systemPrefersDark),
+    [theme, systemPrefersDark]
+  );
+  const agentStatusLabel = useMemo(() => formatAgentStatus(agentStatus), [agentStatus]);
+
+  const refreshDiagnostics = useCallback(
+    async (previousEnvironment?: EnvironmentStatus) => {
+      const [nextEnvironment, snapshotEntries, diff] = await Promise.all([
+        runEnvironmentScan({
+          claudePath,
+          codexPath
+        }).catch(() => previousEnvironment ?? environment),
+        getWorkspaceSnapshot().catch(() => workspaceEntries),
+        getGitDiff().catch(() => DEFAULT_PENDING_DIFF)
+      ]);
+
+      setEnvironment(nextEnvironment);
+
+      if (!hasOpenedWorkspaceFolder) {
+        setWorkspaceEntries(snapshotEntries);
+      }
+
+      setLatestDiff(diff);
+    },
+    [
+      claudePath,
+      codexPath,
+      environment,
+      hasOpenedWorkspaceFolder,
+      setEnvironment,
+      setWorkspaceEntries,
+      workspaceEntries
+    ]
+  );
+
+  const assignDocument = useCallback(
+    (target: DocumentTarget, content: string, path: string) => {
+      startTransition(() => {
+        if (target === "prd") {
+          setPrdContent(content, path);
+          return;
+        }
+
+        setSpecContent(content, path);
+        setSpecPaneMode("edit");
+      });
+    },
+    [setPrdContent, setSpecContent, setSpecPaneMode]
+  );
+
+  const applyWorkspaceSelection = useCallback(
+    ({
+      rootName,
+      entries,
+      ignoredFileCount,
+      files,
+      prdDocument,
+      specDocument
+    }: WorkspaceSelectionPayload) => {
+      const loadedDocuments: string[] = [];
+
+      setWorkspaceEntries(entries);
+      setWorkspaceRootName(rootName);
+      setHasOpenedWorkspaceFolder(true);
+      setWorkspaceFiles(files);
+
+      startTransition(() => {
+        if (prdDocument) {
+          setPrdContent(prdDocument.content, prdDocument.sourcePath);
+          loadedDocuments.push(prdDocument.fileName);
+        }
+
+        if (specDocument) {
+          setSpecContent(specDocument.content, specDocument.sourcePath);
+          setSpecPaneMode("edit");
+          loadedDocuments.push(specDocument.fileName);
+        }
+      });
+
+      if (loadedDocuments.length > 0) {
+        setWorkspaceNotice(
+          `Loaded ${loadedDocuments.join(" and ")} from ${rootName}.${ignoredFileCount > 0 ? ` Ignored ${ignoredFileCount} file(s) from .gitignore.` : ""}`
+        );
+        appendTerminalOutput(
+          stampLog(
+            "workspace",
+            `Loaded workspace folder ${rootName} and detected ${loadedDocuments.join(", ")}.`
+          )
+        );
+        return;
+      }
+
+      setWorkspaceNotice(
+        `${rootName} opened successfully, but no matching PRD/spec files were found.${ignoredFileCount > 0 ? ` Ignored ${ignoredFileCount} file(s) from .gitignore.` : ""}`
+      );
+    },
+    [
+      appendTerminalOutput,
+      setPrdContent,
+      setSpecContent,
+      setSpecPaneMode,
+      setWorkspaceEntries
+    ]
+  );
+
+  const importWorkspaceFiles = useCallback(
+    async (files: ImportableFile[]) => {
+      if (files.length === 0) {
+        return;
+      }
+
+      const filteredFiles = await filterWorkspaceFiles(files);
+      const snapshot = buildWorkspaceImportSnapshot(filteredFiles);
+      const matches = findProjectDocuments(filteredFiles);
+      const ignoredFileCount = files.length - filteredFiles.length;
+      const nextWorkspaceFiles = filteredFiles.reduce<Record<string, WorkspaceFileSource>>(
+        (accumulator, file) => {
+          const normalizedPath = normalizeWorkspacePath(
+            file.webkitRelativePath || file.name,
+            snapshot.rootName
+          );
+          accumulator[normalizedPath] = {
+            kind: "browser",
+            file
+          };
+          return accumulator;
+        },
+        {}
+      );
+
+      try {
+        const [prdDocument, specDocument] = await Promise.all([
+          matches.prdFile ? parseWorkspaceDocument(matches.prdFile) : Promise.resolve(null),
+          matches.specFile ? parseWorkspaceDocument(matches.specFile) : Promise.resolve(null)
+        ]);
+
+        applyWorkspaceSelection({
+          rootName: snapshot.rootName,
+          entries: snapshot.entries,
+          ignoredFileCount,
+          files: nextWorkspaceFiles,
+          prdDocument: prdDocument
+            ? {
+                content: prdDocument.content,
+                sourcePath: prdDocument.sourcePath,
+                fileName: matches.prdFile?.name ?? prdDocument.sourcePath
+              }
+            : null,
+          specDocument: specDocument
+            ? {
+                content: specDocument.content,
+                sourcePath: specDocument.sourcePath,
+                fileName: matches.specFile?.name ?? specDocument.sourcePath
+              }
+            : null
+        });
+      } catch (error) {
+        setWorkspaceNotice(
+          error instanceof Error
+            ? `${snapshot.rootName} opened, but document parsing failed: ${error.message}`
+            : `${snapshot.rootName} opened, but one of the detected documents could not be parsed.`
+        );
+      }
+    },
+    [applyWorkspaceSelection]
+  );
+
+  const handlePathImport = useCallback(async () => {
+    setIsImporting(true);
+    setImportError("");
+
+    try {
+      assignDocument(importTarget, await parseDocument(importPath), importPath);
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Unable to parse the requested document.");
+    } finally {
+      setIsImporting(false);
+    }
+  }, [assignDocument, importPath, importTarget]);
+
+  const handleFileSelection = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0] as ImportableFile | undefined;
+
+      if (!file) {
+        return;
+      }
+
+      try {
+        const document = await parseWorkspaceDocument(file);
+        assignDocument(importTarget, document.content, document.sourcePath);
+        setImportError("");
+      } catch (error) {
+        setImportError(
+          error instanceof Error ? error.message : "The selected file could not be imported."
+        );
+      } finally {
+        event.target.value = "";
+      }
+    },
+    [assignDocument, importTarget]
+  );
+
+  const handleWorkspaceFolderSelection = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      try {
+        await importWorkspaceFiles(Array.from(event.target.files ?? []) as ImportableFile[]);
+      } finally {
+        event.target.value = "";
+      }
+    },
+    [importWorkspaceFiles]
+  );
+
+  const handleWorkspaceFileOpen = useCallback(
+    async (path: string) => {
+      const file = workspaceFiles[path];
+
+      if (!file) {
+        setWorkspaceNotice(`The file ${path} is not available in the active workspace snapshot.`);
+        return;
+      }
+
+      if (file.kind === "browser") {
+        if (!isOpenableTextFile(file.file)) {
+          setWorkspaceNotice(`${file.file.name} is not an openable text/code file.`);
+          return;
+        }
+
+        const document = await parseWorkspaceTextFile(file.file);
+        openEditorTab({
+          title: file.file.name,
+          path,
+          content: document.content
+        });
+        return;
+      }
+
+      if (!isOpenableWorkspacePath(path)) {
+        setWorkspaceNotice(`${file.fileName} is not an openable text/code file.`);
+        return;
+      }
+
+      try {
+        const content = await readWorkspaceFile(file.sourcePath);
+        openEditorTab({
+          title: file.fileName,
+          path,
+          content
+        });
+      } catch (error) {
+        setWorkspaceNotice(
+          error instanceof Error
+            ? `Unable to open ${file.fileName}: ${error.message}`
+            : `Unable to open ${file.fileName}.`
+        );
+      }
+    },
+    [openEditorTab, workspaceFiles]
+  );
+
+  const handleApproveSpec = useCallback(() => {
+    approveSpec();
+    appendTerminalOutput(stampLog("review", "Specification approved. Build controls are now armed."));
+  }, [appendTerminalOutput, approveSpec]);
+
+  const handleStartBuild = useCallback(async () => {
+    if (!isSpecApproved) {
+      return;
+    }
+
+    clearFallbackTimer(fallbackTimerRef);
+    resetRun();
+    setActiveTab("execute");
+    setAgentStatus("executing");
+    setCurrentMilestone("Pre-flight Check");
+    appendTerminalOutput(stampLog("build", "Starting spec-driven build run."));
+
+    if (isTauriRuntime()) {
+      try {
+        await startAgentRun(specContent, autonomyMode);
+        return;
+      } catch (error) {
+        appendTerminalOutput(
+          stampLog(
+            "error",
+            `${error instanceof Error ? error.message : "Agent startup failed."} Falling back to the local simulator.`
+          )
+        );
+      }
+    }
+
+    fallbackStepsRef.current = buildFallbackSteps(autonomyMode);
+    fallbackIndexRef.current = 0;
+    runFallbackStep(useAgentStore.getState(), fallbackStepsRef, fallbackIndexRef, fallbackTimerRef, setLatestDiff);
+  }, [
+    appendTerminalOutput,
+    autonomyMode,
+    isSpecApproved,
+    resetRun,
+    setActiveTab,
+    setAgentStatus,
+    setCurrentMilestone,
+    specContent
+  ]);
+
+  const handleApproveExecutionGate = useCallback(async () => {
+    if (agentStatus !== "awaiting_approval") {
+      return;
+    }
+
+    appendTerminalOutput(stampLog("gate", "Approval received. Resuming execution."));
+    setPendingDiff(null);
+
+    if (isTauriRuntime()) {
+      await approveAgentAction();
+      return;
+    }
+
+    setAgentStatus("executing");
+    runFallbackStep(useAgentStore.getState(), fallbackStepsRef, fallbackIndexRef, fallbackTimerRef, setLatestDiff);
+  }, [agentStatus, appendTerminalOutput, setAgentStatus, setPendingDiff]);
+
+  const handleEmergencyStop = useCallback(async () => {
+    clearFallbackTimer(fallbackTimerRef);
+    setAgentStatus("halted");
+    setExecutionSummary("Execution stopped by the operator.");
+    setPendingDiff(null);
+    appendTerminalOutput(stampLog("halt", "Emergency stop triggered. Agent loop is paused."));
+
+    if (isTauriRuntime()) {
+      await emergencyStop();
+    }
+  }, [appendTerminalOutput, setAgentStatus, setExecutionSummary, setPendingDiff]);
+
+  const handleCommandSearchChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => setCommandSearch(event.target.value),
+    []
+  );
+
+  const closeWorkspaceSearch = useCallback(() => {
+    setIsSearchOpen(false);
+    setCommandSearch("");
+  }, []);
+
+  const handleImportTargetChange = useCallback((target: DocumentTarget) => {
+    setImportTarget(target);
+  }, []);
+
+  const handleSpecSelect = useCallback(
+    (event: ChangeEvent<HTMLTextAreaElement>) => {
+      const { selectionStart, selectionEnd, value } = event.target;
+      setSelectedSpecRange(
+        selectionStart === selectionEnd
+          ? null
+          : {
+              start: selectionStart,
+              end: selectionEnd,
+              text: value.slice(selectionStart, selectionEnd)
+            }
+      );
+    },
+    [setSelectedSpecRange]
+  );
+
+  const handleOpenImportFile = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleOpenWorkspaceFolder = useCallback(async () => {
+    if (isTauriRuntime()) {
+      try {
+        const workspaceFolder = await openWorkspaceFolder();
+
+        if (!workspaceFolder) {
+          return;
+        }
+
+        const nextWorkspaceFiles = Object.fromEntries(
+          Object.entries(workspaceFolder.filePaths).map(([path, sourcePath]) => [
+            path,
+            {
+              kind: "desktop",
+              sourcePath,
+              fileName: path.split("/").slice(-1)[0] ?? path
+            } satisfies WorkspaceFileSource
+          ])
+        );
+
+        applyWorkspaceSelection({
+          rootName: workspaceFolder.rootName,
+          entries: workspaceFolder.entries,
+          ignoredFileCount: workspaceFolder.ignoredFileCount,
+          files: nextWorkspaceFiles,
+          prdDocument: workspaceFolder.prdDocument,
+          specDocument: workspaceFolder.specDocument
+        });
+        return;
+      } catch (error) {
+        setWorkspaceNotice(
+          error instanceof Error
+            ? `Workspace import failed: ${error.message}`
+            : "Workspace import failed."
+        );
+        return;
+      }
+    }
+
+    const pickDirectory = getDirectoryPicker();
+
+    if (pickDirectory) {
+      try {
+        const directoryHandle = await pickDirectory({ mode: "read" });
+        await importWorkspaceFiles(await collectWorkspaceFiles(directoryHandle));
+        return;
+      } catch (error) {
+        if (isDirectoryPickerAbort(error)) {
+          return;
+        }
+      }
+    }
+
+    folderInputRef.current?.click();
+  }, [applyWorkspaceSelection, importWorkspaceFiles]);
+
+  const handleRefresh = useCallback(() => {
+    void refreshDiagnostics();
+  }, [refreshDiagnostics]);
+
+  const handlePathImportClick = useCallback(() => {
+    void handlePathImport();
+  }, [handlePathImport]);
+
+  const handleStartBuildClick = useCallback(() => {
+    void handleStartBuild();
+  }, [handleStartBuild]);
+
+  const handleApproveExecutionGateClick = useCallback(() => {
+    void handleApproveExecutionGate();
+  }, [handleApproveExecutionGate]);
+
+  const handleEmergencyStopClick = useCallback(() => {
+    void handleEmergencyStop();
+  }, [handleEmergencyStop]);
+
+  const handleWorkspaceFileOpenClick = useCallback(
+    (path: string) => {
+      void handleWorkspaceFileOpen(path);
+    },
+    [handleWorkspaceFileOpen]
+  );
+
+  const handlePrdContentChange = useCallback(
+    (value: string) => setPrdContent(value, prdPath),
+    [prdPath, setPrdContent]
+  );
+
+  const handleSpecContentChange = useCallback(
+    (value: string) => setSpecContent(value, specPath),
+    [setSpecContent, specPath]
+  );
 
   useEffect(() => {
+    if (hasInitializedDocumentsRef.current) {
+      return;
+    }
+
+    hasInitializedDocumentsRef.current = true;
     startTransition(() => {
-      project.setPrdContent(bundledPrd, "docs/PRD.md");
-      project.setSpecContent(bundledSpec, "docs/SPEC.md");
+      setPrdContent(bundledPrd, "docs/PRD.md");
+      setSpecContent(bundledSpec, "docs/SPEC.md");
     });
-  }, []);
+  }, [setPrdContent, setSpecContent]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) {
@@ -123,15 +676,78 @@ function App() {
   }, [resolvedTheme]);
 
   useEffect(() => {
-    void refreshDiagnostics(settings.environment);
-  }, []);
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing) {
+        return;
+      }
+
+      const isFindShortcut =
+        (event.ctrlKey || event.metaKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "f";
+
+      if (isFindShortcut) {
+        event.preventDefault();
+
+        if (!isSettingsRoute) {
+          setIsSearchOpen((currentValue) => {
+            if (currentValue) {
+              setCommandSearch("");
+              return false;
+            }
+
+            return true;
+          });
+        }
+
+        return;
+      }
+
+      if (event.key === "Escape" && isSearchOpen) {
+        event.preventDefault();
+        closeWorkspaceSearch();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [closeWorkspaceSearch, isSearchOpen, isSettingsRoute]);
+
+  useEffect(() => {
+    if (isSettingsRoute && isSearchOpen) {
+      closeWorkspaceSearch();
+    }
+  }, [closeWorkspaceSearch, isSearchOpen, isSettingsRoute]);
+
+  useEffect(() => {
+    if (!isSearchOpen || isSettingsRoute) {
+      return;
+    }
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    });
+
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [isSearchOpen, isSettingsRoute]);
+
+  useEffect(() => {
+    if (hasScannedEnvironmentRef.current) {
+      return;
+    }
+
+    hasScannedEnvironmentRef.current = true;
+    void refreshDiagnostics(environment);
+  }, [environment, refreshDiagnostics]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     void subscribeToAgentEvents({
-      onLine: (line) => agent.appendTerminalOutput(line),
+      onLine: appendTerminalOutput,
       onState: (payload) => {
-        agent.applyEvent(payload);
+        applyAgentEvent(payload);
         if (payload.pendingDiff) {
           setLatestDiff(payload.pendingDiff);
         }
@@ -144,213 +760,7 @@ function App() {
       unlisten?.();
       clearFallbackTimer(fallbackTimerRef);
     };
-  }, []);
-
-  async function refreshDiagnostics(previousEnvironment?: EnvironmentStatus) {
-    const [environment, workspaceEntries, diff] = await Promise.all([
-      runEnvironmentScan({
-        claudePath: settings.claudePath,
-        codexPath: settings.codexPath
-      }).catch(() => previousEnvironment ?? settings.environment),
-      getWorkspaceSnapshot().catch(() => settings.workspaceEntries),
-      getGitDiff().catch(() => DEFAULT_PENDING_DIFF)
-    ]);
-
-    settings.setEnvironment(environment);
-
-    if (!hasOpenedWorkspaceFolder) {
-      settings.setWorkspaceEntries(workspaceEntries);
-    }
-
-    setLatestDiff(diff);
-  }
-
-  async function handlePathImport() {
-    setIsImporting(true);
-    setImportError("");
-
-    try {
-      assignDocument(importTarget, await parseDocument(importPath), importPath);
-    } catch (error) {
-      setImportError(error instanceof Error ? error.message : "Unable to parse the requested document.");
-    } finally {
-      setIsImporting(false);
-    }
-  }
-
-  async function handleFileSelection(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] as ImportableFile | undefined;
-
-    if (!file) {
-      return;
-    }
-
-    try {
-      const document = await parseWorkspaceDocument(file);
-      assignDocument(importTarget, document.content, document.sourcePath);
-      setImportError("");
-    } catch (error) {
-      setImportError(error instanceof Error ? error.message : "The selected file could not be imported.");
-    } finally {
-      event.target.value = "";
-    }
-  }
-
-  async function handleWorkspaceFolderSelection(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []) as ImportableFile[];
-
-    if (files.length === 0) {
-      return;
-    }
-
-    const filteredFiles = await filterWorkspaceFiles(files);
-    const snapshot = buildWorkspaceImportSnapshot(filteredFiles);
-    const matches = findProjectDocuments(filteredFiles);
-    const loadedDocuments: string[] = [];
-    const ignoredFileCount = files.length - filteredFiles.length;
-    const nextWorkspaceFiles = filteredFiles.reduce<Record<string, ImportableFile>>((accumulator, file) => {
-      const normalizedPath = normalizeWorkspacePath(file.webkitRelativePath || file.name, snapshot.rootName);
-      accumulator[normalizedPath] = file;
-      return accumulator;
-    }, {});
-
-    settings.setWorkspaceEntries(snapshot.entries);
-    setWorkspaceRootName(snapshot.rootName);
-    setHasOpenedWorkspaceFolder(true);
-    setWorkspaceFiles(nextWorkspaceFiles);
-
-    try {
-      if (matches.prdFile) {
-        const document = await parseWorkspaceDocument(matches.prdFile);
-        project.setPrdContent(document.content, document.sourcePath);
-        loadedDocuments.push(matches.prdFile.name);
-      }
-
-      if (matches.specFile) {
-        const document = await parseWorkspaceDocument(matches.specFile);
-        project.setSpecContent(document.content, document.sourcePath);
-        loadedDocuments.push(matches.specFile.name);
-      }
-
-      if (loadedDocuments.length > 0) {
-        setWorkspaceNotice(
-          `Loaded ${loadedDocuments.join(" and ")} from ${snapshot.rootName}.${ignoredFileCount > 0 ? ` Ignored ${ignoredFileCount} file(s) from .gitignore.` : ""}`
-        );
-        agent.appendTerminalOutput(
-          stampLog("workspace", `Loaded workspace folder ${snapshot.rootName} and detected ${loadedDocuments.join(", ")}.`)
-        );
-      } else {
-        setWorkspaceNotice(
-          `${snapshot.rootName} opened successfully, but no matching PRD/spec files were found.${ignoredFileCount > 0 ? ` Ignored ${ignoredFileCount} file(s) from .gitignore.` : ""}`
-        );
-      }
-    } catch (error) {
-      setWorkspaceNotice(
-        error instanceof Error
-          ? `${snapshot.rootName} opened, but document parsing failed: ${error.message}`
-          : `${snapshot.rootName} opened, but one of the detected documents could not be parsed.`
-      );
-    } finally {
-      event.target.value = "";
-    }
-  }
-
-  async function handleWorkspaceFileOpen(path: string) {
-    const file = workspaceFiles[path];
-
-    if (!file) {
-      setWorkspaceNotice(`The file ${path} is not available in the active workspace snapshot.`);
-      return;
-    }
-
-    if (!isOpenableTextFile(file)) {
-      setWorkspaceNotice(`${file.name} is not an openable text/code file.`);
-      return;
-    }
-
-    const document = await parseWorkspaceTextFile(file);
-    project.openEditorTab({
-      title: file.name,
-      path,
-      content: document.content
-    });
-  }
-
-  function assignDocument(target: DocumentTarget, content: string, path: string) {
-    startTransition(() => {
-      if (target === "prd") {
-        project.setPrdContent(content, path);
-      } else {
-        project.setSpecContent(content, path);
-        project.setSpecPaneMode("edit");
-      }
-    });
-  }
-
-  function handleApproveSpec() {
-    project.approveSpec();
-    agent.appendTerminalOutput(stampLog("review", "Specification approved. Build controls are now armed."));
-  }
-
-  async function handleStartBuild() {
-    if (!project.isSpecApproved) {
-      return;
-    }
-
-    clearFallbackTimer(fallbackTimerRef);
-    agent.resetRun();
-    project.setActiveTab("execute");
-    agent.setStatus("executing");
-    agent.setCurrentMilestone("Pre-flight Check");
-    agent.appendTerminalOutput(stampLog("build", "Starting spec-driven build run."));
-
-    if (isTauriRuntime()) {
-      try {
-        await startAgentRun(project.specContent, project.autonomyMode);
-        return;
-      } catch (error) {
-        agent.appendTerminalOutput(
-          stampLog(
-            "error",
-            `${error instanceof Error ? error.message : "Agent startup failed."} Falling back to the local simulator.`
-          )
-        );
-      }
-    }
-
-    fallbackStepsRef.current = buildFallbackSteps(project.autonomyMode);
-    fallbackIndexRef.current = 0;
-    runFallbackStep(agent, fallbackStepsRef, fallbackIndexRef, fallbackTimerRef, setLatestDiff);
-  }
-
-  async function handleApproveExecutionGate() {
-    if (agent.status !== "awaiting_approval") {
-      return;
-    }
-
-    agent.appendTerminalOutput(stampLog("gate", "Approval received. Resuming execution."));
-    agent.setPendingDiff(null);
-
-    if (isTauriRuntime()) {
-      await approveAgentAction();
-      return;
-    }
-
-    agent.setStatus("executing");
-    runFallbackStep(agent, fallbackStepsRef, fallbackIndexRef, fallbackTimerRef, setLatestDiff);
-  }
-
-  async function handleEmergencyStop() {
-    clearFallbackTimer(fallbackTimerRef);
-    agent.setStatus("halted");
-    agent.setExecutionSummary("Execution stopped by the operator.");
-    agent.setPendingDiff(null);
-    agent.appendTerminalOutput(stampLog("halt", "Emergency stop triggered. Agent loop is paused."));
-
-    if (isTauriRuntime()) {
-      await emergencyStop();
-    }
-  }
+  }, [appendTerminalOutput, applyAgentEvent]);
 
   return (
     <main className="app-shell">
@@ -375,113 +785,120 @@ function App() {
       </aside>
 
       <div className="app-frame">
-        <header className="topbar">
-          {isSettingsRoute ? (
+        {isSettingsRoute ? (
+          <header className="topbar">
             <div className="topbar-title-block">
               <p className="eyebrow">Navigation</p>
               <h1>Settings</h1>
             </div>
-          ) : (
+
+            <div className="topbar-actions">
+              <span className={`status-pill status-pill-${agentStatus}`}>{agentStatusLabel}</span>
+              <button className="ghost-button" onClick={handleRefresh} type="button">
+                Refresh
+              </button>
+            </div>
+          </header>
+        ) : null}
+
+        {!isSettingsRoute && isSearchOpen ? (
+          <div className="floating-search">
             <div className="topbar-search">
               <Search />
               <input
                 aria-label="Search workspace"
-                onChange={(event) => setCommandSearch(event.target.value)}
+                onChange={handleCommandSearchChange}
                 placeholder="Search SpecForge"
+                ref={searchInputRef}
                 value={commandSearch}
               />
-              <span className="topbar-kbd">Ctrl+K</span>
+              <span className="topbar-kbd">Esc</span>
             </div>
-          )}
-
-          <div className="topbar-actions">
-            <span className={`status-pill status-pill-${agent.status}`}>{formatAgentStatus(agent.status)}</span>
-            <button className="ghost-button" onClick={() => void refreshDiagnostics()} type="button">
-              Refresh
-            </button>
-            {!isSettingsRoute ? (
-              <button
-                className="primary-button"
-                disabled={!project.isSpecApproved}
-                onClick={() => void handleStartBuild()}
-                type="button"
-              >
-                <PlaySolid />
-                Start Build
-              </button>
-            ) : null}
           </div>
-        </header>
+        ) : null}
 
         <Routes>
           <Route
             element={
               <div className="workspace-grid">
+                <div className="workspace-toolbar">
+                  <div className="topbar-actions">
+                    <span className={`status-pill status-pill-${agentStatus}`}>{agentStatusLabel}</span>
+                    <button className="ghost-button" onClick={handleRefresh} type="button">
+                      Refresh
+                    </button>
+                    <button
+                      className="primary-button"
+                      disabled={!isSpecApproved}
+                      onClick={handleStartBuildClick}
+                      type="button"
+                    >
+                      <PlaySolid />
+                      Start Build
+                    </button>
+                  </div>
+                </div>
+
                 <ControlColumn
-                  annotations={project.annotations}
-                  autonomyMode={project.autonomyMode}
+                  autonomyMode={autonomyMode}
                   fileInputRef={fileInputRef}
                   importError={importError}
                   importPath={importPath}
                   importTarget={importTarget}
                   isImporting={isImporting}
-                  isSpecApproved={project.isSpecApproved}
-                  onApplyRefinement={() => project.applyRefinement()}
+                  isSpecApproved={isSpecApproved}
+                  onApplyRefinement={applyRefinement}
                   onApproveSpec={handleApproveSpec}
                   onFileChange={handleFileSelection}
-                  onFilePick={() => fileInputRef.current?.click()}
+                  onFilePick={handleOpenImportFile}
                   onImportPathChange={setImportPath}
-                  onImportTargetChange={setImportTarget}
-                  onModeChange={project.setAutonomyMode}
-                  onModelChange={project.setSelectedModel}
-                  onPathImport={() => void handlePathImport()}
-                  onReviewPromptChange={project.setReviewPrompt}
-                  reviewPrompt={project.reviewPrompt}
-                  selectedModel={project.selectedModel}
-                  selectedSpecText={project.selectedSpecRange?.text.trim() || ""}
+                  onImportTargetChange={handleImportTargetChange}
+                  onModeChange={setAutonomyMode}
+                  onModelChange={setSelectedModel}
+                  onPathImport={handlePathImportClick}
+                  onReviewPromptChange={setReviewPrompt}
+                  reviewPrompt={reviewPrompt}
+                  selectedModel={selectedModel}
+                  selectedSpecText={selectedSpecText}
                 />
 
                 <MainWorkspace
-                  activeTab={project.activeTab}
-                  agentStatus={agent.status}
-                  executionSummary={agent.executionSummary}
-                  onEditorTabChange={project.updateEditorTabContent}
-                  onEditorTabClose={project.closeEditorTab}
-                  onActiveTabChange={project.setActiveTab}
-                  onApproveExecutionGate={() => void handleApproveExecutionGate()}
-                  onEmergencyStop={() => void handleEmergencyStop()}
-                  openEditorTabs={project.openEditorTabs}
-                  onPrdContentChange={(value) => project.setPrdContent(value, project.prdPath)}
-                  onPrdPaneModeChange={project.setPrdPaneMode}
-                  onSpecContentChange={(value) => project.setSpecContent(value, project.specPath)}
-                  onSpecPaneModeChange={project.setSpecPaneMode}
-                  onSpecSelect={(event) => {
-                    const { selectionStart, selectionEnd, value } = event.target;
-                    project.setSelectedSpecRange(
-                      selectionStart === selectionEnd
-                        ? null
-                        : {
-                            start: selectionStart,
-                            end: selectionEnd,
-                            text: value.slice(selectionStart, selectionEnd)
-                          }
-                    );
-                  }}
-                  prdContent={project.prdContent}
-                  prdPaneMode={project.prdPaneMode}
-                  prdPath={project.prdPath}
-                  specContent={project.specContent}
-                  specPaneMode={project.specPaneMode}
-                  specPath={project.specPath}
-                  terminalOutput={agent.terminalOutput}
+                  activeTab={activeTab}
+                  agentStatus={agentStatus}
+                  executionSummary={executionSummary}
+                  onEditorTabChange={updateEditorTabContent}
+                  onEditorTabClose={closeEditorTab}
+                  onActiveTabChange={setActiveTab}
+                  onApproveExecutionGate={handleApproveExecutionGateClick}
+                  onEmergencyStop={handleEmergencyStopClick}
+                  openEditorTabs={openEditorTabs}
+                  onPrdContentChange={handlePrdContentChange}
+                  onPrdPaneModeChange={setPrdPaneMode}
+                  onSpecContentChange={handleSpecContentChange}
+                  onSpecPaneModeChange={setSpecPaneMode}
+                  onSpecSelect={handleSpecSelect}
+                  prdContent={prdContent}
+                  prdPaneMode={prdPaneMode}
+                  prdPath={prdPath}
+                  specContent={specContent}
+                  specPaneMode={specPaneMode}
+                  specPath={specPath}
+                  terminalOutput={terminalOutput}
                   visibleDiff={visibleDiff}
+                  workspaceRootName={workspaceRootName}
                 />
 
                 <InspectorColumn
+                  emptyStateMessage={
+                    deferredSearch.trim()
+                      ? `No files match "${deferredSearch.trim()}".`
+                      : "Open a folder to scan its documents and build a workspace tree."
+                  }
                   folderInputRef={folderInputRef}
-                  onFileOpen={(path) => void handleWorkspaceFileOpen(path)}
+                  hasWorkspaceEntries={workspaceEntries.length > 0}
+                  onFileOpen={handleWorkspaceFileOpenClick}
                   onFolderChange={handleWorkspaceFolderSelection}
-                  onOpenFolder={() => folderInputRef.current?.click()}
+                  onOpenFolder={handleOpenWorkspaceFolder}
                   workspaceEntries={filteredWorkspaceEntries}
                   workspaceNotice={workspaceNotice}
                   workspaceRootName={workspaceRootName}
@@ -494,14 +911,15 @@ function App() {
             element={
               <div className="settings-route">
                 <SettingsView
-                  claudePath={settings.claudePath}
-                  codexPath={settings.codexPath}
-                  environment={settings.environment}
-                  onClaudePathChange={settings.setClaudePath}
-                  onCodexPathChange={settings.setCodexPath}
-                  onRefresh={() => void refreshDiagnostics()}
-                  onThemeChange={settings.setTheme}
-                  theme={settings.theme}
+                  annotations={annotations}
+                  claudePath={claudePath}
+                  codexPath={codexPath}
+                  environment={environment}
+                  onClaudePathChange={setClaudePath}
+                  onCodexPathChange={setCodexPath}
+                  onRefresh={handleRefresh}
+                  onThemeChange={setTheme}
+                  theme={theme}
                 />
               </div>
             }
@@ -512,6 +930,56 @@ function App() {
       </div>
     </main>
   );
+}
+
+interface DirectoryPickerOptions {
+  mode?: "read" | "readwrite";
+}
+
+type DirectoryPicker = (options?: DirectoryPickerOptions) => Promise<FileSystemDirectoryHandle>;
+
+function getDirectoryPicker(): DirectoryPicker | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const maybeWindow = window as Window & {
+    showDirectoryPicker?: DirectoryPicker;
+  };
+
+  return maybeWindow.showDirectoryPicker?.bind(window) ?? null;
+}
+
+async function collectWorkspaceFiles(
+  directoryHandle: FileSystemDirectoryHandle,
+  parentPath = directoryHandle.name
+): Promise<ImportableFile[]> {
+  const files: ImportableFile[] = [];
+  const asyncDirectory = directoryHandle as unknown as AsyncIterable<
+    [string, FileSystemDirectoryHandle | FileSystemFileHandle]
+  >;
+
+  for await (const [entryName, entry] of asyncDirectory) {
+    const relativePath = parentPath ? `${parentPath}/${entryName}` : entryName;
+
+    if (entry.kind === "directory") {
+      files.push(...(await collectWorkspaceFiles(entry, relativePath)));
+      continue;
+    }
+
+    const file = (await entry.getFile()) as ImportableFile;
+    Object.defineProperty(file, "webkitRelativePath", {
+      configurable: true,
+      value: relativePath
+    });
+    files.push(file);
+  }
+
+  return files;
+}
+
+function isDirectoryPickerAbort(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
 function resolveTheme(theme: ThemeMode, systemPrefersDark: boolean) {
@@ -680,5 +1148,68 @@ function normalizeWorkspacePath(path: string, rootName: string) {
 
   return normalizedPath;
 }
+
+function isOpenableWorkspacePath(path: string) {
+  const normalizedPath = path.toLowerCase();
+
+  if (normalizedPath.endsWith("/.gitignore") || normalizedPath === ".gitignore") {
+    return true;
+  }
+
+  return OPENABLE_TEXT_EXTENSIONS.has(normalizedPath.split(".").pop() ?? "");
+}
+
+function filterWorkspaceEntries(
+  entries: ReturnType<typeof useSettingsStore.getState>["workspaceEntries"],
+  query: string
+) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return entries;
+  }
+
+  const visiblePaths = new Set<string>();
+
+  for (const entry of entries) {
+    const normalizedPath = entry.path.toLowerCase();
+    const normalizedName = entry.name.toLowerCase();
+
+    if (
+      !normalizedPath.includes(normalizedQuery) &&
+      !normalizedName.includes(normalizedQuery)
+    ) {
+      continue;
+    }
+
+    let currentPath = entry.path;
+
+    while (currentPath) {
+      visiblePaths.add(currentPath);
+      const nextSlashIndex = currentPath.lastIndexOf("/");
+      currentPath = nextSlashIndex >= 0 ? currentPath.slice(0, nextSlashIndex) : "";
+    }
+  }
+
+  return entries.filter((entry) => visiblePaths.has(entry.path));
+}
+
+const OPENABLE_TEXT_EXTENSIONS = new Set([
+  "css",
+  "gitignore",
+  "html",
+  "js",
+  "json",
+  "jsx",
+  "lock",
+  "md",
+  "rs",
+  "toml",
+  "ts",
+  "tsx",
+  "txt",
+  "yaml",
+  "yml"
+]);
 
 export default App;

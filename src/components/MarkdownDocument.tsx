@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, memo, useMemo } from "react";
 
 type MarkdownBlock =
   | { type: "heading"; level: 1 | 2 | 3; text: string }
@@ -11,8 +11,8 @@ interface MarkdownDocumentProps {
   content: string;
 }
 
-export function MarkdownDocument({ content }: MarkdownDocumentProps) {
-  const blocks = parseMarkdown(content);
+export const MarkdownDocument = memo(function MarkdownDocument({ content }: MarkdownDocumentProps) {
+  const blocks = useMemo(() => parseMarkdown(content), [content]);
 
   return (
     <div className="markdown-document">
@@ -78,7 +78,7 @@ export function MarkdownDocument({ content }: MarkdownDocumentProps) {
       })}
     </div>
   );
-}
+});
 
 function parseMarkdown(content: string): MarkdownBlock[] {
   const lines = content.replace(/\r/g, "").split("\n");
