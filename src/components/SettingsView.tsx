@@ -7,6 +7,7 @@ import {
   Terminal,
   WarningTriangle
 } from "iconoir-react";
+import { memo } from "react";
 
 import type { EnvironmentStatus, ThemeMode } from "../types";
 
@@ -21,7 +22,7 @@ interface SettingsViewProps {
   onRefresh: () => void;
 }
 
-export function SettingsView({
+export const SettingsView = memo(function SettingsView({
   environment,
   theme,
   claudePath,
@@ -113,6 +114,19 @@ export function SettingsView({
 
         <article className="settings-panel settings-panel-wide">
           <div className="section-title">
+            <CheckCircle />
+            <span>Review Flow Defaults</span>
+          </div>
+          <div className="settings-list">
+            <div>PRD and spec files are picked separately from the control deck.</div>
+            <div>Stepped and milestone modes pause execution at approval boundaries.</div>
+            <div>God Mode runs end to end unless a fatal error stops the agent loop.</div>
+            <div>The Dracula theme remains the workspace default and is managed here.</div>
+          </div>
+        </article>
+
+        <article className="settings-panel settings-panel-wide">
+          <div className="section-title">
             <Database />
             <span>Workspace Conventions</span>
           </div>
@@ -132,9 +146,13 @@ export function SettingsView({
       </div>
     </section>
   );
-}
+});
 
-function EnvironmentCard({ entry }: { entry: EnvironmentStatus["claude"] }) {
+const EnvironmentCard = memo(function EnvironmentCard({
+  entry
+}: {
+  entry: EnvironmentStatus["claude"];
+}) {
   return (
     <article className="health-card">
       <div className="health-title">
@@ -148,7 +166,7 @@ function EnvironmentCard({ entry }: { entry: EnvironmentStatus["claude"] }) {
       {entry.path ? <code>{entry.path}</code> : null}
     </article>
   );
-}
+});
 
 function formatHealth(status: EnvironmentStatus["claude"]["status"]) {
   if (status === "found") {
@@ -161,3 +179,5 @@ function formatHealth(status: EnvironmentStatus["claude"]["status"]) {
 
   return "Missing";
 }
+
+export default SettingsView;

@@ -1,6 +1,7 @@
 import {
   CheckCircle,
   CodeBracketsSquare,
+  Xmark,
   Terminal,
   XmarkCircle
 } from "iconoir-react";
@@ -10,12 +11,14 @@ import { DiffPreview } from "./DiffPreview";
 import { MarkdownDocument } from "./MarkdownDocument";
 import type {
   AgentStatus,
+  EditorTab,
   PaneMode,
   WorkspaceTab
 } from "../types";
 
 interface MainWorkspaceProps {
   activeTab: WorkspaceTab;
+  openEditorTabs: EditorTab[];
   prdPath: string;
   specPath: string;
   prdContent: string;
@@ -32,12 +35,15 @@ interface MainWorkspaceProps {
   onPrdContentChange: (value: string) => void;
   onSpecContentChange: (value: string) => void;
   onSpecSelect: (event: ChangeEvent<HTMLTextAreaElement>) => void;
+  onEditorTabChange: (path: string, content: string) => void;
+  onEditorTabClose: (path: string) => void;
   onApproveExecutionGate: () => void;
   onEmergencyStop: () => void;
 }
 
 export function MainWorkspace({
   activeTab,
+  openEditorTabs,
   prdPath,
   specPath,
   prdContent,
@@ -54,9 +60,13 @@ export function MainWorkspace({
   onPrdContentChange,
   onSpecContentChange,
   onSpecSelect,
+  onEditorTabChange,
+  onEditorTabClose,
   onApproveExecutionGate,
   onEmergencyStop
 }: MainWorkspaceProps) {
+  const activeEditorTab = openEditorTabs.find((entry) => entry.id === activeTab);
+
   return (
     <section className="main-column panel">
       <div className="tabbar">
@@ -74,6 +84,28 @@ export function MainWorkspace({
         >
           Execute
         </button>
+        {openEditorTabs.map((tab) => (
+          <div
+            className={tab.id === activeTab ? "workspace-file-tab workspace-file-tab-active" : "workspace-file-tab"}
+            key={tab.id}
+          >
+            <button
+              className="workspace-file-tab-button"
+              onClick={() => onActiveTabChange(tab.id)}
+              type="button"
+            >
+              {tab.title}
+            </button>
+            <button
+              aria-label={`Close ${tab.title}`}
+              className="workspace-file-tab-close"
+              onClick={() => onEditorTabClose(tab.path)}
+              type="button"
+            >
+              <Xmark />
+            </button>
+          </div>
+        ))}
       </div>
 
       {activeTab === "review" ? (
@@ -153,7 +185,7 @@ export function MainWorkspace({
             )}
           </article>
         </div>
-      ) : (
+      ) : activeTab === "execute" ? (
         <div className="execution-layout">
           <section className="console-panel">
             <div className="section-title">
@@ -198,6 +230,36 @@ export function MainWorkspace({
                 "Diff output stays visible across approval gates so the next mutation can be reviewed in context."}
             </p>
           </section>
+        </div>
+      ) : activeEditorTab ? (
+        <div className="file-editor-layout">
+          <article className="document-panel">
+            <div className="document-header">
+              <div>
+                <p className="eyebrow">Workspace File</p>
+                <h2>{activeEditorTab.path}</h2>
+              </div>
+            </div>
+            <textarea
+              className="document-editor"
+              onChange={(event) => onEditorTabChange(activeEditorTab.path, event.target.value)}
+              value={activeEditorTab.content}
+            />
+          </article>
+        </div>
+      ) : (
+        <div className="file-editor-layout">
+          <article className="document-panel">
+            <div className="document-header">
+              <div>
+                <p className="eyebrow">Workspace File</p>
+                <h2>No file selected</h2>
+              </div>
+            </div>
+            <div className="document-body">
+              <p className="muted-copy">Open a text or code file from the right sidebar to edit it here.</p>
+            </div>
+          </article>
         </div>
       )}
     </section>

@@ -1,3 +1,5 @@
+import ignore from "ignore";
+
 import { parseDocument } from "./runtime";
 
 import type { WorkspaceEntry } from "../types";
@@ -75,6 +77,25 @@ export function findProjectDocuments(files: ImportableFile[]): ProjectDocumentMa
   };
 }
 
+export async function filterWorkspaceFiles(files: ImportableFile[]) {
+  const gitignoreFile = files.find(
+    (file) => normalizePath(getRelativeFilePath(file)).toLowerCase() === ".gitignore"
+  );
+
+  if (!gitignoreFile) {
+    return files;
+  }
+
+  const matcher = ignore();
+  const gitignoreContents = await gitignoreFile.text();
+  matcher.add(gitignoreContents);
+
+  return files.filter((file) => {
+    const normalizedPath = normalizePath(getRelativeFilePath(file));
+    return normalizedPath === ".gitignore" || !matcher.ignores(normalizedPath);
+  });
+}
+
 export async function parseWorkspaceDocument(
   file: ImportableFile
 ): Promise<ParsedWorkspaceDocument> {
@@ -95,6 +116,40 @@ export async function parseWorkspaceDocument(
     content: await file.text(),
     sourcePath: file.path ?? getRelativeFilePath(file)
   };
+}
+
+export async function parseWorkspaceTextFile(file: ImportableFile) {
+  return {
+    content: await file.text(),
+    sourcePath: file.path ?? getRelativeFilePath(file)
+  };
+}
+
+export function isOpenableTextFile(file: ImportableFile) {
+  const extension = getExtension(file.name);
+  const textExtensions = new Set([
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "json",
+    "css",
+    "html",
+    "md",
+    "txt",
+    "toml",
+    "rs",
+    "yml",
+    "yaml",
+    "lock",
+    "gitignore"
+  ]);
+
+  if (file.type.startsWith("text/")) {
+    return true;
+  }
+
+  return textExtensions.has(extension) || file.name.toLowerCase() === ".gitignore";
 }
 
 function pickDocument(files: ImportableFile[], expectedNames: string[]) {

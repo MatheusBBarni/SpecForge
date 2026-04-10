@@ -5,7 +5,7 @@ import {
   Spark,
   Upload
 } from "iconoir-react";
-import type { ChangeEvent, RefObject } from "react";
+import { memo, type ChangeEvent, type RefObject } from "react";
 
 import type {
   AutonomyMode,
@@ -39,7 +39,7 @@ interface ControlColumnProps {
   onApproveSpec: () => void;
 }
 
-export function ControlColumn({
+export const ControlColumn = memo(function ControlColumn({
   selectedModel,
   autonomyMode,
   selectedSpecText,
@@ -62,6 +62,16 @@ export function ControlColumn({
   onApplyRefinement,
   onApproveSpec
 }: ControlColumnProps) {
+  const handlePrdPick = () => {
+    onImportTargetChange("prd");
+    onFilePick();
+  };
+
+  const handleSpecPick = () => {
+    onImportTargetChange("spec");
+    onFilePick();
+  };
+
   return (
     <section className="control-column panel">
       <div className="panel-header">
@@ -75,27 +85,21 @@ export function ControlColumn({
         </div>
       </div>
 
-      <div className="hero-card">
-        <div>
-          <p className="eyebrow">Current Runbook</p>
-          <h2>PRD to technical spec, then agent execution.</h2>
-        </div>
-        <p className="hero-copy">
-          The workspace keeps the source requirements and approved specification side by side,
-          then moves directly into milestone-based execution with diff gates and a kill switch.
-        </p>
-      </div>
-
       <div className="control-section">
         <div className="section-title">
           <Upload />
           <span>Ingestion</span>
         </div>
         <div className="dropzone">
-          <p>Load Markdown or PDF into the PRD or spec pane.</p>
-          <button className="ghost-button" onClick={onFilePick} type="button">
-            Choose File
-          </button>
+          <p>Load Markdown or PDF directly into PRD or spec.</p>
+          <div className="button-row">
+            <button className="ghost-button" onClick={handlePrdPick} type="button">
+              Choose PRD File
+            </button>
+            <button className="ghost-button" onClick={handleSpecPick} type="button">
+              Choose Spec File
+            </button>
+          </div>
           <input
             accept=".md,.pdf"
             className="hidden-file-input"
@@ -116,22 +120,18 @@ export function ControlColumn({
             value={importPath}
           />
         </div>
-
-        <div className="segmented-control">
-          <button
-            className={importTarget === "prd" ? "segment-active" : ""}
-            onClick={() => onImportTargetChange("prd")}
-            type="button"
+        <div className="field-stack">
+          <label className="field-label" htmlFor="path-target">
+            Load target
+          </label>
+          <select
+            id="path-target"
+            onChange={(event) => onImportTargetChange(event.target.value as DocumentTarget)}
+            value={importTarget}
           >
-            Load into PRD
-          </button>
-          <button
-            className={importTarget === "spec" ? "segment-active" : ""}
-            onClick={() => onImportTargetChange("spec")}
-            type="button"
-          >
-            Load into Spec
-          </button>
+            <option value="prd">PRD</option>
+            <option value="spec">Spec</option>
+          </select>
         </div>
 
         <button
@@ -150,53 +150,34 @@ export function ControlColumn({
           <Activity />
           <span>Agent Configuration</span>
         </div>
-
-        <div className="option-grid">
-          {[
-            { id: "gpt-5.4", label: "GPT-5.4", meta: "Highest leverage for implementation" },
-            { id: "claude-3.7", label: "Claude 3.7", meta: "Strong at document expansion" },
-            { id: "hybrid", label: "Hybrid", meta: "Use both CLIs by milestone" }
-          ].map((model) => (
-            <button
-              className={selectedModel === model.id ? "option-card option-card-active" : "option-card"}
-              key={model.id}
-              onClick={() => onModelChange(model.id as ModelId)}
-              type="button"
-            >
-              <span>{model.label}</span>
-              <small>{model.meta}</small>
-            </button>
-          ))}
+        <div className="field-stack">
+          <label className="field-label" htmlFor="selected-model">
+            Agent model
+          </label>
+          <select
+            id="selected-model"
+            onChange={(event) => onModelChange(event.target.value as ModelId)}
+            value={selectedModel}
+          >
+            <option value="gpt-5.4">GPT-5.4</option>
+            <option value="claude-3.7">Claude 3.7</option>
+            <option value="hybrid">Hybrid</option>
+          </select>
         </div>
 
-        <div className="option-grid">
-          {[
-            {
-              id: "stepped",
-              label: "Stepped Approval",
-              meta: "Pause before each write or command"
-            },
-            {
-              id: "milestone",
-              label: "Milestone Approval",
-              meta: "Stop at logical completion boundaries"
-            },
-            {
-              id: "god_mode",
-              label: "God Mode",
-              meta: "Run end to end unless a fatal error occurs"
-            }
-          ].map((mode) => (
-            <button
-              className={autonomyMode === mode.id ? "option-card option-card-active" : "option-card"}
-              key={mode.id}
-              onClick={() => onModeChange(mode.id as AutonomyMode)}
-              type="button"
-            >
-              <span>{mode.label}</span>
-              <small>{mode.meta}</small>
-            </button>
-          ))}
+        <div className="field-stack">
+          <label className="field-label" htmlFor="autonomy-mode">
+            Approval mode
+          </label>
+          <select
+            id="autonomy-mode"
+            onChange={(event) => onModeChange(event.target.value as AutonomyMode)}
+            value={autonomyMode}
+          >
+            <option value="stepped">Stepped Approval</option>
+            <option value="milestone">Milestone Approval</option>
+            <option value="god_mode">God Mode</option>
+          </select>
         </div>
       </div>
 
@@ -206,8 +187,7 @@ export function ControlColumn({
           <span>Inline Refinement</span>
         </div>
         <p className="muted-copy">
-          Highlight text in the spec editor to scope the next revision. The generated change is appended
-          as a new refinement block so the approval chain remains explicit.
+          Highlight text in the spec editor to scope the next revision.
         </p>
 
         <div className="selection-preview">
@@ -238,15 +218,8 @@ export function ControlColumn({
           </button>
         </div>
       </div>
-
-      <div className="note-stack">
-        {annotations.map((annotation) => (
-          <article className={`note-card note-card-${annotation.tone}`} key={annotation.id}>
-            <h3>{annotation.title}</h3>
-            <p>{annotation.body}</p>
-          </article>
-        ))}
-      </div>
     </section>
   );
-}
+});
+
+export default ControlColumn;

@@ -169,6 +169,8 @@ input {
   grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
   min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .topbar {
@@ -227,10 +229,14 @@ input {
   gap: 1rem;
   padding: 0 1.2rem 1.2rem;
   min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  align-items: stretch;
 }
 
 .panel {
   min-height: 0;
+  height: 100%;
   border: 1px solid var(--border-strong);
   border-radius: 1.5rem;
   background: var(--bg-panel);
@@ -245,13 +251,20 @@ input {
   flex-direction: column;
   gap: 1rem;
   padding: 1.2rem;
+  min-height: 0;
+}
+
+.control-column {
   overflow: auto;
+}
+
+.inspector-column {
+  overflow: hidden;
 }
 
 .panel-header,
 .document-header,
-.section-title,
-.tabbar {
+.section-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -612,10 +625,18 @@ input {
 .tabbar {
   padding: 0.7rem 0.8rem;
   border-bottom: 1px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.45rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
 }
 
 .document-grid,
-.execution-layout {
+.execution-layout,
+.file-editor-layout {
   display: grid;
   gap: 1rem;
   padding: 1rem;
@@ -656,6 +677,56 @@ input {
 
 .execution-layout {
   grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.9fr);
+}
+
+.file-editor-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace-file-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
+}
+
+.workspace-file-tab-active {
+  border-color: var(--border-soft);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.workspace-file-tab-button,
+.workspace-file-tab-close {
+  border: 0;
+  background: transparent;
+  color: var(--text-subtle);
+}
+
+.workspace-file-tab-button {
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+}
+
+.workspace-file-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 999px;
+}
+
+.workspace-file-tab-active .workspace-file-tab-button,
+.workspace-file-tab-active .workspace-file-tab-close {
+  color: var(--text-main);
+}
+
+.workspace-file-tab-close:hover,
+.workspace-file-tab-button:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .console-window,
@@ -722,7 +793,8 @@ input {
 .tree-list {
   display: grid;
   gap: 0.25rem;
-  max-height: 18rem;
+  max-height: none;
+  flex: 1;
 }
 
 .tree-entry {
@@ -737,6 +809,25 @@ input {
 .tree-entry:hover {
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-main);
+}
+
+.tree-entry-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.tree-entry-spacer {
+  display: inline-block;
+  width: 1rem;
+  flex: 0 0 1rem;
+}
+
+.inspector-column .inspector-section:first-of-type {
+  flex: 1;
+  min-height: 0;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
 }
 
 .health-card {
@@ -857,7 +948,7 @@ input {
 
   .inspector-column {
     grid-column: 1 / -1;
-    max-height: 24rem;
+    min-height: 18rem;
   }
 }
 
@@ -887,7 +978,8 @@ input {
   .workspace-grid,
   .document-grid,
   .settings-grid,
-  .execution-layout {
+  .execution-layout,
+  .file-editor-layout {
     grid-template-columns: 1fr;
   }
 

@@ -43,8 +43,11 @@ import {
 } from "./lib/runtime";
 import {
   buildWorkspaceImportSnapshot,
+  filterWorkspaceFiles,
   findProjectDocuments,
+  isOpenableTextFile,
   parseWorkspaceDocument,
+  parseWorkspaceTextFile,
   type ImportableFile
 } from "./lib/workspaceImport";
 import { useAgentStore } from "./store/useAgentStore";
@@ -82,6 +85,7 @@ function App() {
     "Open a folder to scan for PRD/spec files and build the workspace tree."
   );
   const [hasOpenedWorkspaceFolder, setHasOpenedWorkspaceFolder] = useState(false);
+  const [workspaceFiles, setWorkspaceFiles] = useState<Record<string, ImportableFile>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const fallbackTimerRef = useRef<number | null>(null);
@@ -199,13 +203,21 @@ function App() {
       return;
     }
 
-    const snapshot = buildWorkspaceImportSnapshot(files);
-    const matches = findProjectDocuments(files);
+    const filteredFiles = await filterWorkspaceFiles(files);
+    const snapshot = buildWorkspaceImportSnapshot(filteredFiles);
+    const matches = findProjectDocuments(filteredFiles);
     const loadedDocuments: string[] = [];
+    const ignoredFileCount = files.length - filteredFiles.length;
+    const nextWorkspaceFiles = filteredFiles.reduce<Record<string, ImportableFile>>((accumulator, file) => {
+      const normalizedPath = normalizeWorkspacePath(file.webkitRelativePath || file.name, snapshot.rootName);
+      accumulator[normalizedPath] = file;
+      return accumulator;
+    }, {});
 
     settings.setWorkspaceEntries(snapshot.entries);
     setWorkspaceRootName(snapshot.rootName);
     setHasOpenedWorkspaceFolder(true);
+    setWorkspaceFiles(nextWorkspaceFiles);
 
     try {
       if (matches.prdFile) {
@@ -221,13 +233,15 @@ function App() {
       }
 
       if (loadedDocuments.length > 0) {
-        setWorkspaceNotice(`Loaded ${loadedDocuments.join(" and ")} from ${snapshot.rootName}.`);
+        setWorkspaceNotice(
+          `Loaded ${loadedDocuments.join(" and ")} from ${snapshot.rootName}.${ignoredFileCount > 0 ? ` Ignored ${ignoredFileCount} file(s) from .gitignore.` : ""}`
+        );
         agent.appendTerminalOutput(
           stampLog("workspace", `Loaded workspace folder ${snapshot.rootName} and detected ${loadedDocuments.join(", ")}.`)
         );
       } else {
         setWorkspaceNotice(
-          `${snapshot.rootName} opened successfully, but no matching PRD/spec files were found.`
+          `${snapshot.rootName} opened successfully, but no matching PRD/spec files were found.${ignoredFileCount > 0 ? ` Ignored ${ignoredFileCount} file(s) from .gitignore.` : ""}`
         );
       }
     } catch (error) {
@@ -239,6 +253,27 @@ function App() {
     } finally {
       event.target.value = "";
     }
+  }
+
+  async function handleWorkspaceFileOpen(path: string) {
+    const file = workspaceFiles[path];
+
+    if (!file) {
+      setWorkspaceNotice(`The file ${path} is not available in the active workspace snapshot.`);
+      return;
+    }
+
+    if (!isOpenableTextFile(file)) {
+      setWorkspaceNotice(`${file.name} is not an openable text/code file.`);
+      return;
+    }
+
+    const document = await parseWorkspaceTextFile(file);
+    project.openEditorTab({
+      title: file.name,
+      path,
+      content: document.content
+    });
   }
 
   function assignDocument(target: DocumentTarget, content: string, path: string) {
@@ -410,9 +445,12 @@ function App() {
                   activeTab={project.activeTab}
                   agentStatus={agent.status}
                   executionSummary={agent.executionSummary}
+                  onEditorTabChange={project.updateEditorTabContent}
+                  onEditorTabClose={project.closeEditorTab}
                   onActiveTabChange={project.setActiveTab}
                   onApproveExecutionGate={() => void handleApproveExecutionGate()}
                   onEmergencyStop={() => void handleEmergencyStop()}
+                  openEditorTabs={project.openEditorTabs}
                   onPrdContentChange={(value) => project.setPrdContent(value, project.prdPath)}
                   onPrdPaneModeChange={project.setPrdPaneMode}
                   onSpecContentChange={(value) => project.setSpecContent(value, project.specPath)}
@@ -441,6 +479,7 @@ function App() {
 
                 <InspectorColumn
                   folderInputRef={folderInputRef}
+                  onFileOpen={(path) => void handleWorkspaceFileOpen(path)}
                   onFolderChange={handleWorkspaceFolderSelection}
                   onOpenFolder={() => folderInputRef.current?.click()}
                   workspaceEntries={filteredWorkspaceEntries}
@@ -630,6 +669,16 @@ function buildFallbackSteps(mode: AutonomyMode): FallbackStep[] {
   );
 
   return steps;
+}
+
+function normalizeWorkspacePath(path: string, rootName: string) {
+  const normalizedPath = path.replace(/\\/g, "/").replace(/^\/+/, "");
+
+  if (normalizedPath.startsWith(`${rootName}/`)) {
+    return normalizedPath.slice(rootName.length + 1);
+  }
+
+  return normalizedPath;
 }
 
 export default App;

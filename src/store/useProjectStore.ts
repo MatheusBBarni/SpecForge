@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import type {
   AutonomyMode,
+  EditorTab,
   ModelId,
   PaneMode,
   SelectionRange,
@@ -23,6 +24,7 @@ interface ProjectState {
   selectedSpecRange: SelectionRange | null;
   annotations: SpecAnnotation[];
   isSpecApproved: boolean;
+  openEditorTabs: EditorTab[];
   setPrdContent: (content: string, path?: string) => void;
   setSpecContent: (content: string, path?: string) => void;
   setSelectedModel: (model: ModelId) => void;
@@ -32,6 +34,9 @@ interface ProjectState {
   setSpecPaneMode: (mode: PaneMode) => void;
   setReviewPrompt: (prompt: string) => void;
   setSelectedSpecRange: (range: SelectionRange | null) => void;
+  openEditorTab: (tab: Omit<EditorTab, "id">) => void;
+  closeEditorTab: (path: string) => void;
+  updateEditorTabContent: (path: string, content: string) => void;
   applyRefinement: () => void;
   approveSpec: () => void;
 }
@@ -82,6 +87,10 @@ function buildRefinementBlock(prompt: string, range: SelectionRange | null, mode
   - Surface any affected diff or milestone notes in the execution dashboard.`;
 }
 
+function createEditorTabId(path: string) {
+  return `file:${path}` as const;
+}
+
 export const useProjectStore = create<ProjectState>((set, get) => ({
   prdContent: "",
   specContent: "",
@@ -96,6 +105,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   selectedSpecRange: null,
   annotations: buildInitialAnnotations(),
   isSpecApproved: false,
+  openEditorTabs: [],
   setPrdContent: (prdContent, path) =>
     set({
       prdContent,
@@ -114,6 +124,41 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setSpecPaneMode: (specPaneMode) => set({ specPaneMode }),
   setReviewPrompt: (reviewPrompt) => set({ reviewPrompt }),
   setSelectedSpecRange: (selectedSpecRange) => set({ selectedSpecRange }),
+  openEditorTab: (tab) =>
+    set((state) => {
+      const tabId = createEditorTabId(tab.path);
+      const existingTab = state.openEditorTabs.find((entry) => entry.path === tab.path);
+      const openEditorTabs = existingTab
+        ? state.openEditorTabs.map((entry) =>
+            entry.path === tab.path ? { ...entry, title: tab.title, content: tab.content } : entry
+          )
+        : [...state.openEditorTabs, { ...tab, id: tabId }];
+
+      return {
+        openEditorTabs,
+        activeTab: tabId
+      };
+    }),
+  closeEditorTab: (path) =>
+    set((state) => {
+      const nextTabs = state.openEditorTabs.filter((entry) => entry.path !== path);
+      const closingTabId = createEditorTabId(path);
+      const nextActiveTab =
+        state.activeTab === closingTabId
+          ? nextTabs[nextTabs.length - 1]?.id ?? "review"
+          : state.activeTab;
+
+      return {
+        openEditorTabs: nextTabs,
+        activeTab: nextActiveTab
+      };
+    }),
+  updateEditorTabContent: (path, content) =>
+    set((state) => ({
+      openEditorTabs: state.openEditorTabs.map((entry) =>
+        entry.path === path ? { ...entry, content } : entry
+      )
+    })),
   applyRefinement: () => {
     const state = get();
     const nextBlock = buildRefinementBlock(

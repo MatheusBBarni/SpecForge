@@ -1,7 +1,8 @@
 export type ModelId = "claude-3.7" | "gpt-5.4" | "hybrid";
 export type AutonomyMode = "stepped" | "milestone" | "god_mode";
 export type ThemeMode = "dracula" | "light" | "system";
-export type WorkspaceTab = "review" | "execute";
+export type WorkspaceBaseTab = "review" | "execute";
+export type WorkspaceTab = WorkspaceBaseTab | `file:${string}`;
 export type PaneMode = "preview" | "edit";
 export type AgentStatus =
   | "idle"
@@ -46,6 +47,13 @@ export interface WorkspaceEntry {
   path: string;
   kind: "file" | "directory";
   depth: number;
+}
+
+export interface EditorTab {
+  id: `file:${string}`;
+  title: string;
+  path: string;
+  content: string;
 }
 
 export interface AgentEventPayload {
