@@ -160,6 +160,7 @@ export const MainWorkspace = memo(function MainWorkspace({
               </div>
               <div className="segmented-control">
                 <button
+                  aria-pressed={prdPaneMode === "preview"}
                   className={prdPaneMode === "preview" ? "segment-active" : ""}
                   onClick={() => onPrdPaneModeChange("preview")}
                   type="button"
@@ -167,6 +168,7 @@ export const MainWorkspace = memo(function MainWorkspace({
                   Preview
                 </button>
                 <button
+                  aria-pressed={prdPaneMode === "edit"}
                   className={prdPaneMode === "edit" ? "segment-active" : ""}
                   onClick={() => onPrdPaneModeChange("edit")}
                   type="button"
@@ -197,6 +199,7 @@ export const MainWorkspace = memo(function MainWorkspace({
               </div>
               <div className="segmented-control">
                 <button
+                  aria-pressed={specPaneMode === "preview"}
                   className={specPaneMode === "preview" ? "segment-active" : ""}
                   onClick={() => onSpecPaneModeChange("preview")}
                   type="button"
@@ -204,6 +207,7 @@ export const MainWorkspace = memo(function MainWorkspace({
                   Preview
                 </button>
                 <button
+                  aria-pressed={specPaneMode === "edit"}
                   className={specPaneMode === "edit" ? "segment-active" : ""}
                   onClick={() => onSpecPaneModeChange("edit")}
                   type="button"

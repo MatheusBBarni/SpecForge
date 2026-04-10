@@ -510,7 +510,12 @@ input {
   background: transparent;
   color: var(--text-subtle);
   padding: 0.55rem 0.9rem;
-  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+  font-weight: 500;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    transform 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .segmented-control button:hover,
@@ -518,7 +523,21 @@ input {
   transform: translateY(-1px);
 }
 
-.segment-active,
+.segmented-control .segment-active,
+.segmented-control button[aria-pressed="true"] {
+  background:
+    linear-gradient(135deg, rgba(189, 147, 249, 0.34), rgba(139, 233, 253, 0.24));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 10px 24px -18px rgba(139, 233, 253, 0.45);
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.segmented-control button[aria-pressed="false"] {
+  color: var(--text-muted);
+}
+
 .tabbar .tab-active {
   background: linear-gradient(135deg, rgba(189, 147, 249, 0.22), rgba(139, 233, 253, 0.16));
   color: var(--text-main);

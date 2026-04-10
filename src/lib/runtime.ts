@@ -5,6 +5,8 @@ import type {
   AgentEventPayload,
   AutonomyMode,
   EnvironmentStatus,
+  ModelId,
+  ReasoningProfileId,
   WorkspaceScanResult,
   WorkspaceEntry
 } from "../types";
@@ -109,8 +111,13 @@ export async function getGitDiff(): Promise<string> {
   }
 }
 
-export async function startAgentRun(specPayload: string, mode: AutonomyMode): Promise<void> {
-  await invoke("spawn_cli_agent", { specPayload, mode });
+export async function startAgentRun(
+  specPayload: string,
+  mode: AutonomyMode,
+  model: ModelId,
+  reasoning: ReasoningProfileId
+): Promise<void> {
+  await invoke("spawn_cli_agent", { specPayload, mode, model, reasoning });
 }
 
 export async function approveAgentAction(): Promise<void> {

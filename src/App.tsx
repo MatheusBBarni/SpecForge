@@ -31,6 +31,7 @@ import { ControlColumn } from "./components/ControlColumn";
 import { InspectorColumn } from "./components/InspectorColumn";
 import { MainWorkspace } from "./components/MainWorkspace";
 import { SettingsView } from "./components/SettingsView";
+import { getModelLabel, getReasoningLabel } from "./lib/agentConfig";
 import {
   DEFAULT_PENDING_DIFF,
   approveAgentAction,
@@ -122,6 +123,7 @@ function App() {
   const prdPath = useProjectStore((state) => state.prdPath);
   const reviewPrompt = useProjectStore((state) => state.reviewPrompt);
   const selectedModel = useProjectStore((state) => state.selectedModel);
+  const selectedReasoning = useProjectStore((state) => state.selectedReasoning);
   const selectedSpecRange = useProjectStore((state) => state.selectedSpecRange);
   const specContent = useProjectStore((state) => state.specContent);
   const specPaneMode = useProjectStore((state) => state.specPaneMode);
@@ -134,6 +136,7 @@ function App() {
   const setAutonomyMode = useProjectStore((state) => state.setAutonomyMode);
   const setPrdContent = useProjectStore((state) => state.setPrdContent);
   const setPrdPaneMode = useProjectStore((state) => state.setPrdPaneMode);
+  const setReasoningProfile = useProjectStore((state) => state.setReasoningProfile);
   const setReviewPrompt = useProjectStore((state) => state.setReviewPrompt);
   const setSelectedModel = useProjectStore((state) => state.setSelectedModel);
   const setSelectedSpecRange = useProjectStore((state) => state.setSelectedSpecRange);
@@ -455,16 +458,21 @@ function App() {
       return;
     }
 
+    const modelLabel = getModelLabel(selectedModel);
+    const reasoningLabel = getReasoningLabel(selectedModel, selectedReasoning);
+
     clearFallbackTimer(fallbackTimerRef);
     resetRun();
     setActiveTab("execute");
     setAgentStatus("executing");
     setCurrentMilestone("Pre-flight Check");
-    appendTerminalOutput(stampLog("build", "Starting spec-driven build run."));
+    appendTerminalOutput(
+      stampLog("build", `Starting spec-driven build run with ${modelLabel} (${reasoningLabel} reasoning).`)
+    );
 
     if (isTauriRuntime()) {
       try {
-        await startAgentRun(specContent, autonomyMode);
+        await startAgentRun(specContent, autonomyMode, selectedModel, selectedReasoning);
         return;
       } catch (error) {
         appendTerminalOutput(
@@ -476,7 +484,7 @@ function App() {
       }
     }
 
-    fallbackStepsRef.current = buildFallbackSteps(autonomyMode);
+    fallbackStepsRef.current = buildFallbackSteps(autonomyMode, modelLabel, reasoningLabel);
     fallbackIndexRef.current = 0;
     runFallbackStep(useAgentStore.getState(), fallbackStepsRef, fallbackIndexRef, fallbackTimerRef, setLatestDiff);
   }, [
@@ -487,6 +495,8 @@ function App() {
     setActiveTab,
     setAgentStatus,
     setCurrentMilestone,
+    selectedModel,
+    selectedReasoning,
     specContent
   ]);
 
@@ -855,10 +865,12 @@ function App() {
                   onImportTargetChange={handleImportTargetChange}
                   onModeChange={setAutonomyMode}
                   onModelChange={setSelectedModel}
+                  onReasoningChange={setReasoningProfile}
                   onPathImport={handlePathImportClick}
                   onReviewPromptChange={setReviewPrompt}
                   reviewPrompt={reviewPrompt}
                   selectedModel={selectedModel}
+                  selectedReasoning={selectedReasoning}
                   selectedSpecText={selectedSpecText}
                 />
 
@@ -1061,11 +1073,15 @@ function runFallbackStep(
   }, nextStep.delayMs);
 }
 
-function buildFallbackSteps(mode: AutonomyMode): FallbackStep[] {
+function buildFallbackSteps(
+  mode: AutonomyMode,
+  modelLabel: string,
+  reasoningLabel: string
+): FallbackStep[] {
   const steps: FallbackStep[] = [
     {
       delayMs: 500,
-      line: "Validating approved specification and loading execution context.",
+      line: `Launching ${modelLabel} with ${reasoningLabel.toLowerCase()} reasoning against the approved specification.`,
       milestone: "Pre-flight Check",
       status: "executing"
     },

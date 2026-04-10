@@ -1,4 +1,18 @@
-export type ModelId = "claude-3.7" | "gpt-5.4" | "hybrid";
+export type ModelId =
+  | "gpt-5.4"
+  | "gpt-5.4-mini"
+  | "gpt-5.3-codex"
+  | "gpt-5.2"
+  | "claude-opus-4-1-20250805"
+  | "claude-opus-4-20250514"
+  | "claude-sonnet-4-20250514"
+  | "claude-3-7-sonnet-20250219"
+  | "claude-3-5-sonnet-20241022"
+  | "claude-3-5-sonnet-20240620"
+  | "claude-3-5-haiku-20241022"
+  | "claude-3-haiku-20240307";
+export type ModelProvider = "claude" | "codex";
+export type ReasoningProfileId = "low" | "medium" | "high" | "max";
 export type AutonomyMode = "stepped" | "milestone" | "god_mode";
 export type ThemeMode = "dracula" | "light" | "system";
 export type WorkspaceBaseTab = "review" | "execute";

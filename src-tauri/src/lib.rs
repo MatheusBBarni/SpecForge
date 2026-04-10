@@ -331,6 +331,8 @@ fn spawn_cli_agent(
     state: State<SharedState>,
     spec_payload: String,
     mode: String,
+    model: String,
+    reasoning: String,
 ) -> Result<(), String> {
     let runtime = state.runtime.clone();
     let run_id = {
@@ -345,7 +347,7 @@ fn spawn_cli_agent(
     };
 
     thread::spawn(move || {
-        run_simulated_agent(app, runtime, run_id, spec_payload, mode);
+        run_simulated_agent(app, runtime, run_id, spec_payload, mode, model, reasoning);
     });
 
     Ok(())
@@ -592,12 +594,14 @@ fn run_simulated_agent(
     run_id: u64,
     spec_payload: String,
     mode: String,
+    model: String,
+    reasoning: String,
 ) {
     let heading_count = spec_payload
         .lines()
         .filter(|line| line.trim_start().starts_with('#'))
         .count();
-    let steps = build_simulated_steps(heading_count, &mode);
+    let steps = build_simulated_steps(heading_count, &mode, &model, &reasoning);
     emit_state(&app, "executing", Some("Pre-flight Check"), None, None);
 
     for step in steps {
@@ -650,12 +654,17 @@ fn run_simulated_agent(
     );
 }
 
-fn build_simulated_steps(heading_count: usize, mode: &str) -> Vec<SimulatedStep> {
+fn build_simulated_steps(
+    heading_count: usize,
+    mode: &str,
+    model: &str,
+    reasoning: &str,
+) -> Vec<SimulatedStep> {
     let mut steps = vec![
         SimulatedStep {
             delay_ms: 450,
             line: format!(
-                "Loaded approved specification with {heading_count} markdown headings into the planner."
+                "Loaded approved specification with {heading_count} markdown headings into {model} using the {reasoning} reasoning profile."
             ),
             milestone: "Pre-flight Check",
             gate: false,

@@ -23,12 +23,14 @@ import {
   type RefObject
 } from "react";
 
-import type { AutonomyMode, ModelId } from "../types";
+import { getModelOptions, getReasoningOptions, type SelectOption } from "../lib/agentConfig";
+import type { AutonomyMode, ModelId, ReasoningProfileId } from "../types";
 
 type DocumentTarget = "prd" | "spec";
 
 interface ControlColumnProps {
   selectedModel: ModelId;
+  selectedReasoning: ReasoningProfileId;
   autonomyMode: AutonomyMode;
   selectedSpecText: string;
   reviewPrompt: string;
@@ -44,6 +46,7 @@ interface ControlColumnProps {
   onFilePick: () => void;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onModelChange: (model: ModelId) => void;
+  onReasoningChange: (reasoning: ReasoningProfileId) => void;
   onModeChange: (mode: AutonomyMode) => void;
   onReviewPromptChange: (value: string) => void;
   onApplyRefinement: () => void;
@@ -52,6 +55,7 @@ interface ControlColumnProps {
 
 export const ControlColumn = memo(function ControlColumn({
   selectedModel,
+  selectedReasoning,
   autonomyMode,
   selectedSpecText,
   reviewPrompt,
@@ -67,11 +71,15 @@ export const ControlColumn = memo(function ControlColumn({
   onFilePick,
   onFileChange,
   onModelChange,
+  onReasoningChange,
   onModeChange,
   onReviewPromptChange,
   onApplyRefinement,
   onApproveSpec
 }: ControlColumnProps) {
+  const modelOptions = getModelOptions();
+  const reasoningOptions = getReasoningOptions(selectedModel);
+
   const handlePrdPick = useCallback(() => {
     onImportTargetChange("prd");
     onFilePick();
@@ -102,7 +110,7 @@ export const ControlColumn = memo(function ControlColumn({
         title="Ingestion"
       >
         <Card className={SURFACE_CARD_CLASS}>
-          <Card.Content className="flex flex-col items-center gap-5 px-5 py-5 text-center">
+          <Card.Content className="flex flex-col items-center gap-5 px-4 py-6 text-center">
             <p className="max-w-[24rem] text-balance text-lg font-medium leading-8 text-[var(--text-main)]">
               Load Markdown or PDF directly into PRD or spec.
             </p>
@@ -177,8 +185,14 @@ export const ControlColumn = memo(function ControlColumn({
           <ControlSelectField
             label="Agent model"
             onSelectionChange={onModelChange}
-            options={MODEL_OPTIONS}
+            options={modelOptions}
             selectedKey={selectedModel}
+          />
+          <ControlSelectField
+            label="Reasoning"
+            onSelectionChange={onReasoningChange}
+            options={reasoningOptions}
+            selectedKey={selectedReasoning}
           />
           <ControlSelectField
             label="Approval mode"
@@ -255,7 +269,7 @@ function ControlSection({ icon, title, children }: ControlSectionProps) {
           </h2>
         </div>
       </Card.Header>
-      <Card.Content className="flex flex-col gap-4 px-5 py-5">
+      <Card.Content className="flex flex-col gap-4 px-[5px] py-5">
         {children}
       </Card.Content>
     </Card>
@@ -265,7 +279,7 @@ function ControlSection({ icon, title, children }: ControlSectionProps) {
 interface ControlSelectFieldProps<Value extends string> {
   label: string;
   selectedKey: Value;
-  options: Array<{ value: Value; label: string }>;
+  options: Array<SelectOption<Value>>;
   onSelectionChange: (value: Value) => void;
 }
 
@@ -275,6 +289,7 @@ function ControlSelectField<Value extends string>({
   options,
   onSelectionChange
 }: ControlSelectFieldProps<Value>) {
+  const selectedOption = options.find((option) => option.value === selectedKey);
   const handleSelectionChange = useCallback(
     (key: Key | null) => {
       if (key !== null) {
@@ -304,11 +319,21 @@ function ControlSelectField<Value extends string>({
               key={option.value}
               textValue={option.label}
             >
-              {option.label}
+              <div className="flex flex-col gap-1">
+                <span>{option.label}</span>
+                {option.hint ? (
+                  <small className="text-sm leading-5 text-[var(--text-subtle)]">
+                    {option.hint}
+                  </small>
+                ) : null}
+              </div>
             </ListBox.Item>
           ))}
         </ListBox>
       </Select.Popover>
+      {selectedOption?.hint ? (
+        <p className="m-0 text-sm leading-6 text-[var(--text-subtle)]">{selectedOption.hint}</p>
+      ) : null}
     </Select>
   );
 }
@@ -316,12 +341,6 @@ function ControlSelectField<Value extends string>({
 const DOCUMENT_TARGET_OPTIONS: Array<{ value: DocumentTarget; label: string }> = [
   { value: "prd", label: "PRD" },
   { value: "spec", label: "Spec" }
-];
-
-const MODEL_OPTIONS: Array<{ value: ModelId; label: string }> = [
-  { value: "gpt-5.4", label: "GPT-5.4" },
-  { value: "claude-3.7", label: "Claude 3.7" },
-  { value: "hybrid", label: "Hybrid" }
 ];
 
 const MODE_OPTIONS: Array<{ value: AutonomyMode; label: string }> = [

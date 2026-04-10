@@ -1,10 +1,18 @@
 import { create } from "zustand";
 
+import {
+  DEFAULT_MODEL_ID,
+  DEFAULT_REASONING_PROFILE,
+  getModelLabel,
+  getReasoningLabel,
+  normalizeReasoningProfile
+} from "../lib/agentConfig";
 import type {
   AutonomyMode,
   EditorTab,
   ModelId,
   PaneMode,
+  ReasoningProfileId,
   SelectionRange,
   SpecAnnotation,
   WorkspaceTab
@@ -16,6 +24,7 @@ interface ProjectState {
   prdPath: string;
   specPath: string;
   selectedModel: ModelId;
+  selectedReasoning: ReasoningProfileId;
   autonomyMode: AutonomyMode;
   activeTab: WorkspaceTab;
   prdPaneMode: PaneMode;
@@ -28,6 +37,7 @@ interface ProjectState {
   setPrdContent: (content: string, path?: string) => void;
   setSpecContent: (content: string, path?: string) => void;
   setSelectedModel: (model: ModelId) => void;
+  setReasoningProfile: (profile: ReasoningProfileId) => void;
   setAutonomyMode: (mode: AutonomyMode) => void;
   setActiveTab: (tab: WorkspaceTab) => void;
   setPrdPaneMode: (mode: PaneMode) => void;
@@ -68,17 +78,24 @@ function buildInitialAnnotations(): SpecAnnotation[] {
   ];
 }
 
-function buildRefinementBlock(prompt: string, range: SelectionRange | null, model: ModelId) {
+function buildRefinementBlock(
+  prompt: string,
+  range: SelectionRange | null,
+  model: ModelId,
+  reasoning: ReasoningProfileId
+) {
   const cleanedPrompt = prompt.trim();
   const shortTitle = cleanedPrompt
     .replace(/\s+/g, " ")
     .slice(0, 64)
     .replace(/[.:!?]+$/, "");
   const focusedExcerpt = range?.text.trim().replace(/\s+/g, " ").slice(0, 140) || "Entire approved specification";
+  const modelLabel = getModelLabel(model);
+  const reasoningLabel = getReasoningLabel(model, reasoning);
 
   return `### Refinement: ${shortTitle || "Spec update"}
 
-- Requested via: ${model}
+- Requested via: ${modelLabel} (${reasoningLabel} reasoning)
 - Focus area: ${focusedExcerpt}
 - Updated requirement: ${cleanedPrompt || "Clarify the affected section and tighten acceptance criteria."}
 - Acceptance criteria:
@@ -96,7 +113,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   specContent: "",
   prdPath: "docs/PRD.md",
   specPath: "docs/SPEC.md",
-  selectedModel: "gpt-5.4",
+  selectedModel: DEFAULT_MODEL_ID,
+  selectedReasoning: DEFAULT_REASONING_PROFILE,
   autonomyMode: "milestone",
   activeTab: "review",
   prdPaneMode: "preview",
@@ -117,7 +135,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       specPath: path ?? get().specPath,
       isSpecApproved: false
     }),
-  setSelectedModel: (selectedModel) => set({ selectedModel }),
+  setSelectedModel: (selectedModel) =>
+    set((state) => ({
+      selectedModel,
+      selectedReasoning: normalizeReasoningProfile(selectedModel, state.selectedReasoning)
+    })),
+  setReasoningProfile: (selectedReasoning) =>
+    set((state) => ({
+      selectedReasoning: normalizeReasoningProfile(state.selectedModel, selectedReasoning)
+    })),
   setAutonomyMode: (autonomyMode) => set({ autonomyMode }),
   setActiveTab: (activeTab) => set({ activeTab }),
   setPrdPaneMode: (prdPaneMode) => set({ prdPaneMode }),
@@ -164,7 +190,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const nextBlock = buildRefinementBlock(
       state.reviewPrompt,
       state.selectedSpecRange,
-      state.selectedModel
+      state.selectedModel,
+      state.selectedReasoning
     );
 
     set({
