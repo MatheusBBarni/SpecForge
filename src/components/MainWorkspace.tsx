@@ -1,8 +1,10 @@
 import {
+  CheckCircle,
   FileNotFound
 } from "iconoir-react";
 import { memo, useEffect, useMemo, type ChangeEvent } from "react";
 
+import { DocumentEmptyState } from "./DocumentEmptyState";
 import { DocumentPane } from "./DocumentPane";
 import { ExecutionPanel } from "./ExecutionPanel";
 import { SpecEmptyState } from "./SpecEmptyState";
@@ -24,6 +26,7 @@ interface MainWorkspaceProps {
   specContent: string;
   prdPaneMode: PaneMode;
   specPaneMode: PaneMode;
+  isSpecApproved: boolean;
   canGenerateSpec: boolean;
   isGeneratingSpec: boolean;
   specGenerationPrompt: string;
@@ -38,6 +41,9 @@ interface MainWorkspaceProps {
   onSpecPaneModeChange: (mode: PaneMode) => void;
   onPrdContentChange: (value: string) => void;
   onSpecContentChange: (value: string) => void;
+  onLoadPrd: () => void;
+  onLoadSpec: () => void;
+  onApproveSpec: () => void;
   onSpecGenerationPromptChange: (value: string) => void;
   onGenerateSpec: () => void;
   onSpecSelect: (event: ChangeEvent<HTMLTextAreaElement>) => void;
@@ -57,6 +63,7 @@ export const MainWorkspace = memo(function MainWorkspace({
   specContent,
   prdPaneMode,
   specPaneMode,
+  isSpecApproved,
   canGenerateSpec,
   isGeneratingSpec,
   specGenerationPrompt,
@@ -71,6 +78,9 @@ export const MainWorkspace = memo(function MainWorkspace({
   onSpecPaneModeChange,
   onPrdContentChange,
   onSpecContentChange,
+  onLoadPrd,
+  onLoadSpec,
+  onApproveSpec,
   onSpecGenerationPromptChange,
   onGenerateSpec,
   onSpecSelect,
@@ -91,7 +101,23 @@ export const MainWorkspace = memo(function MainWorkspace({
     () => getDisplayDocumentPath(specPath, workspaceRootName),
     [specPath, workspaceRootName]
   );
+  const hasPrdContent = prdContent.trim().length > 0;
   const hasSpecContent = specContent.trim().length > 0;
+  const showPrdEmptyState = !hasPrdContent && prdPaneMode === "preview";
+  const showSpecPreviewState = !hasSpecContent && specPaneMode === "preview";
+  const approveSpecButton = (
+    <button
+      className={`${HEADER_ACTION_BUTTON_CLASS} ${
+        isSpecApproved ? APPROVED_ACTION_BUTTON_CLASS : ""
+      } ${!hasSpecContent ? "cursor-not-allowed opacity-50 hover:-translate-y-0" : ""}`}
+      disabled={!hasSpecContent}
+      onClick={onApproveSpec}
+      type="button"
+    >
+      <CheckCircle className="size-4" />
+      {isSpecApproved ? "Approved" : "Approve Spec"}
+    </button>
+  );
 
   useEffect(() => {
     if (!activeEditorTab) {
@@ -132,23 +158,54 @@ export const MainWorkspace = memo(function MainWorkspace({
 
       {activeTab === "review" ? (
         <div className="grid h-full min-h-0 gap-4 p-4 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-2 xl:grid-rows-1">
-          <DocumentPane
-            content={prdContent}
-            eyebrow="Source PRD"
-            mode={prdPaneMode}
-            onChange={onPrdContentChange}
-            onModeChange={onPrdPaneModeChange}
-            title={displayPrdPath}
-          />
-          {hasSpecContent ? (
+          {showPrdEmptyState ? (
+            <DocumentEmptyState
+              description="Load an existing PRD or switch to Edit to draft one manually before generating a spec."
+              eyebrow="Source PRD"
+              heading="No PRD file detected"
+              icon={<FileNotFound className="size-6" />}
+              loadLabel="Load PRD"
+              mode={prdPaneMode}
+              onLoad={onLoadPrd}
+              onModeChange={onPrdPaneModeChange}
+              title={displayPrdPath || "PRD.md"}
+            />
+          ) : (
+            <DocumentPane
+              content={prdContent}
+              eyebrow="Source PRD"
+              loadLabel="Load PRD"
+              mode={prdPaneMode}
+              onChange={onPrdContentChange}
+              onLoad={onLoadPrd}
+              onModeChange={onPrdPaneModeChange}
+              title={displayPrdPath || "PRD.md"}
+            />
+          )}
+          {hasSpecContent || !showSpecPreviewState ? (
             <DocumentPane
               content={specContent}
               eyebrow="Technical Spec"
+              headerAction={approveSpecButton}
+              loadLabel="Load Spec"
               mode={specPaneMode}
               onChange={onSpecContentChange}
+              onLoad={onLoadSpec}
               onModeChange={onSpecPaneModeChange}
               onSelect={onSpecSelect}
-              title={displaySpecPath}
+              title={displaySpecPath || "spec.md"}
+            />
+          ) : !hasPrdContent ? (
+            <DocumentEmptyState
+              description="Load or draft a PRD first if you want SpecForge to generate a technical spec. You can still load an existing spec at any time."
+              eyebrow="Technical Spec"
+              heading="PRD required before generation"
+              icon={<FileNotFound className="size-6" />}
+              loadLabel="Load Spec"
+              mode={specPaneMode}
+              onLoad={onLoadSpec}
+              onModeChange={onSpecPaneModeChange}
+              title={displaySpecPath || "spec.md"}
             />
           ) : (
             <SpecEmptyState
@@ -156,7 +213,10 @@ export const MainWorkspace = memo(function MainWorkspace({
               error={specGenerationError}
               helperText={specGenerationHelperText}
               isGenerating={isGeneratingSpec}
+              mode={specPaneMode}
               onGenerate={onGenerateSpec}
+              onLoad={onLoadSpec}
+              onModeChange={onSpecPaneModeChange}
               onPromptChange={onSpecGenerationPromptChange}
               prompt={specGenerationPrompt}
               title={displaySpecPath || "spec.md"}
@@ -233,3 +293,9 @@ function getDisplayDocumentPath(path: string, workspaceRootName: string) {
 
   return normalizedPath;
 }
+
+const HEADER_ACTION_BUTTON_CLASS =
+  "inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[var(--border-soft)] bg-white/5 px-4 py-3 font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/8";
+
+const APPROVED_ACTION_BUTTON_CLASS =
+  "border-emerald-400/30 bg-emerald-400/12 text-[var(--text-main)]";

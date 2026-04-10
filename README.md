@@ -1,6 +1,6 @@
 # SpecForge
 
-SpecForge is a Tauri desktop app for spec-driven development. It helps you import a PRD or technical spec, review the source and generated documents side by side, inspect the workspace, and hand an approved spec off to an AI coding agent with configurable autonomy.
+SpecForge is a Tauri desktop app for spec-driven development. It helps you load a PRD or technical spec from each document pane, review the source and generated documents side by side, inspect the workspace, and hand an approved spec off to an AI coding agent with configurable autonomy.
 
 The current codebase is an MVP shell built with React, Zustand, Tailwind, HeroUI, Tauri, and Rust. It includes a browser-safe demo path for the web UI and a desktop runtime path for real filesystem, git, and CLI access.
 

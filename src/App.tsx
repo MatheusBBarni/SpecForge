@@ -153,6 +153,7 @@ function App() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingImportTargetRef = useRef<DocumentTarget>("prd");
   const fallbackTimerRef = useRef<number | null>(null);
   const fallbackStepsRef = useRef<FallbackStep[]>([]);
   const fallbackIndexRef = useRef(0);
@@ -190,6 +191,26 @@ function App() {
 
     return providers;
   }, [environment.claude.status, environment.codex.status]);
+  const mcpItems = useMemo(
+    () => [
+      {
+        name: environment.codex.name,
+        detail: environment.codex.detail,
+        status: environment.codex.status
+      },
+      {
+        name: environment.claude.name,
+        detail: environment.claude.detail,
+        status: environment.claude.status
+      },
+      {
+        name: environment.git.name,
+        detail: environment.git.detail,
+        status: environment.git.status
+      }
+    ],
+    [environment]
+  );
   const selectedProviderStatus = selectedModelProvider === "claude" ? environment.claude : environment.codex;
   const canGenerateSpec = useMemo(
     () =>
@@ -427,7 +448,7 @@ function App() {
 
       try {
         const document = await parseWorkspaceDocument(file);
-        assignDocument(importTarget, document.content, document.sourcePath);
+        assignDocument(pendingImportTargetRef.current, document.content, document.sourcePath);
         setImportError("");
       } catch (error) {
         setImportError(
@@ -437,7 +458,7 @@ function App() {
         event.target.value = "";
       }
     },
-    [assignDocument, importTarget]
+    [assignDocument]
   );
 
   const handleWorkspaceFolderSelection = useCallback(
@@ -639,7 +660,10 @@ function App() {
     [setSelectedSpecRange]
   );
 
-  const handleOpenImportFile = useCallback(async () => {
+  const handleOpenImportFile = useCallback(async (target: DocumentTarget) => {
+    pendingImportTargetRef.current = target;
+    setImportTarget(target);
+
     if (desktopRuntime) {
       setIsImporting(true);
       setImportError("");
@@ -648,7 +672,7 @@ function App() {
         const document = await pickDocument();
 
         if (document) {
-          assignDocument(importTarget, document.content, document.sourcePath);
+          assignDocument(target, document.content, document.sourcePath);
         }
       } catch (error) {
         setImportError(
@@ -662,7 +686,7 @@ function App() {
     }
 
     fileInputRef.current?.click();
-  }, [assignDocument, desktopRuntime, importTarget]);
+  }, [assignDocument, desktopRuntime]);
 
   const handleOpenWorkspaceFolder = useCallback(async () => {
     if (desktopRuntime) {
@@ -729,8 +753,12 @@ function App() {
     void handlePathImport();
   }, [handlePathImport]);
 
-  const handleOpenImportFileClick = useCallback(() => {
-    void handleOpenImportFile();
+  const handleOpenPrdImportClick = useCallback(() => {
+    void handleOpenImportFile("prd");
+  }, [handleOpenImportFile]);
+
+  const handleOpenSpecImportClick = useCallback(() => {
+    void handleOpenImportFile("spec");
   }, [handleOpenImportFile]);
 
   const handleStartBuildClick = useCallback(() => {
@@ -1008,6 +1036,13 @@ function App() {
       <AppRail />
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:ml-[72px]">
+        <input
+          accept={desktopRuntime ? ".md,.pdf" : ".md"}
+          className="hidden"
+          onChange={handleFileSelection}
+          ref={fileInputRef}
+          type="file"
+        />
         <Routes>
           <Route
             element={
@@ -1017,32 +1052,12 @@ function App() {
                 controlColumnProps={{
                   configuredModelProviders,
                   autonomyMode,
-                  fileInputRef,
-                  fileInputAccept: desktopRuntime ? ".md,.pdf" : ".md",
-                  hasSpecContent: specContent.trim().length > 0,
-                  importError,
-                  importFileSupportText: desktopRuntime
-                    ? "Desktop imports support Markdown and PDF through the native file picker."
-                    : "Browser imports currently support Markdown only. PDF parsing is available in the desktop app.",
-                  importPath,
-                  importTarget,
-                  isImporting,
-                  isSpecApproved,
-                  onApplyRefinement: applyRefinement,
-                  onApproveSpec: handleApproveSpec,
-                  onFileChange: handleFileSelection,
-                  onFilePick: handleOpenImportFileClick,
-                  onImportPathChange: setImportPath,
-                  onImportTargetChange: handleImportTargetChange,
+                  mcpItems,
                   onModeChange: setAutonomyMode,
                   onModelChange: setSelectedModel,
                   onReasoningChange: setReasoningProfile,
-                  onPathImport: handlePathImportClick,
-                  onReviewPromptChange: setReviewPrompt,
-                  reviewPrompt,
                   selectedModel,
-                  selectedReasoning,
-                  selectedSpecText
+                  selectedReasoning
                 }}
                 inspectorColumnProps={{
                   emptyStateMessage: deferredSearch.trim()
@@ -1064,13 +1079,17 @@ function App() {
                   agentStatus,
                   canGenerateSpec,
                   executionSummary,
+                  isSpecApproved,
                   isGeneratingSpec,
+                  onApproveSpec: handleApproveSpec,
                   onEditorTabChange: updateEditorTabContent,
                   onEditorTabClose: closeEditorTab,
                   onActiveTabChange: setActiveTab,
                   onApproveExecutionGate: handleApproveExecutionGateClick,
                   onEmergencyStop: handleEmergencyStopClick,
                   onGenerateSpec: handleGenerateSpecClick,
+                  onLoadPrd: handleOpenPrdImportClick,
+                  onLoadSpec: handleOpenSpecImportClick,
                   openEditorTabs,
                   onPrdContentChange: handlePrdContentChange,
                   onPrdPaneModeChange: setPrdPaneMode,

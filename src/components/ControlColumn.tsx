@@ -1,18 +1,12 @@
 import {
-  Button,
   Card,
-  Input,
   Label,
   ListBox,
-  Select,
-  TextArea
+  Select
 } from "@heroui/react";
 import {
   Activity,
-  ChatBubble,
-  CheckCircle,
-  Spark,
-  Upload
+  Spark
 } from "iconoir-react";
 import {
   memo,
@@ -20,10 +14,8 @@ import {
   useEffect,
   useMemo,
   useState,
-  type ChangeEvent,
   type Key,
-  type ReactNode,
-  type RefObject
+  type ReactNode
 } from "react";
 
 import {
@@ -33,37 +25,29 @@ import {
   getReasoningOptions,
   type SelectOption
 } from "../lib/agentConfig";
-import type { AutonomyMode, ModelId, ModelProvider, ReasoningProfileId } from "../types";
+import type {
+  AutonomyMode,
+  CliHealth,
+  ModelId,
+  ModelProvider,
+  ReasoningProfileId
+} from "../types";
 
-type DocumentTarget = "prd" | "spec";
+interface McpListItem {
+  name: string;
+  detail: string;
+  status?: CliHealth | string;
+}
 
 interface ControlColumnProps {
   selectedModel: ModelId;
   selectedReasoning: ReasoningProfileId;
   configuredModelProviders: ModelProvider[];
   autonomyMode: AutonomyMode;
-  selectedSpecText: string;
-  reviewPrompt: string;
-  isSpecApproved: boolean;
-  hasSpecContent: boolean;
-  importPath: string;
-  importTarget: DocumentTarget;
-  importError: string;
-  isImporting: boolean;
-  fileInputAccept: string;
-  importFileSupportText: string;
-  fileInputRef: RefObject<HTMLInputElement | null>;
-  onImportPathChange: (value: string) => void;
-  onImportTargetChange: (target: DocumentTarget) => void;
-  onPathImport: () => void;
-  onFilePick: () => void;
-  onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  mcpItems?: McpListItem[];
   onModelChange: (model: ModelId) => void;
   onReasoningChange: (reasoning: ReasoningProfileId) => void;
   onModeChange: (mode: AutonomyMode) => void;
-  onReviewPromptChange: (value: string) => void;
-  onApplyRefinement: () => void;
-  onApproveSpec: () => void;
 }
 
 export const ControlColumn = memo(function ControlColumn({
@@ -71,44 +55,16 @@ export const ControlColumn = memo(function ControlColumn({
   selectedReasoning,
   configuredModelProviders,
   autonomyMode,
-  selectedSpecText,
-  reviewPrompt,
-  isSpecApproved,
-  hasSpecContent,
-  importPath,
-  importTarget,
-  importError,
-  isImporting,
-  fileInputAccept,
-  importFileSupportText,
-  fileInputRef,
-  onImportPathChange,
-  onImportTargetChange,
-  onPathImport,
-  onFilePick,
-  onFileChange,
+  mcpItems = [],
   onModelChange,
   onReasoningChange,
-  onModeChange,
-  onReviewPromptChange,
-  onApplyRefinement,
-  onApproveSpec
+  onModeChange
 }: ControlColumnProps) {
   const reasoningOptions = getReasoningOptions(selectedModel);
 
-  const handlePrdPick = useCallback(() => {
-    onImportTargetChange("prd");
-    onFilePick();
-  }, [onFilePick, onImportTargetChange]);
-
-  const handleSpecPick = useCallback(() => {
-    onImportTargetChange("spec");
-    onFilePick();
-  }, [onFilePick, onImportTargetChange]);
-
   return (
-    <section className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden rounded-[1.5rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-5 shadow-[var(--shadow)] backdrop-blur-[30px]">
-      <header className="flex items-start justify-between gap-4">
+    <section className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-y-auto rounded-[1.5rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-5 pr-4 shadow-[var(--shadow)] backdrop-blur-[30px]">
+      <header className="shrink-0 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="m-0 text-[1.05rem] font-semibold text-[var(--text-main)]">
             SpecForge Review
@@ -120,82 +76,7 @@ export const ControlColumn = memo(function ControlColumn({
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
-        <ControlSection
-          icon={<Upload />}
-          title="Ingestion"
-        >
-          <Card className={SURFACE_CARD_CLASS}>
-            <Card.Content className="flex flex-col items-center gap-5 px-4 py-6 text-center">
-              <p className="max-w-[24rem] text-balance text-lg font-medium leading-8 text-[var(--text-main)]">
-                Load source documents directly into the PRD or spec pane.
-              </p>
-              <p className="m-0 max-w-[24rem] text-sm leading-7 text-[var(--text-subtle)]">
-                {importFileSupportText}
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <Button
-                  className={SECONDARY_BUTTON_CLASS}
-                  onPress={handlePrdPick}
-                  type="button"
-                >
-                  Load PRD
-                </Button>
-                <Button
-                  className={SECONDARY_BUTTON_CLASS}
-                  onPress={handleSpecPick}
-                  type="button"
-                >
-                  Load Spec
-                </Button>
-              </div>
-              <input
-                accept={fileInputAccept}
-                className="hidden"
-                onChange={onFileChange}
-                ref={fileInputRef}
-                type="file"
-              />
-            </Card.Content>
-          </Card>
-
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label className={FIELD_LABEL_CLASS} htmlFor="path-import">
-                Open from path
-              </Label>
-              <Input
-                className={FIELD_INPUT_CLASS}
-                id="path-import"
-                onChange={(event) => onImportPathChange(event.target.value)}
-                placeholder="docs/PRD.md"
-                value={importPath}
-              />
-            </div>
-
-            <ControlSelectField
-              label="Load target"
-              onSelectionChange={onImportTargetChange}
-              options={DOCUMENT_TARGET_OPTIONS}
-              selectedKey={importTarget}
-            />
-          </div>
-
-          <Button
-            className={PRIMARY_BUTTON_CLASS}
-            fullWidth
-            isDisabled={isImporting}
-            onPress={onPathImport}
-            type="button"
-          >
-            {isImporting ? "Parsing..." : "Parse Document"}
-          </Button>
-
-          {importError ? (
-            <p className="m-0 text-sm leading-6 text-[var(--danger)]">{importError}</p>
-          ) : null}
-        </ControlSection>
-
+      <div className="flex shrink-0 flex-col gap-4">
         <ControlSection
           icon={<Activity />}
           title="Agent Configuration"
@@ -223,50 +104,40 @@ export const ControlColumn = memo(function ControlColumn({
         </ControlSection>
 
         <ControlSection
-          icon={<ChatBubble />}
-          title="Inline Refinement"
+          icon={<Spark />}
+          title="MCP List"
         >
-          <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
-            Highlight text in the spec editor to scope the next revision.
-          </p>
-
-          <Card className={SURFACE_CARD_CLASS}>
-            <Card.Content className="flex flex-col gap-3 px-5 py-5">
-              <span className="text-sm text-[var(--text-subtle)]">Selected scope</span>
-              <p className="m-0 text-lg leading-8 text-[var(--text-main)]">
-                {selectedSpecText || "No spec text selected yet."}
-              </p>
-            </Card.Content>
-          </Card>
-
-          <TextArea
-            className={TEXTAREA_CLASS}
-            onChange={(event) => onReviewPromptChange(event.target.value)}
-            placeholder="Ask the agent to tighten requirements, add endpoints, or expand acceptance criteria."
-            rows={4}
-            value={reviewPrompt}
-          />
-
-          <div className="flex flex-wrap gap-3">
-            <Button
-              className={SECONDARY_BUTTON_CLASS}
-              isDisabled={!reviewPrompt.trim()}
-              onPress={onApplyRefinement}
-              type="button"
-            >
-              <Spark />
-              Apply Refinement
-            </Button>
-            <Button
-              className={PRIMARY_BUTTON_CLASS}
-              isDisabled={!hasSpecContent}
-              onPress={onApproveSpec}
-              type="button"
-            >
-              <CheckCircle />
-              {isSpecApproved ? "Approved" : "Approve Spec"}
-            </Button>
-          </div>
+          {mcpItems.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              {mcpItems.map((item) => (
+                <Card className={SURFACE_CARD_CLASS} key={`${item.name}-${item.detail}`}>
+                  <Card.Content className="flex items-start justify-between gap-4 px-5 py-4">
+                    <div className="min-w-0">
+                      <h3 className="m-0 truncate text-[15px] font-semibold text-[var(--text-main)]">
+                        {item.name}
+                      </h3>
+                      <p className="m-0 mt-1 text-sm leading-6 text-[var(--text-subtle)]">
+                        {item.detail}
+                      </p>
+                    </div>
+                    {item.status ? (
+                      <span className={getMcpBadgeClassName(item.status)}>
+                        {formatMcpStatus(item.status)}
+                      </span>
+                    ) : null}
+                  </Card.Content>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className={SURFACE_CARD_CLASS}>
+              <Card.Content className="px-5 py-5">
+                <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
+                  No MCP servers are configured yet.
+                </p>
+              </Card.Content>
+            </Card>
+          )}
         </ControlSection>
       </div>
     </section>
@@ -388,7 +259,7 @@ interface ControlSectionProps {
 
 function ControlSection({ icon, title, children }: ControlSectionProps) {
   return (
-    <Card className="border border-[var(--border-soft)] bg-[var(--bg-surface)]/75 shadow-none backdrop-blur-sm">
+    <Card className="shrink-0 border border-[var(--border-soft)] bg-[var(--bg-surface)]/75 shadow-none backdrop-blur-sm">
       <Card.Header className="flex flex-col gap-3 px-5 pt-5 pb-0">
         <div className="flex min-w-0 items-center gap-3">
           <span className="shrink-0 text-[var(--accent-2)]">{icon}</span>
@@ -462,11 +333,6 @@ function ControlSelectField<Value extends string>({
   );
 }
 
-const DOCUMENT_TARGET_OPTIONS: Array<{ value: DocumentTarget; label: string }> = [
-  { value: "prd", label: "PRD" },
-  { value: "spec", label: "Spec" }
-];
-
 const MODE_OPTIONS: Array<{ value: AutonomyMode; label: string }> = [
   { value: "stepped", label: "Stepped Approval" },
   { value: "milestone", label: "Milestone Approval" },
@@ -475,12 +341,6 @@ const MODE_OPTIONS: Array<{ value: AutonomyMode; label: string }> = [
 
 const FIELD_LABEL_CLASS =
   "text-sm font-medium leading-6 text-[var(--text-subtle)]";
-
-const FIELD_INPUT_CLASS =
-  "w-full rounded-[1.1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-3 text-[15px] text-[var(--text-main)] shadow-none outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-0";
-
-const TEXTAREA_CLASS =
-  "min-h-[8.5rem] w-full rounded-[1.1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-3 text-[15px] leading-7 text-[var(--text-main)] shadow-none outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-0 resize-none";
 
 const SELECT_TRIGGER_CLASS =
   "flex min-h-[3.5rem] w-full items-center gap-3 rounded-[1.1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-3 text-[var(--text-main)] shadow-none transition hover:bg-black/25";
@@ -497,10 +357,26 @@ const MODEL_PROVIDER_TAB_ACTIVE_CLASS =
 const SURFACE_CARD_CLASS =
   "border border-dashed border-[var(--border-soft)] bg-[var(--bg-surface)]/80 shadow-none";
 
-const SECONDARY_BUTTON_CLASS =
-  "rounded-[1.1rem] border border-[var(--border-soft)] bg-white/5 px-5 py-3 font-medium text-[var(--text-main)] shadow-none transition hover:bg-white/8";
+function formatMcpStatus(status: string) {
+  switch (status) {
+    case "found":
+      return "Ready";
+    case "unauthorized":
+      return "Check";
+    default:
+      return status;
+  }
+}
 
-const PRIMARY_BUTTON_CLASS =
-  "rounded-[1.1rem] border-0 bg-[linear-gradient(135deg,var(--accent),#ff79c6)] px-5 py-3 font-semibold text-[#15131c] shadow-none transition hover:opacity-95";
+function getMcpBadgeClassName(status: string) {
+  switch (status) {
+    case "found":
+      return "shrink-0 rounded-full border border-emerald-400/30 bg-emerald-400/12 px-3 py-1 text-xs font-medium uppercase tracking-[0.08em] text-emerald-100";
+    case "unauthorized":
+      return "shrink-0 rounded-full border border-amber-300/30 bg-amber-300/12 px-3 py-1 text-xs font-medium uppercase tracking-[0.08em] text-amber-100";
+    default:
+      return "shrink-0 rounded-full border border-[var(--border-soft)] bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.08em] text-[var(--text-subtle)]";
+  }
+}
 
 export default ControlColumn;

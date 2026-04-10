@@ -15,13 +15,10 @@ Today the product focuses on **review, import, diff inspection, and approval UX*
 ## 3. Current User Flow
 
 1. **Open the review workspace:** The app starts with bundled `docs/PRD.md` and `docs/SPEC.md`.
-2. **Load documents:** The user can:
-   * Import a repo-relative Markdown or PDF document by path in the desktop app.
-   * Use the desktop native file picker to load Markdown or PDF into the PRD or spec pane.
-   * Use the browser file input to load Markdown only.
+2. **Load documents:** The user can use pane-header `Load PRD` and `Load Spec` actions to import Markdown or PDF through the desktop native file picker, or Markdown through the browser fallback picker.
 3. **Open a workspace folder:** The user can scan a folder into the workspace tree. Desktop scanning respects `.gitignore`, and browser folder import applies root and nested `.gitignore` rules.
-4. **Handle missing specs:** If the opened workspace does not contain a matching spec file, the spec pane should be empty and show an inline generation state with a textbox plus a generate button that sends the current PRD and the user's note to the selected AI CLI.
-5. **Review and refine:** The user can edit either document directly, switch between preview and edit, select text in the spec, and append a refinement block.
+4. **Handle missing documents:** If the opened workspace does not contain a PRD, the left pane should show a dedicated PRD empty state until the user loads a file or switches into edit mode. If the workspace does not contain a spec, the right pane should show either a generation state or a blocked state that asks for a PRD first.
+5. **Review and adjust:** The user can edit either document directly, switch between preview and edit, approve the spec from the spec pane header, and then prepare the execution flow.
 6. **Approve and run:** Once the spec is approved, the user can launch the execution dashboard in stepped, milestone, or god mode.
 7. **Inspect the result:** The app streams simulated terminal output, shows approval gates, and renders a diff based on the current git state when available.
 
@@ -30,22 +27,26 @@ Today the product focuses on **review, import, diff inspection, and approval UX*
 ### 4.1. Document Ingestion
 
 * **Desktop native picker:** Must support `.md` and `.pdf` imports for PRD and spec documents.
-* **Repo-relative path import:** Must allow only paths that stay inside the current repository root.
 * **Browser file import:** Must support Markdown only and explain that PDF parsing requires the desktop runtime.
+* **Pane-local controls:** The PRD and spec panes must own their own load actions instead of relying on a separate sidebar ingestion panel.
 * **Workspace auto-detection:** When a workspace is opened, the app should try to load:
   * `PRD.md`, then `PRD.pdf`
   * `spec.md`, then `spec.pdf`
 * **Missing document reset:** Opening a workspace must clear stale PRD/spec content from the previous workspace when those files are not found in the new one.
-* **Empty spec generation:** When the active spec content is empty, the spec pane must show a textbox and generate button that use the current PRD plus the user's note to draft a markdown spec through the selected desktop AI CLI.
+* **PRD empty state:** When the active PRD content is empty in preview mode, the PRD pane must show a dedicated empty state with the same preview/load/edit controls as the normal document header.
+* **Empty spec generation:** When the active spec content is empty and a PRD is available, the spec pane must show a textbox and generate button that use the current PRD plus the user's note to draft a markdown spec through the selected desktop AI CLI.
+* **Blocked spec state:** When both the PRD and spec are empty in preview mode, the spec pane must explain that a PRD is required before generation while still allowing an existing spec to be loaded.
 * **Generated spec persistence:** After generation succeeds in the desktop runtime, the markdown must be saved into the same folder as the active PRD using a sibling `SPEC.md` or `spec.md` file before the pane updates.
 
 ### 4.2. Workspace Review
 
 * **Split review panes:** PRD and spec must be visible side-by-side in preview or edit mode.
+* **Sidebar focus:** The left sidebar must be limited to agent configuration plus an MCP list summary.
 * **Workspace explorer:** The right rail must show files discovered from the active workspace and allow safe text/code file opening.
 * **Workspace safety:** Frontend file opens must be limited to the currently scanned workspace. Opening a new workspace should clear file tabs from the previous workspace.
 * **Search:** The file tree must support in-app filtering through the floating search UI.
-* **Spec empty state:** The spec pane must replace the normal editor/preview view with a generation-oriented empty state whenever the spec content is blank.
+* **Spec empty state:** The spec pane must replace the normal preview view with a generation-oriented empty state whenever the spec content is blank and a PRD is available.
+* **Spec prerequisite state:** The spec pane must show a PRD-required message instead of the generation UI when the PRD is still blank.
 * **Saved-path visibility:** Once a spec is generated, the spec pane should reflect the saved file path rather than an unsaved placeholder path.
 
 ### 4.3. Settings and Diagnostics

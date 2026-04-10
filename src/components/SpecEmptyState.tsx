@@ -1,6 +1,9 @@
 import { Spark } from "iconoir-react";
 import { memo } from "react";
 
+import { DocumentEmptyState } from "./DocumentEmptyState";
+import type { PaneMode } from "../types";
+
 interface SpecEmptyStateProps {
   title: string;
   prompt: string;
@@ -8,6 +11,9 @@ interface SpecEmptyStateProps {
   helperText: string;
   isGenerating: boolean;
   canGenerate: boolean;
+  mode: PaneMode;
+  onLoad: () => void;
+  onModeChange: (mode: PaneMode) => void;
   onPromptChange: (value: string) => void;
   onGenerate: () => void;
 }
@@ -19,34 +25,24 @@ export const SpecEmptyState = memo(function SpecEmptyState({
   helperText,
   isGenerating,
   canGenerate,
+  mode,
+  onLoad,
+  onModeChange,
   onPromptChange,
   onGenerate
 }: SpecEmptyStateProps) {
   return (
-    <article className="flex min-h-0 flex-col gap-3 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4">
-      <div className="min-w-0">
-        <p className="mb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
-          Technical Spec
-        </p>
-        <h2 className="m-0 truncate text-lg font-semibold text-[var(--text-main)]">{title}</h2>
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col justify-start gap-4 overflow-auto rounded-[1rem] border border-dashed border-[var(--border-soft)] bg-black/10 p-5">
-        <div className="flex items-start gap-2.5">
-          <span className="mt-1 shrink-0 text-[var(--accent-2)]">
-            <Spark />
-          </span>
-          <div className="grid gap-1.5">
-            <h3 className="m-0 text-lg font-semibold text-[var(--text-main)]">
-              No spec file detected
-            </h3>
-            <p className="m-0 max-w-[34rem] text-sm leading-6 text-[var(--text-subtle)]">
-              Use the current PRD plus a short brief to draft a fresh technical specification for
-              this workspace.
-            </p>
-          </div>
-        </div>
-
+    <DocumentEmptyState
+      description="Load an existing spec or use the current PRD plus a short brief to draft a fresh technical specification for this workspace."
+      eyebrow="Technical Spec"
+      heading="No spec file detected"
+      icon={<Spark className="size-6" />}
+      loadLabel="Load Spec"
+      mode={mode}
+      onLoad={onLoad}
+      onModeChange={onModeChange}
+      title={title}
+    >
         <textarea
           className="min-h-[10rem] w-full flex-none resize-none rounded-[1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-6 text-[var(--text-main)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
           onChange={(event) => onPromptChange(event.target.value)}
@@ -68,8 +64,7 @@ export const SpecEmptyState = memo(function SpecEmptyState({
         </div>
 
         {error ? <p className="m-0 text-sm leading-6 text-[var(--danger)]">{error}</p> : null}
-      </div>
-    </article>
+    </DocumentEmptyState>
   );
 });
 

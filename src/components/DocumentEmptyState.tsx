@@ -1,34 +1,35 @@
-import { memo, type ChangeEvent, type ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 
 import { DocumentActionBar } from "./DocumentActionBar";
-import { MarkdownDocument } from "./MarkdownDocument";
 import type { PaneMode } from "../types";
 
-interface DocumentPaneProps {
+interface DocumentEmptyStateProps {
   eyebrow: string;
   title: string;
-  content: string;
   mode: PaneMode;
   loadLabel: string;
+  heading: string;
+  description: string;
+  icon: ReactNode;
+  children?: ReactNode;
   headerAction?: ReactNode;
-  onModeChange: (mode: PaneMode) => void;
-  onChange: (value: string) => void;
   onLoad: () => void;
-  onSelect?: (event: ChangeEvent<HTMLTextAreaElement>) => void;
+  onModeChange: (mode: PaneMode) => void;
 }
 
-export const DocumentPane = memo(function DocumentPane({
+export const DocumentEmptyState = memo(function DocumentEmptyState({
   eyebrow,
   title,
-  content,
   mode,
   loadLabel,
+  heading,
+  description,
+  icon,
+  children,
   headerAction,
-  onModeChange,
-  onChange,
   onLoad,
-  onSelect
-}: DocumentPaneProps) {
+  onModeChange
+}: DocumentEmptyStateProps) {
   return (
     <article className="flex min-h-0 flex-col gap-4 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -50,18 +51,19 @@ export const DocumentPane = memo(function DocumentPane({
         </div>
       </div>
 
-      {mode === "preview" ? (
-        <div className="min-h-0 overflow-auto pr-1">
-          <MarkdownDocument content={content} />
+      <div className="flex min-h-0 flex-1 flex-col justify-start gap-4 overflow-auto rounded-[1rem] border border-dashed border-[var(--border-soft)] bg-black/10 p-5">
+        <div className="flex items-start gap-2.5">
+          <span className="mt-1 shrink-0 text-[var(--accent-2)]">{icon}</span>
+          <div className="grid gap-1.5">
+            <h3 className="m-0 text-lg font-semibold text-[var(--text-main)]">{heading}</h3>
+            <p className="m-0 max-w-[34rem] text-sm leading-6 text-[var(--text-subtle)]">
+              {description}
+            </p>
+          </div>
         </div>
-      ) : (
-        <textarea
-          className="min-h-0 flex-1 resize-none rounded-[1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-7 text-[var(--text-main)]"
-          onChange={(event) => onChange(event.target.value)}
-          onSelect={onSelect}
-          value={content}
-        />
-      )}
+
+        {children}
+      </div>
     </article>
   );
 });

@@ -4,7 +4,7 @@
 
 SpecForge is a split desktop application:
 
-* **React webview:** Owns routing, document editing, workspace presentation, settings UI, empty-state spec generation UX, and simulated execution UX.
+* **React webview:** Owns routing, document editing, pane-local load actions, workspace presentation, settings UI, empty-state spec generation UX, and simulated execution UX.
 * **Tauri/Rust backend:** Owns environment scanning, filesystem access, PDF parsing, workspace walking, git diff generation, native file dialogs, CLI-backed spec generation, and simulated agent coordination.
 
 The webview must never execute shell commands or arbitrary file reads directly. All desktop-side operations go through `src/lib/runtime.ts` and Tauri commands in `src-tauri/src/lib.rs`.
@@ -51,10 +51,10 @@ These bundled documents are the default contents of the PRD and spec panes until
 
 ### 4.1. Desktop document import
 
-The desktop runtime supports two import paths:
+The desktop runtime currently exposes two import paths:
 
-* **Project-relative path import:** `parse_document(filePath)` accepts only repository-relative paths that stay inside the project root.
-* **Native picker import:** `pick_document()` opens a native file picker for `.md` and `.pdf`, parses the chosen file in Rust, and returns a `WorkspaceDocument`.
+* **User-facing import:** `pick_document()` opens a native file picker for `.md` and `.pdf`, parses the chosen file in Rust, and returns a `WorkspaceDocument`. The PRD and spec panes trigger this from their own header controls.
+* **Reserved path import:** `parse_document(filePath)` still accepts only repository-relative paths that stay inside the project root, but it is not currently surfaced in the main review UI.
 
 ### 4.2. Browser import fallback
 
@@ -71,14 +71,17 @@ Browser mode keeps a file-input fallback:
 * Files outside the active workspace must be rejected even if the frontend passes an absolute path or traversal sequence.
 * When a scanned workspace does not contain `PRD.md`/`PRD.pdf` or `spec.md`/`spec.pdf`, the frontend must clear the prior document content instead of leaving stale content visible.
 
-### 4.4. Empty-spec generation flow
+### 4.4. Empty document and spec generation flow
 
-* When `specContent` is empty, the spec pane swaps to a dedicated empty state with a prompt textarea and generate button.
+* When `prdContent` is empty and the PRD pane is in preview mode, the left pane swaps to a dedicated PRD empty state while preserving preview/load/edit controls in the header.
+* When `specContent` is empty, the spec pane keeps the same preview/load/edit controls in its header area.
+* If `specContent` is empty and `prdContent` is present, the spec pane swaps to a dedicated generation state with a prompt textarea and generate button.
+* If both `prdContent` and `specContent` are empty in preview mode, the spec pane shows a blocked state that asks for a PRD before generation while still allowing `Load Spec`.
 * The generate action sends the current PRD, the user's note, the selected model, and the selected reasoning profile through `src/lib/runtime.ts`.
 * `generate_spec_document(...)` runs the selected Claude CLI or Codex CLI in non-interactive mode from a temporary folder, resolves the active PRD path, and writes the returned markdown into a sibling `SPEC.md`/`spec.md` file beside that PRD.
 * The saved spec document metadata is returned to the frontend so the spec pane reflects the on-disk path immediately; execution remains a separate simulated flow.
 
-### 4.4. Browser `.gitignore` behavior
+### 4.5. Browser `.gitignore` behavior
 
 Browser folder imports normalize root-prefixed paths and apply root plus nested `.gitignore` rules before building the workspace tree.
 
@@ -130,6 +133,7 @@ The spec generation flow is separate: it uses the configured Claude/Codex CLI to
 * CLI health is derived from executable probing, not just path existence.
 * Manual override paths can be relative to the repo or absolute on disk.
 * Theme preference is stored in browser local storage and resolved into Dracula, Light, or System behavior in the webview.
+* The review sidebar now presents only agent configuration controls plus an MCP summary list derived from the current runtime/tool health.
 
 ## 8. Known Limits
 
