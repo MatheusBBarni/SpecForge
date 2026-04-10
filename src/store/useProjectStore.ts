@@ -1,0 +1,159 @@
+import { create } from "zustand";
+
+import type {
+  AutonomyMode,
+  ModelId,
+  PaneMode,
+  SelectionRange,
+  SpecAnnotation,
+  WorkspaceTab
+} from "../types";
+
+interface ProjectState {
+  prdContent: string;
+  specContent: string;
+  prdPath: string;
+  specPath: string;
+  selectedModel: ModelId;
+  autonomyMode: AutonomyMode;
+  activeTab: WorkspaceTab;
+  prdPaneMode: PaneMode;
+  specPaneMode: PaneMode;
+  reviewPrompt: string;
+  selectedSpecRange: SelectionRange | null;
+  annotations: SpecAnnotation[];
+  isSpecApproved: boolean;
+  setPrdContent: (content: string, path?: string) => void;
+  setSpecContent: (content: string, path?: string) => void;
+  setSelectedModel: (model: ModelId) => void;
+  setAutonomyMode: (mode: AutonomyMode) => void;
+  setActiveTab: (tab: WorkspaceTab) => void;
+  setPrdPaneMode: (mode: PaneMode) => void;
+  setSpecPaneMode: (mode: PaneMode) => void;
+  setReviewPrompt: (prompt: string) => void;
+  setSelectedSpecRange: (range: SelectionRange | null) => void;
+  applyRefinement: () => void;
+  approveSpec: () => void;
+}
+
+function createId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildInitialAnnotations(): SpecAnnotation[] {
+  return [
+    {
+      id: createId(),
+      tone: "warning",
+      title: "Rust Owns Execution",
+      body: "The backend should own parsing, environment checks, and CLI gating so the React shell never executes commands directly."
+    },
+    {
+      id: createId(),
+      tone: "info",
+      title: "Approval Modes Need Diff Context",
+      body: "Stepped and milestone autonomy both need a visible diff and an interrupt path before the next agent action proceeds."
+    },
+    {
+      id: createId(),
+      tone: "success",
+      title: "Theme Direction Locked",
+      body: "Dracula is the default visual language. Light and system remain available in settings without diluting the IDE feel."
+    }
+  ];
+}
+
+function buildRefinementBlock(prompt: string, range: SelectionRange | null, model: ModelId) {
+  const cleanedPrompt = prompt.trim();
+  const shortTitle = cleanedPrompt
+    .replace(/\s+/g, " ")
+    .slice(0, 64)
+    .replace(/[.:!?]+$/, "");
+  const focusedExcerpt = range?.text.trim().replace(/\s+/g, " ").slice(0, 140) || "Entire approved specification";
+
+  return `### Refinement: ${shortTitle || "Spec update"}
+
+- Requested via: ${model}
+- Focus area: ${focusedExcerpt}
+- Updated requirement: ${cleanedPrompt || "Clarify the affected section and tighten acceptance criteria."}
+- Acceptance criteria:
+  - Reflect the change in the review workspace before execution begins.
+  - Preserve the split-pane PRD/spec workflow and autonomy controls.
+  - Surface any affected diff or milestone notes in the execution dashboard.`;
+}
+
+export const useProjectStore = create<ProjectState>((set, get) => ({
+  prdContent: "",
+  specContent: "",
+  prdPath: "docs/PRD.md",
+  specPath: "docs/SPEC.md",
+  selectedModel: "gpt-5.4",
+  autonomyMode: "milestone",
+  activeTab: "review",
+  prdPaneMode: "preview",
+  specPaneMode: "preview",
+  reviewPrompt: "",
+  selectedSpecRange: null,
+  annotations: buildInitialAnnotations(),
+  isSpecApproved: false,
+  setPrdContent: (prdContent, path) =>
+    set({
+      prdContent,
+      prdPath: path ?? get().prdPath
+    }),
+  setSpecContent: (specContent, path) =>
+    set({
+      specContent,
+      specPath: path ?? get().specPath,
+      isSpecApproved: false
+    }),
+  setSelectedModel: (selectedModel) => set({ selectedModel }),
+  setAutonomyMode: (autonomyMode) => set({ autonomyMode }),
+  setActiveTab: (activeTab) => set({ activeTab }),
+  setPrdPaneMode: (prdPaneMode) => set({ prdPaneMode }),
+  setSpecPaneMode: (specPaneMode) => set({ specPaneMode }),
+  setReviewPrompt: (reviewPrompt) => set({ reviewPrompt }),
+  setSelectedSpecRange: (selectedSpecRange) => set({ selectedSpecRange }),
+  applyRefinement: () => {
+    const state = get();
+    const nextBlock = buildRefinementBlock(
+      state.reviewPrompt,
+      state.selectedSpecRange,
+      state.selectedModel
+    );
+
+    set({
+      specContent: state.specContent.trim()
+        ? `${state.specContent.trim()}\n\n${nextBlock}`
+        : nextBlock,
+      reviewPrompt: "",
+      specPaneMode: "edit",
+      isSpecApproved: false,
+      annotations: [
+        {
+          id: createId(),
+          tone: "info",
+          title: "Refinement Added",
+          body: `The spec was extended with a focused change request: "${state.reviewPrompt.trim() || "Spec update"}".`
+        },
+        ...state.annotations
+      ]
+    });
+  },
+  approveSpec: () => {
+    const state = get();
+
+    set({
+      isSpecApproved: true,
+      annotations: [
+        {
+          id: createId(),
+          tone: "success",
+          title: "Spec Approved",
+          body: "The technical specification is now locked for execution. Any subsequent edit will require re-approval."
+        },
+        ...state.annotations
+      ]
+    });
+  }
+}));
