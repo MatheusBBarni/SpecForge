@@ -858,6 +858,7 @@ function App() {
                 onRefresh={handleRefresh}
                 onStartBuild={handleStartBuildClick}
                 searchInputRef={searchInputRef}
+                workspaceRootName={workspaceRootName}
               />
             }
             path="/"

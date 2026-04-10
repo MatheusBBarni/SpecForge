@@ -13,6 +13,7 @@ interface PrdScreenProps {
   commandSearch: string;
   isSearchOpen: boolean;
   isSpecApproved: boolean;
+  workspaceRootName: string;
   onCommandSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onRefresh: () => void;
   onStartBuild: () => void;
@@ -27,6 +28,7 @@ export function PrdScreen({
   commandSearch,
   isSearchOpen,
   isSpecApproved,
+  workspaceRootName,
   onCommandSearchChange,
   onRefresh,
   onStartBuild,
@@ -49,7 +51,7 @@ export function PrdScreen({
         <div className="order-1 flex items-center justify-between gap-4 rounded-[1.2rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] px-4 py-4 shadow-[var(--shadow)] backdrop-blur-xl xl:col-[2/4] xl:row-[1] xl:justify-end">
           <div className="min-w-0 xl:mr-auto">
             <h1 className="m-0 text-lg font-semibold text-[var(--text-main)]">
-              PRD Workspace
+              {workspaceRootName}
             </h1>
           </div>
 
