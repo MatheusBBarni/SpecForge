@@ -50,6 +50,7 @@ import {
   isTauriRuntime,
   openWorkspaceFolder,
   parseDocument,
+  pickDocument,
   readWorkspaceFile,
   runEnvironmentScan,
   startAgentRun,
@@ -77,6 +78,7 @@ import type {
 function App() {
   const location = useLocation();
   const isSettingsRoute = location.pathname === "/settings";
+  const desktopRuntime = isTauriRuntime();
   const agentStatus = useAgentStore((state) => state.status);
   const terminalOutput = useAgentStore((state) => state.terminalOutput);
   const pendingDiff = useAgentStore((state) => state.pendingDiff);
@@ -108,6 +110,7 @@ function App() {
   const applyRefinement = useProjectStore((state) => state.applyRefinement);
   const closeEditorTab = useProjectStore((state) => state.closeEditorTab);
   const openEditorTab = useProjectStore((state) => state.openEditorTab);
+  const resetWorkspaceContext = useProjectStore((state) => state.resetWorkspaceContext);
   const setActiveTab = useProjectStore((state) => state.setActiveTab);
   const setAutonomyMode = useProjectStore((state) => state.setAutonomyMode);
   const setPrdContent = useProjectStore((state) => state.setPrdContent);
@@ -169,16 +172,16 @@ function App() {
   const configuredModelProviders = useMemo<ModelProvider[]>(() => {
     const providers: ModelProvider[] = [];
 
-    if (claudePath.trim() || environment.claude.status === "found") {
+    if (environment.claude.status === "found") {
       providers.push("claude");
     }
 
-    if (codexPath.trim() || environment.codex.status === "found") {
+    if (environment.codex.status === "found") {
       providers.push("codex");
     }
 
     return providers;
-  }, [claudePath, codexPath, environment.claude.status, environment.codex.status]);
+  }, [environment.claude.status, environment.codex.status]);
 
   const refreshDiagnostics = useCallback(
     async (previousEnvironment?: EnvironmentStatus) => {
@@ -236,6 +239,7 @@ function App() {
     }: WorkspaceSelectionPayload) => {
       const loadedDocuments: string[] = [];
 
+      resetWorkspaceContext();
       setWorkspaceEntries(entries);
       setWorkspaceRootName(rootName);
       setHasOpenedWorkspaceFolder(true);
@@ -273,6 +277,7 @@ function App() {
     },
     [
       appendTerminalOutput,
+      resetWorkspaceContext,
       setPrdContent,
       setSpecContent,
       setSpecPaneMode,
@@ -419,7 +424,7 @@ function App() {
       }
 
       try {
-        const content = await readWorkspaceFile(file.sourcePath);
+        const content = await readWorkspaceFile(path);
         openEditorTab({
           title: file.fileName,
           path,
@@ -458,7 +463,7 @@ function App() {
       stampLog("build", `Starting spec-driven build run with ${modelLabel} (${reasoningLabel} reasoning).`)
     );
 
-    if (isTauriRuntime()) {
+    if (desktopRuntime) {
       try {
         await startAgentRun(specContent, autonomyMode, selectedModel, selectedReasoning);
         return;
@@ -483,6 +488,7 @@ function App() {
     setActiveTab,
     setAgentStatus,
     setCurrentMilestone,
+    desktopRuntime,
     selectedModel,
     selectedReasoning,
     specContent
@@ -493,29 +499,54 @@ function App() {
       return;
     }
 
-    appendTerminalOutput(stampLog("gate", "Approval received. Resuming execution."));
-    setPendingDiff(null);
-
-    if (isTauriRuntime()) {
-      await approveAgentAction();
+    if (desktopRuntime) {
+      try {
+        await approveAgentAction();
+        appendTerminalOutput(stampLog("gate", "Approval received. Resuming execution."));
+        setPendingDiff(null);
+        setAgentStatus("executing");
+      } catch (error) {
+        appendTerminalOutput(
+          stampLog(
+            "error",
+            error instanceof Error ? error.message : "Unable to approve the current execution gate."
+          )
+        );
+      }
       return;
     }
 
+    appendTerminalOutput(stampLog("gate", "Approval received. Resuming execution."));
+    setPendingDiff(null);
     setAgentStatus("executing");
     runFallbackStep(useAgentStore.getState(), fallbackStepsRef, fallbackIndexRef, fallbackTimerRef, setLatestDiff);
-  }, [agentStatus, appendTerminalOutput, setAgentStatus, setPendingDiff]);
+  }, [agentStatus, appendTerminalOutput, desktopRuntime, setAgentStatus, setPendingDiff]);
 
   const handleEmergencyStop = useCallback(async () => {
+    if (desktopRuntime) {
+      try {
+        await emergencyStop();
+        setAgentStatus("halted");
+        setExecutionSummary("Execution stopped by the operator.");
+        setPendingDiff(null);
+        appendTerminalOutput(stampLog("halt", "Emergency stop triggered. Agent loop is paused."));
+      } catch (error) {
+        appendTerminalOutput(
+          stampLog(
+            "error",
+            error instanceof Error ? error.message : "Unable to stop the current execution run."
+          )
+        );
+      }
+      return;
+    }
+
     clearFallbackTimer(fallbackTimerRef);
     setAgentStatus("halted");
     setExecutionSummary("Execution stopped by the operator.");
     setPendingDiff(null);
     appendTerminalOutput(stampLog("halt", "Emergency stop triggered. Agent loop is paused."));
-
-    if (isTauriRuntime()) {
-      await emergencyStop();
-    }
-  }, [appendTerminalOutput, setAgentStatus, setExecutionSummary, setPendingDiff]);
+  }, [appendTerminalOutput, desktopRuntime, setAgentStatus, setExecutionSummary, setPendingDiff]);
 
   const handleCommandSearchChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => setCommandSearch(event.target.value),
@@ -547,12 +578,33 @@ function App() {
     [setSelectedSpecRange]
   );
 
-  const handleOpenImportFile = useCallback(() => {
+  const handleOpenImportFile = useCallback(async () => {
+    if (desktopRuntime) {
+      setIsImporting(true);
+      setImportError("");
+
+      try {
+        const document = await pickDocument();
+
+        if (document) {
+          assignDocument(importTarget, document.content, document.sourcePath);
+        }
+      } catch (error) {
+        setImportError(
+          error instanceof Error ? error.message : "The selected file could not be imported."
+        );
+      } finally {
+        setIsImporting(false);
+      }
+
+      return;
+    }
+
     fileInputRef.current?.click();
-  }, []);
+  }, [assignDocument, desktopRuntime, importTarget]);
 
   const handleOpenWorkspaceFolder = useCallback(async () => {
-    if (isTauriRuntime()) {
+    if (desktopRuntime) {
       try {
         const workspaceFolder = await openWorkspaceFolder();
 
@@ -561,14 +613,15 @@ function App() {
         }
 
         const nextWorkspaceFiles = Object.fromEntries(
-          Object.entries(workspaceFolder.filePaths).map(([path, sourcePath]) => [
-            path,
-            {
-              kind: "desktop",
-              sourcePath,
-              fileName: path.split("/").slice(-1)[0] ?? path
-            } satisfies WorkspaceFileSource
-          ])
+          workspaceFolder.entries
+            .filter((entry) => entry.kind === "file")
+            .map((entry) => [
+              entry.path,
+              {
+                kind: "desktop",
+                fileName: entry.name
+              } satisfies WorkspaceFileSource
+            ])
         );
 
         applyWorkspaceSelection({
@@ -605,7 +658,7 @@ function App() {
     }
 
     folderInputRef.current?.click();
-  }, [applyWorkspaceSelection, importWorkspaceFiles]);
+  }, [applyWorkspaceSelection, desktopRuntime, importWorkspaceFiles]);
 
   const handleRefresh = useCallback(() => {
     void refreshDiagnostics();
@@ -614,6 +667,10 @@ function App() {
   const handlePathImportClick = useCallback(() => {
     void handlePathImport();
   }, [handlePathImport]);
+
+  const handleOpenImportFileClick = useCallback(() => {
+    void handleOpenImportFile();
+  }, [handleOpenImportFile]);
 
   const handleStartBuildClick = useCallback(() => {
     void handleStartBuild();
@@ -760,6 +817,7 @@ function App() {
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
+    let isDisposed = false;
     void subscribeToAgentEvents({
       onLine: appendTerminalOutput,
       onState: (payload) => {
@@ -769,10 +827,16 @@ function App() {
         }
       }
     }).then((dispose) => {
+      if (isDisposed) {
+        dispose();
+        return;
+      }
+
       unlisten = dispose;
     });
 
     return () => {
+      isDisposed = true;
       unlisten?.();
       clearFallbackTimer(fallbackTimerRef);
     };
@@ -793,7 +857,11 @@ function App() {
                   configuredModelProviders,
                   autonomyMode,
                   fileInputRef,
+                  fileInputAccept: desktopRuntime ? ".md,.pdf" : ".md",
                   importError,
+                  importFileSupportText: desktopRuntime
+                    ? "Desktop imports support Markdown and PDF through the native file picker."
+                    : "Browser imports currently support Markdown only. PDF parsing is available in the desktop app.",
                   importPath,
                   importTarget,
                   isImporting,
@@ -801,7 +869,7 @@ function App() {
                   onApplyRefinement: applyRefinement,
                   onApproveSpec: handleApproveSpec,
                   onFileChange: handleFileSelection,
-                  onFilePick: handleOpenImportFile,
+                  onFilePick: handleOpenImportFileClick,
                   onImportPathChange: setImportPath,
                   onImportTargetChange: handleImportTargetChange,
                   onModeChange: setAutonomyMode,

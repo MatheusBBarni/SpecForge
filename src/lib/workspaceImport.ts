@@ -1,7 +1,5 @@
 import ignore from "ignore";
 
-import { parseDocument } from "./runtime";
-
 import type { WorkspaceEntry } from "../types";
 
 export type ImportableFile = File & {
@@ -22,6 +20,17 @@ interface ProjectDocumentMatches {
 interface ParsedWorkspaceDocument {
   content: string;
   sourcePath: string;
+}
+
+interface NormalizedWorkspaceFile {
+  file: ImportableFile;
+  normalizedPath: string;
+  relativePath: string;
+}
+
+interface GitIgnoreMatcher {
+  directoryPath: string;
+  matcher: ignore.Ignore;
 }
 
 export function buildWorkspaceImportSnapshot(files: ImportableFile[]): WorkspaceImportSnapshot {
@@ -78,22 +87,20 @@ export function findProjectDocuments(files: ImportableFile[]): ProjectDocumentMa
 }
 
 export async function filterWorkspaceFiles(files: ImportableFile[]) {
-  const gitignoreFile = files.find(
-    (file) => normalizePath(getRelativeFilePath(file)).toLowerCase() === ".gitignore"
-  );
-
-  if (!gitignoreFile) {
+  if (files.length === 0) {
     return files;
   }
 
-  const matcher = ignore();
-  const gitignoreContents = await gitignoreFile.text();
-  matcher.add(gitignoreContents);
+  const normalizedFiles = normalizeWorkspaceFiles(files);
+  const gitignoreMatchers = await buildGitIgnoreMatchers(normalizedFiles);
 
-  return files.filter((file) => {
-    const normalizedPath = normalizePath(getRelativeFilePath(file));
-    return normalizedPath === ".gitignore" || !matcher.ignores(normalizedPath);
-  });
+  if (gitignoreMatchers.length === 0) {
+    return files;
+  }
+
+  return normalizedFiles
+    .filter((entry) => isGitIgnoreFile(entry.relativePath) || !isIgnored(entry.relativePath, gitignoreMatchers))
+    .map((entry) => entry.file);
 }
 
 export async function parseWorkspaceDocument(
@@ -102,14 +109,9 @@ export async function parseWorkspaceDocument(
   const extension = getExtension(file.name);
 
   if (extension === "pdf") {
-    if (!file.path) {
-      throw new Error(`PDF parsing for ${file.name} requires the desktop runtime file path.`);
-    }
-
-    return {
-      content: await parseDocument(file.path),
-      sourcePath: file.path
-    };
+    throw new Error(
+      `PDF parsing for ${file.name} is only available in the desktop app. Use the native picker or convert the file to Markdown.`
+    );
   }
 
   return {
@@ -178,6 +180,82 @@ function pickDocument(files: ImportableFile[], expectedNames: string[]) {
 
 function getRelativeFilePath(file: ImportableFile) {
   return normalizePath(file.webkitRelativePath || file.name);
+}
+
+function normalizeWorkspaceFiles(files: ImportableFile[]): NormalizedWorkspaceFile[] {
+  const normalizedPaths = files
+    .map((file) => normalizePath(getRelativeFilePath(file)))
+    .filter((path) => path.length > 0);
+  const rootName = resolveWorkspaceRootName(normalizedPaths);
+
+  return files
+    .map((file) => {
+      const normalizedPath = normalizePath(getRelativeFilePath(file));
+      return {
+        file,
+        normalizedPath,
+        relativePath: stripRootName(normalizedPath, rootName)
+      };
+    })
+    .filter((entry) => entry.relativePath.length > 0);
+}
+
+async function buildGitIgnoreMatchers(
+  files: NormalizedWorkspaceFile[]
+): Promise<GitIgnoreMatcher[]> {
+  const gitignoreFiles = files.filter((entry) => isGitIgnoreFile(entry.relativePath));
+  const matchers = await Promise.all(
+    gitignoreFiles.map(async (entry) => ({
+      directoryPath: getParentPath(entry.relativePath),
+      matcher: ignore().add(await entry.file.text())
+    }))
+  );
+
+  return matchers.sort((left, right) => left.directoryPath.length - right.directoryPath.length);
+}
+
+function isIgnored(path: string, matchers: GitIgnoreMatcher[]) {
+  let ignored = false;
+
+  for (const matcher of matchers) {
+    if (!isPathInDirectory(path, matcher.directoryPath)) {
+      continue;
+    }
+
+    const relativePath = stripDirectoryPrefix(path, matcher.directoryPath);
+    const result = matcher.matcher.test(relativePath);
+
+    if (result.ignored) {
+      ignored = true;
+    }
+
+    if (result.unignored) {
+      ignored = false;
+    }
+  }
+
+  return ignored;
+}
+
+function isGitIgnoreFile(path: string) {
+  return path.split("/").slice(-1)[0]?.toLowerCase() === ".gitignore";
+}
+
+function getParentPath(path: string) {
+  const separatorIndex = path.lastIndexOf("/");
+  return separatorIndex >= 0 ? path.slice(0, separatorIndex) : "";
+}
+
+function isPathInDirectory(path: string, directoryPath: string) {
+  return directoryPath.length === 0 || path === directoryPath || path.startsWith(`${directoryPath}/`);
+}
+
+function stripDirectoryPrefix(path: string, directoryPath: string) {
+  if (!directoryPath) {
+    return path;
+  }
+
+  return path.startsWith(`${directoryPath}/`) ? path.slice(directoryPath.length + 1) : path;
 }
 
 function getExtension(fileName: string) {

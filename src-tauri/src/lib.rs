@@ -1,11 +1,11 @@
-use git2::{DiffFormat, Repository};
+use git2::{DiffFormat, DiffOptions, Repository};
 use ignore::WalkBuilder;
 use lopdf::Document;
 use serde::Serialize;
 use std::{
     collections::HashMap,
     fs,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     process::Command,
     sync::{Arc, Condvar, Mutex},
     thread,
@@ -16,6 +16,7 @@ use tauri::{AppHandle, Emitter, State};
 #[derive(Default)]
 struct SharedState {
     runtime: Arc<ExecutionRuntime>,
+    workspace: Mutex<Option<WorkspaceContext>>,
 }
 
 #[derive(Default)]
@@ -29,6 +30,11 @@ struct ExecutionControl {
     run_id: u64,
     awaiting_approval: bool,
     stop_requested: bool,
+}
+
+struct WorkspaceContext {
+    root: PathBuf,
+    files: HashMap<String, PathBuf>,
 }
 
 #[derive(Clone, Serialize)]
@@ -72,7 +78,6 @@ struct WorkspaceScanResult {
     root_name: String,
     entries: Vec<WorkspaceEntry>,
     ignored_file_count: usize,
-    file_paths: HashMap<String, String>,
     prd_document: Option<WorkspaceDocument>,
     spec_document: Option<WorkspaceDocument>,
 }
@@ -91,6 +96,23 @@ struct SimulatedStep {
     line: String,
     milestone: &'static str,
     gate: bool,
+}
+
+struct ScannedWorkspace {
+    result: WorkspaceScanResult,
+    context: WorkspaceContext,
+}
+
+enum StopState {
+    Continue,
+    StopRequested,
+    Replaced,
+}
+
+enum ApprovalWaitOutcome {
+    Approved,
+    StopRequested,
+    Replaced,
 }
 
 const SAMPLE_DIFF: &str = r#"diff --git a/src/App.tsx b/src/App.tsx
@@ -118,40 +140,60 @@ fn run_environment_scan(
 
 #[tauri::command]
 fn parse_document(file_path: String) -> Result<String, String> {
-    let resolved_path = resolve_path(&file_path);
-
-    if !resolved_path.exists() {
-        return Err(format!("Document not found: {}", resolved_path.display()));
-    }
-
-    match resolved_path
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .map(|extension| extension.to_lowercase())
-        .as_deref()
-    {
-        Some("md") => fs::read_to_string(&resolved_path)
-            .map_err(|error| format!("Unable to read markdown document: {error}")),
-        Some("pdf") => read_pdf_text(&resolved_path),
-        _ => Err(String::from("Only .md and .pdf documents are supported.")),
-    }
+    let resolved_path = resolve_project_document_path(&file_path)?;
+    parse_supported_document(&resolved_path)
 }
 
 #[tauri::command]
-fn open_workspace_folder() -> Result<Option<WorkspaceScanResult>, String> {
+fn pick_document() -> Result<Option<WorkspaceDocument>, String> {
+    let Some(file_path) = rfd::FileDialog::new()
+        .add_filter("Documents", &["md", "pdf"])
+        .pick_file()
+    else {
+        return Ok(None);
+    };
+
+    let resolved_path = canonicalize_existing_path(&file_path)
+        .map_err(|error| format!("Unable to prepare selected document: {error}"))?;
+    let content = parse_supported_document(&resolved_path)?;
+    let file_name = resolved_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("Document")
+        .to_string();
+
+    Ok(Some(WorkspaceDocument {
+        content,
+        source_path: resolved_path.display().to_string(),
+        file_name,
+    }))
+}
+
+#[tauri::command]
+fn open_workspace_folder(state: State<SharedState>) -> Result<Option<WorkspaceScanResult>, String> {
     let Some(folder_path) = rfd::FileDialog::new().pick_folder() else {
         return Ok(None);
     };
 
-    scan_workspace_folder(&folder_path).map(Some)
+    let scanned_workspace = scan_workspace_folder(&folder_path)?;
+    let mut active_workspace = state
+        .workspace
+        .lock()
+        .map_err(|_| String::from("Workspace lock was poisoned."))?;
+    *active_workspace = Some(scanned_workspace.context);
+    Ok(Some(scanned_workspace.result))
 }
 
 #[tauri::command]
-fn read_workspace_file(file_path: String) -> Result<String, String> {
-    let resolved_path = resolve_path(&file_path);
+fn read_workspace_file(state: State<SharedState>, file_path: String) -> Result<String, String> {
+    let resolved_path = resolve_workspace_file_path(&state, &file_path)?;
 
-    fs::read_to_string(&resolved_path)
-        .map_err(|error| format!("Unable to read workspace file {}: {error}", resolved_path.display()))
+    fs::read_to_string(&resolved_path).map_err(|error| {
+        format!(
+            "Unable to read workspace file {}: {error}",
+            resolved_path.display()
+        )
+    })
 }
 
 #[tauri::command]
@@ -187,18 +229,20 @@ fn get_workspace_snapshot() -> Result<Vec<WorkspaceEntry>, String> {
     Ok(entries)
 }
 
-fn scan_workspace_folder(root: &Path) -> Result<WorkspaceScanResult, String> {
-    let root_name = root
+fn scan_workspace_folder(root: &Path) -> Result<ScannedWorkspace, String> {
+    let canonical_root = canonicalize_existing_path(root)
+        .map_err(|error| format!("Unable to prepare workspace folder {}: {error}", root.display()))?;
+    let root_name = canonical_root
         .file_name()
         .and_then(|value| value.to_str())
         .unwrap_or("Workspace")
         .to_string();
     let mut directory_entries = HashMap::<String, WorkspaceEntry>::new();
     let mut file_entries = Vec::<WorkspaceEntry>::new();
-    let mut file_paths = HashMap::<String, String>::new();
+    let mut file_paths = HashMap::<String, PathBuf>::new();
     let mut file_documents = Vec::<(String, PathBuf)>::new();
 
-    let walker = WalkBuilder::new(root)
+    let walker = WalkBuilder::new(&canonical_root)
         .hidden(false)
         .git_ignore(true)
         .git_global(true)
@@ -209,17 +253,20 @@ fn scan_workspace_folder(root: &Path) -> Result<WorkspaceScanResult, String> {
         let entry = match item {
             Ok(entry) => entry,
             Err(error) => {
-                return Err(format!("Unable to walk workspace folder {}: {error}", root.display()));
+                return Err(format!(
+                    "Unable to walk workspace folder {}: {error}",
+                    canonical_root.display()
+                ));
             }
         };
         let path = entry.path();
 
-        if path == root {
+        if path == canonical_root.as_path() {
             continue;
         }
 
         let relative_path = path
-            .strip_prefix(root)
+            .strip_prefix(&canonical_root)
             .map_err(|error| format!("Unable to normalize workspace path {}: {error}", path.display()))?
             .to_string_lossy()
             .replace('\\', "/");
@@ -279,7 +326,7 @@ fn scan_workspace_folder(root: &Path) -> Result<WorkspaceScanResult, String> {
             kind: String::from("file"),
             depth,
         });
-        file_paths.insert(relative_path.clone(), path.display().to_string());
+        file_paths.insert(relative_path.clone(), path.to_path_buf());
         file_documents.push((relative_path, path.to_path_buf()));
     }
 
@@ -292,13 +339,18 @@ fn scan_workspace_folder(root: &Path) -> Result<WorkspaceScanResult, String> {
     let prd_document = pick_workspace_document(&file_documents, &["prd.md", "prd.pdf"])?;
     let spec_document = pick_workspace_document(&file_documents, &["spec.md", "spec.pdf"])?;
 
-    Ok(WorkspaceScanResult {
-        root_name,
-        entries,
-        ignored_file_count: 0,
-        file_paths,
-        prd_document,
-        spec_document,
+    Ok(ScannedWorkspace {
+        result: WorkspaceScanResult {
+            root_name,
+            entries,
+            ignored_file_count: 0,
+            prd_document,
+            spec_document,
+        },
+        context: WorkspaceContext {
+            root: canonical_root,
+            files: file_paths,
+        },
     })
 }
 
@@ -306,17 +358,30 @@ fn scan_workspace_folder(root: &Path) -> Result<WorkspaceScanResult, String> {
 fn git_get_diff() -> Result<String, String> {
     let repository = Repository::discover(project_root())
         .map_err(|error| format!("Unable to discover git repository: {error}"))?;
-    let diff = repository
-        .diff_index_to_workdir(None, None)
-        .map_err(|error| format!("Unable to inspect git diff: {error}"))?;
-    let mut rendered = String::new();
-
-    diff.print(DiffFormat::Patch, |_delta, _hunk, line| {
-        let text = String::from_utf8_lossy(line.content());
-        rendered.push_str(&text);
-        true
-    })
-    .map_err(|error| format!("Unable to render diff: {error}"))?;
+    let head_tree = repository.head().ok().and_then(|head| head.peel_to_tree().ok());
+    let index = repository
+        .index()
+        .map_err(|error| format!("Unable to inspect git index: {error}"))?;
+    let mut staged_options = DiffOptions::new();
+    let staged_diff = repository
+        .diff_tree_to_index(head_tree.as_ref(), Some(&index), Some(&mut staged_options))
+        .map_err(|error| format!("Unable to inspect staged diff: {error}"))?;
+    let mut workdir_options = DiffOptions::new();
+    workdir_options
+        .include_untracked(true)
+        .recurse_untracked_dirs(true)
+        .show_untracked_content(true);
+    let workdir_diff = repository
+        .diff_index_to_workdir(Some(&index), Some(&mut workdir_options))
+        .map_err(|error| format!("Unable to inspect worktree diff: {error}"))?;
+    let staged_rendered = render_diff(&staged_diff)?;
+    let workdir_rendered = render_diff(&workdir_diff)?;
+    let rendered = match (staged_rendered.trim(), workdir_rendered.trim()) {
+        ("", "") => String::new(),
+        ("", _) => workdir_rendered,
+        (_, "") => staged_rendered,
+        _ => format!("{staged_rendered}\n{workdir_rendered}"),
+    };
 
     if rendered.trim().is_empty() {
         return Ok(SAMPLE_DIFF.to_string());
@@ -384,6 +449,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             run_environment_scan,
             parse_document,
+            pick_document,
             open_workspace_folder,
             read_workspace_file,
             get_workspace_snapshot,
@@ -406,42 +472,40 @@ fn current_timestamp() -> String {
 fn inspect_binary(display_name: &str, binary_name: &str, override_path: Option<&str>) -> CliStatus {
     let resolved_path = override_path
         .and_then(|value| {
-            let candidate = resolve_path(value);
+            let candidate = resolve_override_path(value);
             candidate.exists().then_some(candidate)
         })
         .or_else(|| which::which(binary_name).ok());
 
     if let Some(path) = resolved_path {
-        let version_detail = Command::new(&path)
-            .arg("--version")
-            .output()
-            .ok()
-            .and_then(|output| {
-                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-
-                if !stdout.is_empty() {
-                    Some(stdout)
-                } else if !stderr.is_empty() {
-                    Some(stderr)
+        match probe_binary_version(&path) {
+            Ok(version_detail) => {
+                let detail = if override_path.is_some() {
+                    format!("Using manual override. {version_detail}")
                 } else {
-                    None
-                }
-            })
-            .unwrap_or_else(|| String::from("Binary detected. Version probe returned no output."));
+                    format!("Detected on PATH. {version_detail}")
+                };
 
-        let detail = if override_path.is_some() {
-            format!("Using manual override. {version_detail}")
-        } else {
-            format!("Detected on PATH. {version_detail}")
-        };
-
-        return CliStatus {
-            name: display_name.to_string(),
-            status: String::from("found"),
-            path: Some(path.display().to_string()),
-            detail,
-        };
+                return CliStatus {
+                    name: display_name.to_string(),
+                    status: String::from("found"),
+                    path: Some(path.display().to_string()),
+                    detail,
+                };
+            }
+            Err(error) if override_path.is_some() => {
+                return CliStatus {
+                    name: display_name.to_string(),
+                    status: String::from("missing"),
+                    path: None,
+                    detail: format!(
+                        "Manual override could not be executed at {}: {error}",
+                        path.display()
+                    ),
+                };
+            }
+            Err(_) => {}
+        }
     }
 
     CliStatus {
@@ -578,7 +642,52 @@ fn project_root() -> PathBuf {
     current_directory
 }
 
-fn resolve_path(path_value: &str) -> PathBuf {
+fn resolve_project_document_path(path_value: &str) -> Result<PathBuf, String> {
+    let normalized_path = normalize_relative_path(path_value)?;
+    let project_root = canonicalize_existing_path(&project_root())
+        .map_err(|error| format!("Unable to resolve project root: {error}"))?;
+    let candidate = project_root.join(&normalized_path);
+    let resolved_path = canonicalize_existing_path(&candidate)
+        .map_err(|error| format!("Unable to resolve project document {normalized_path}: {error}"))?;
+
+    if !resolved_path.starts_with(&project_root) {
+        return Err(String::from(
+            "Project document imports must stay inside the repository root.",
+        ));
+    }
+
+    Ok(resolved_path)
+}
+
+fn resolve_workspace_file_path(
+    state: &State<SharedState>,
+    file_path: &str,
+) -> Result<PathBuf, String> {
+    let normalized_path = normalize_relative_path(file_path)?;
+    let workspace = state
+        .workspace
+        .lock()
+        .map_err(|_| String::from("Workspace lock was poisoned."))?;
+    let active_workspace = workspace
+        .as_ref()
+        .ok_or_else(|| String::from("No workspace folder is currently open."))?;
+    let resolved_path = active_workspace
+        .files
+        .get(&normalized_path)
+        .ok_or_else(|| format!("The file {normalized_path} is not part of the active workspace."))?;
+    let canonical_path = canonicalize_existing_path(resolved_path)
+        .map_err(|error| format!("Unable to resolve workspace file {normalized_path}: {error}"))?;
+
+    if !canonical_path.starts_with(&active_workspace.root) {
+        return Err(format!(
+            "Workspace file {normalized_path} resolved outside the active workspace root."
+        ));
+    }
+
+    Ok(canonical_path)
+}
+
+fn resolve_override_path(path_value: &str) -> PathBuf {
     let candidate = PathBuf::from(path_value.trim());
 
     if candidate.is_absolute() {
@@ -586,6 +695,86 @@ fn resolve_path(path_value: &str) -> PathBuf {
     }
 
     project_root().join(candidate)
+}
+
+fn normalize_relative_path(path_value: &str) -> Result<String, String> {
+    let trimmed_value = path_value.trim();
+
+    if trimmed_value.is_empty() {
+        return Err(String::from("A relative path is required."));
+    }
+
+    let candidate = PathBuf::from(trimmed_value);
+    let mut normalized_path = PathBuf::new();
+
+    for component in candidate.components() {
+        match component {
+            Component::CurDir => {}
+            Component::Normal(segment) => normalized_path.push(segment),
+            Component::ParentDir => {
+                return Err(String::from(
+                    "Parent directory traversal is not allowed for document or workspace reads.",
+                ))
+            }
+            Component::Prefix(_) | Component::RootDir => {
+                return Err(String::from("Absolute paths are not allowed here."))
+            }
+        }
+    }
+
+    if normalized_path.as_os_str().is_empty() {
+        return Err(String::from("A relative path is required."));
+    }
+
+    Ok(normalized_path.to_string_lossy().replace('\\', "/"))
+}
+
+fn canonicalize_existing_path(path: &Path) -> std::io::Result<PathBuf> {
+    fs::canonicalize(path)
+}
+
+fn parse_supported_document(path: &Path) -> Result<String, String> {
+    match path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("md") => fs::read_to_string(path)
+            .map_err(|error| format!("Unable to read markdown document {}: {error}", path.display())),
+        Some("pdf") => read_pdf_text(path),
+        _ => Err(String::from("Only .md and .pdf documents are supported.")),
+    }
+}
+
+fn render_diff(diff: &git2::Diff<'_>) -> Result<String, String> {
+    let mut rendered = String::new();
+    diff.print(DiffFormat::Patch, |_delta, _hunk, line| {
+        let text = String::from_utf8_lossy(line.content());
+        rendered.push_str(&text);
+        true
+    })
+    .map_err(|error| format!("Unable to render diff: {error}"))?;
+    Ok(rendered)
+}
+
+fn probe_binary_version(path: &Path) -> Result<String, String> {
+    let output = Command::new(path)
+        .arg("--version")
+        .output()
+        .map_err(|error| error.to_string())?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+    if !stdout.is_empty() {
+        return Ok(stdout);
+    }
+
+    if !stderr.is_empty() {
+        return Ok(stderr);
+    }
+
+    Ok(String::from("Binary detected. Version probe returned no output."))
 }
 
 fn run_simulated_agent(
@@ -605,19 +794,38 @@ fn run_simulated_agent(
     emit_state(&app, "executing", Some("Pre-flight Check"), None, None);
 
     for step in steps {
-        if should_stop(&runtime, run_id) {
-            emit_line(&app, "Execution interrupted before the next step could run.");
-            emit_state(
-                &app,
-                "halted",
-                Some(step.milestone),
-                None,
-                Some("Execution interrupted by the operator."),
-            );
-            return;
+        match stop_state(&runtime, run_id) {
+            StopState::Continue => {}
+            StopState::StopRequested => {
+                emit_line(&app, "Execution interrupted before the next step could run.");
+                emit_state(
+                    &app,
+                    "halted",
+                    Some(step.milestone),
+                    None,
+                    Some("Execution interrupted by the operator."),
+                );
+                return;
+            }
+            StopState::Replaced => return,
         }
 
         thread::sleep(Duration::from_millis(step.delay_ms));
+        match stop_state(&runtime, run_id) {
+            StopState::Continue => {}
+            StopState::StopRequested => {
+                emit_line(&app, "Execution interrupted before the next step could run.");
+                emit_state(
+                    &app,
+                    "halted",
+                    Some(step.milestone),
+                    None,
+                    Some("Execution interrupted by the operator."),
+                );
+                return;
+            }
+            StopState::Replaced => return,
+        }
         emit_state(&app, "executing", Some(step.milestone), None, None);
         emit_line(&app, &step.line);
 
@@ -628,20 +836,39 @@ fn run_simulated_agent(
                 "Milestone boundary reached. Review the diff before execution resumes."
             };
 
-            if let Err(message) = wait_for_approval(&app, &runtime, run_id, step.milestone, summary) {
-                emit_line(&app, &message);
-                emit_state(
-                    &app,
-                    "halted",
-                    Some(step.milestone),
-                    None,
-                    Some("Execution interrupted by the operator."),
-                );
-                return;
+            match wait_for_approval(&app, &runtime, run_id, step.milestone, summary) {
+                Ok(ApprovalWaitOutcome::Approved) => {}
+                Ok(ApprovalWaitOutcome::StopRequested) => {
+                    emit_line(&app, "Execution interrupted during approval gate.");
+                    emit_state(
+                        &app,
+                        "halted",
+                        Some(step.milestone),
+                        None,
+                        Some("Execution interrupted by the operator."),
+                    );
+                    return;
+                }
+                Ok(ApprovalWaitOutcome::Replaced) => return,
+                Err(message) => {
+                    emit_line(&app, &message);
+                    emit_state(
+                        &app,
+                        "error",
+                        Some(step.milestone),
+                        None,
+                        Some("Approval synchronization failed."),
+                    );
+                    return;
+                }
             }
 
             emit_line(&app, "Approval received. Resuming the agent loop.");
         }
+    }
+
+    if !matches!(stop_state(&runtime, run_id), StopState::Continue) {
+        return;
     }
 
     emit_line(&app, "Execution complete. Final diff is ready for inspection.");
@@ -740,7 +967,7 @@ fn wait_for_approval(
     run_id: u64,
     milestone: &str,
     summary: &str,
-) -> Result<(), String> {
+) -> Result<ApprovalWaitOutcome, String> {
     emit_state(
         app,
         "awaiting_approval",
@@ -763,19 +990,31 @@ fn wait_for_approval(
             .map_err(|_| String::from("Execution lock was poisoned."))?;
     }
 
-    if control.stop_requested || control.run_id != run_id {
-        return Err(String::from("Execution interrupted during approval gate."));
+    if control.stop_requested {
+        return Ok(ApprovalWaitOutcome::StopRequested);
     }
 
-    Ok(())
+    if control.run_id != run_id {
+        return Ok(ApprovalWaitOutcome::Replaced);
+    }
+
+    Ok(ApprovalWaitOutcome::Approved)
 }
 
-fn should_stop(runtime: &Arc<ExecutionRuntime>, run_id: u64) -> bool {
+fn stop_state(runtime: &Arc<ExecutionRuntime>, run_id: u64) -> StopState {
     runtime
         .control
         .lock()
-        .map(|control| control.stop_requested || control.run_id != run_id)
-        .unwrap_or(true)
+        .map(|control| {
+            if control.stop_requested {
+                StopState::StopRequested
+            } else if control.run_id != run_id {
+                StopState::Replaced
+            } else {
+                StopState::Continue
+            }
+        })
+        .unwrap_or(StopState::StopRequested)
 }
 
 fn emit_line(app: &AppHandle, line: &str) {

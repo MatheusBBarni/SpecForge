@@ -44,6 +44,7 @@ interface ProjectState {
   setSpecPaneMode: (mode: PaneMode) => void;
   setReviewPrompt: (prompt: string) => void;
   setSelectedSpecRange: (range: SelectionRange | null) => void;
+  resetWorkspaceContext: () => void;
   openEditorTab: (tab: Omit<EditorTab, "id">) => void;
   closeEditorTab: (path: string) => void;
   updateEditorTabContent: (path: string, content: string) => void;
@@ -150,13 +151,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setSpecPaneMode: (specPaneMode) => set({ specPaneMode }),
   setReviewPrompt: (reviewPrompt) => set({ reviewPrompt }),
   setSelectedSpecRange: (selectedSpecRange) => set({ selectedSpecRange }),
+  resetWorkspaceContext: () =>
+    set({
+      activeTab: "review",
+      openEditorTabs: [],
+      selectedSpecRange: null
+    }),
   openEditorTab: (tab) =>
     set((state) => {
       const tabId = createEditorTabId(tab.path);
       const existingTab = state.openEditorTabs.find((entry) => entry.path === tab.path);
       const openEditorTabs = existingTab
         ? state.openEditorTabs.map((entry) =>
-            entry.path === tab.path ? { ...entry, title: tab.title, content: tab.content } : entry
+            entry.path === tab.path ? { ...entry, title: tab.title } : entry
           )
         : [...state.openEditorTabs, { ...tab, id: tabId }];
 

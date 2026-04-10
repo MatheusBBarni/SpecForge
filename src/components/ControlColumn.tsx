@@ -49,6 +49,8 @@ interface ControlColumnProps {
   importTarget: DocumentTarget;
   importError: string;
   isImporting: boolean;
+  fileInputAccept: string;
+  importFileSupportText: string;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onImportPathChange: (value: string) => void;
   onImportTargetChange: (target: DocumentTarget) => void;
@@ -75,6 +77,8 @@ export const ControlColumn = memo(function ControlColumn({
   importTarget,
   importError,
   isImporting,
+  fileInputAccept,
+  importFileSupportText,
   fileInputRef,
   onImportPathChange,
   onImportTargetChange,
@@ -121,7 +125,10 @@ export const ControlColumn = memo(function ControlColumn({
         <Card className={SURFACE_CARD_CLASS}>
           <Card.Content className="flex flex-col items-center gap-5 px-4 py-6 text-center">
             <p className="max-w-[24rem] text-balance text-lg font-medium leading-8 text-[var(--text-main)]">
-              Load Markdown or PDF directly into PRD or spec.
+              Load source documents directly into the PRD or spec pane.
+            </p>
+            <p className="m-0 max-w-[24rem] text-sm leading-7 text-[var(--text-subtle)]">
+              {importFileSupportText}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Button
@@ -140,7 +147,7 @@ export const ControlColumn = memo(function ControlColumn({
               </Button>
             </div>
             <input
-              accept=".md,.pdf"
+              accept={fileInputAccept}
               className="hidden"
               onChange={onFileChange}
               ref={fileInputRef}

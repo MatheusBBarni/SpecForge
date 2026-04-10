@@ -1,139 +1,127 @@
-# Technical Specification: SpecForge (MVP)
+# Technical Specification: SpecForge
 
-## 1. System Architecture
+## 1. Architecture
 
-SpecForge uses a bifurcated architecture facilitated by Tauri's Inter-Process Communication (IPC):
+SpecForge is a split desktop application:
 
-* **The Webview (Frontend):** Handles all UI, user interactions, AI chat interfaces, and state management.
-* **The Core (Backend):** A Rust daemon running natively that handles file I/O, Git operations, and securely spawning/monitoring child processes (Claude CLI, Codex CLI).
+* **React webview:** Owns routing, document editing, workspace presentation, settings UI, and simulated execution UX.
+* **Tauri/Rust backend:** Owns environment scanning, filesystem access, PDF parsing, workspace walking, git diff generation, native file dialogs, and simulated agent coordination.
 
-## 2. Technology Stack
+The webview must never execute shell commands or arbitrary file reads directly. All desktop-side operations go through `src/lib/runtime.ts` and Tauri commands in `src-tauri/src/lib.rs`.
+
+## 2. Implemented Stack
 
 ### 2.1. Frontend
 
-* **Framework:** React 18+ (Strict Mode enabled).
-* **Build Tool:** Vite (standard with Tauri).
-* **Styling:** Tailwind CSS.
-* **UI Components:** HeroUI (for accessible, pre-styled components, modals, sliders, and split panes).
-* **Icons:** Iconoir (lightweight, consistent SVG icons).
-* **State Management:** Zustand (ideal for handling rapid updates from streaming CLI outputs without unnecessary re-renders).
-* **Markdown/Code Rendering:** `react-markdown` paired with `react-syntax-highlighter` for displaying the PRD, Spec, and diffs.
+* React 19
+* React Router 7
+* Zustand
+* HeroUI
+* Tailwind v4
+* TypeScript
 
-### 2.2. Backend & System
+### 2.2. Backend
 
-* **Framework:** Tauri (Rust).
-* **CLI Execution:** Rust's standard `std::process::Command` with piped `stdout`/`stderr` for real-time streaming to the frontend.
-* **Version Control:** `git2` crate (Rust bindings for `libgit2`) for programmatic commits, branching, and diff generation without relying on the system's Git executable.
-* **File Parsing:** * *Markdown:* Handled directly via Rust `std::fs` reading.
-  * *PDF:* `pdf-extract` or `lopdf` crate for extracting raw text buffers from uploaded PDFs.
+* Tauri 2
+* Rust 2024 edition
+* `git2` for repository diffing
+* `ignore` for `.gitignore`-aware workspace walking
+* `lopdf` for PDF text extraction
+* `rfd` for native file and folder pickers
+* `which` for CLI discovery
 
-## 3. Environment Analysis & Settings
+## 3. Default State And Stores
 
-### 3.1. CLI Detection & Validation (Rust Backend)
+### 3.1. Bundled review docs
 
-The Rust core performs a "Pre-flight Check" upon launch and when triggered via Settings.
+On startup, the app loads:
 
-* **Path Detection:** Uses the `which` crate (or `std::process::Command` invoking `where`/`which`) to locate `claude` and `codex` binaries across macOS and Windows.
-* **Authentication Check:** Executes "dry-run" commands (`claude whoami` / `claude config` and the Codex CLI equivalent) to parse exit codes or `stdout`. Returns status: `Authenticated`, `Not Authenticated`, or `Binary Not Found`.
+* `docs/PRD.md`
+* `docs/SPEC.md`
 
-### 3.2. Settings Architecture (Frontend)
+These bundled documents are the default contents of the PRD and spec panes until the user imports replacements.
 
-Implemented as a dedicated View/Modal using HeroUI.
+### 3.2. Zustand stores
 
-* **CLI Configuration Dashboard:** Displays visual status indicators (Iconoir) for Claude and Codex CLIs. Provides optional input fields for users to define manual binary paths.
-* **Theme Management:** Supports Dark, Light, and System themes. Preference is persisted locally via `tauri-plugin-store` and toggled via the Tailwind `.dark` class on the root HTML element.
+* **`useProjectStore`:** PRD/spec content, approval mode, selected model, selected range, annotations, and open workspace file tabs.
+* **`useAgentStore`:** Simulated run status, streamed output, current milestone, pending diff, and summary text.
+* **`useSettingsStore`:** Theme, CLI override paths, environment scan results, and the current workspace tree entries.
 
-## 4. Data Models & State Management (Zustand)
+## 4. Import And Workspace Flows
 
-The frontend utilizes three primary Zustand stores to separate concerns:
+### 4.1. Desktop document import
 
-### 4.1. `useProjectStore`
+The desktop runtime supports two import paths:
 
-Manages the core documents and configuration.
+* **Project-relative path import:** `parse_document(filePath)` accepts only repository-relative paths that stay inside the project root.
+* **Native picker import:** `pick_document()` opens a native file picker for `.md` and `.pdf`, parses the chosen file in Rust, and returns a `WorkspaceDocument`.
 
-```typescript
-interface ProjectState {
-  prdContent: string | null;
-  specContent: string | null;
-  selectedModel: 'claude' | 'gpt4o';
-  autonomyMode: 'stepped' | 'milestone' | 'god_mode';
-  
-  setPrdContent: (content: string) => void;
-  setSpecContent: (content: string) => void;
-  setAutonomyMode: (mode: 'stepped' | 'milestone' | 'god_mode') => void;
-}
-```
+### 4.2. Browser import fallback
 
-### 4.2. `useAgentStore`
+Browser mode keeps a file-input fallback:
 
-Manages the real-time execution and CLI streaming.
+* Direct document import supports **Markdown only**.
+* Browser-side folder import can discover PRD/spec matches, but PDF parsing is intentionally unavailable there.
 
-```typescript
-interface AgentState {
-  status: 'idle' | 'generating_spec' | 'executing' | 'awaiting_approval' | 'halted' | 'error';
-  terminalOutput: string[];
-  currentMilestone: string | null;
-  pendingDiff: string | null;
-  
-  appendTerminalOutput: (line: string) => void;
-  setStatus: (status: AgentState['status']) => void;
-  emergencyStop: () => void;
-}
-```
+### 4.3. Workspace scan and file opens
 
-### 4.3. `useSettingsStore`
+* `open_workspace_folder()` opens a native folder picker, walks the chosen directory with `.gitignore` awareness, and returns workspace entries plus detected PRD/spec documents.
+* The backend stores the active workspace root and its relative-path-to-file map in shared state.
+* `read_workspace_file(filePath)` now treats `filePath` as a **workspace-relative path only** and resolves it through the active workspace map.
+* Files outside the active workspace must be rejected even if the frontend passes an absolute path or traversal sequence.
 
-Manages app preferences and environment status.
+### 4.4. Browser `.gitignore` behavior
 
-```typescript
-interface SettingsState {
-  theme: 'dark' | 'light' | 'system';
-  claudeStatus: 'checking' | 'found' | 'missing' | 'unauthorized';
-  codeStatus: 'checking' | 'found' | 'missing' | 'unauthorized';
-  claudePath: string | null;
-  codePath: string | null;
-  
-  checkEnvironment: () => Promise<void>; 
-  setTheme: (theme: 'dark' | 'light' | 'system') => void;
-}
-```
+Browser folder imports normalize root-prefixed paths and apply root plus nested `.gitignore` rules before building the workspace tree.
 
-## 5. Backend API (Tauri Commands)
+## 5. Tauri Command Surface
 
-The Rust backend exposes specific functions to the React frontend via `@tauri-apps/api/core`:
+The current Tauri commands are:
 
-* **Environment:** `run_environment_scan() -> Result<EnvStatus, String>`
-* **File I/O:** `parse_document(file_path: String) -> Result<String, String>`
-* **Process Management:**
-  * `spawn_cli_agent(spec_payload: String, mode: String)`
-  * `kill_agent_process()` (Emergency Stop)
-* **Git Operations (via `git2`):**
-  * `git_init_repository(path: String) -> Result<(), String>`
-  * `git_get_diff() -> Result<String, String>`
-  * `git_commit_milestone(message: String) -> Result<(), String>`
+* `run_environment_scan(claudePath?: string, codexPath?: string)`
+* `parse_document(filePath: string)`
+* `pick_document()`
+* `open_workspace_folder()`
+* `read_workspace_file(filePath: string)`
+* `get_workspace_snapshot()`
+* `git_get_diff()`
+* `spawn_cli_agent(specPayload: string, mode: string, model: string, reasoning: string)`
+* `approve_action()`
+* `kill_agent_process()`
 
-## 6. Core Workflows & Logic
+Payloads crossing the Tauri boundary remain camelCase.
 
-### 6.1. Spec Generation & Human-in-the-Loop
+## 6. Diff And Execution Behavior
 
-* Frontend sends parsed PRD text to the LLM.
-* Resulting markdown string is saved to `useProjectStore.specContent`.
-* UI renders a HeroUI Split Pane.
-* If the user highlights text and requests changes, the specific chunk + prompt is sent back to the LLM, dynamically updating `specContent`.
+### 6.1. Git diff
 
-### 6.2. Agentic Execution & Autonomy Loop
+`git_get_diff()` uses `git2` to render:
 
-When the user clicks "Start Build":
+* staged changes (`HEAD -> index`)
+* unstaged changes (`index -> worktree`)
+* untracked file content
 
-1. React calls `spawn_cli_agent` with the approved Spec.
-2. Rust spawns the CLI process.
-3. **Streaming:** Rust listens to `stdout` and emits Tauri Window Events (`emit("cli-output", line)`) to the frontend.
-4. **Interception (Autonomy Engine):**
-   * **Stepped:** Rust intercepts file-write/shell commands, pauses the process, and emits `awaiting_approval`.
-   * **Milestone:** Rust waits for milestone completion, runs `git_get_diff()`, and sends the diff for approval.
-5. Upon user "Approve" in React, `approve_action()` signals Rust to allow the CLI to proceed.
+If the repository renders no pending diff, the app falls back to the bundled sample patch for demo purposes.
 
-## 7. Security Considerations
+### 6.2. Execution runtime
 
-* **Process Isolation:** The React frontend must never execute shell commands directly. All CLI executions are strictly defined and routed through Rust Tauri commands.
-* **API Keys/Secrets:** Handled by the underlying CLI tools where possible. If SpecForge needs to store secrets, they will be securely stored in the OS keychain using a crate like `keyring`, never in plain text.
+The current execution runtime is **simulated**:
+
+* `spawn_cli_agent()` starts a Rust thread that emits milestone and terminal events.
+* `approve_action()` resumes a paused simulated gate.
+* `kill_agent_process()` stops the active simulated run.
+* Run IDs are tracked so stale runs do not leak output into newer runs.
+
+This is a review-and-approval shell, not a real CLI orchestration engine yet.
+
+## 7. Environment And Settings
+
+* CLI health is derived from executable probing, not just path existence.
+* Manual override paths can be relative to the repo or absolute on disk.
+* Theme preference is stored in browser local storage and resolved into Dracula, Light, or System behavior in the webview.
+
+## 8. Known Limits
+
+* Opened workspace file tabs are editable in-memory only; there is no save-to-disk flow.
+* Browser mode does not parse PDFs.
+* The app presents model and approval controls, but the current run loop is simulated rather than connected to real Claude/Codex execution.

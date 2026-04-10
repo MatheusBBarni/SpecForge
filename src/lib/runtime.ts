@@ -7,6 +7,7 @@ import type {
   EnvironmentStatus,
   ModelId,
   ReasoningProfileId,
+  WorkspaceDocument,
   WorkspaceScanResult,
   WorkspaceEntry
 } from "../types";
@@ -67,7 +68,19 @@ export async function runEnvironmentScan(paths?: {
 }
 
 export async function parseDocument(filePath: string): Promise<string> {
+  if (!isTauriRuntime()) {
+    throw new Error("Path imports require the desktop runtime.");
+  }
+
   return invoke<string>("parse_document", { filePath });
+}
+
+export async function pickDocument(): Promise<WorkspaceDocument | null> {
+  if (!isTauriRuntime()) {
+    return null;
+  }
+
+  return invoke<WorkspaceDocument | null>("pick_document");
 }
 
 export async function openWorkspaceFolder(): Promise<WorkspaceScanResult | null> {

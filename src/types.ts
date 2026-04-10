@@ -73,7 +73,6 @@ export interface WorkspaceScanResult {
   rootName: string;
   entries: WorkspaceEntry[];
   ignoredFileCount: number;
-  filePaths: Record<string, string>;
   prdDocument: WorkspaceDocument | null;
   specDocument: WorkspaceDocument | null;
 }

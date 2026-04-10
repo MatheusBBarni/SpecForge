@@ -18,7 +18,6 @@ export type WorkspaceFileSource =
     }
   | {
       kind: "desktop";
-      sourcePath: string;
       fileName: string;
     };
 
