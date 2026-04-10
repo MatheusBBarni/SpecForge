@@ -15,13 +15,13 @@ export const MarkdownDocument = memo(function MarkdownDocument({ content }: Mark
   const blocks = useMemo(() => parseMarkdown(content), [content]);
 
   return (
-    <div className="markdown-document">
+    <div className="grid gap-4 leading-7 text-[var(--text-main)]">
       {blocks.map((block, index) => {
         switch (block.type) {
           case "heading": {
             if (block.level === 1) {
               return (
-                <h1 className="markdown-h1" key={`heading-${index}`}>
+                <h1 className="m-0 text-[1.6rem] font-semibold" key={`heading-${index}`}>
                   {renderInline(block.text)}
                 </h1>
               );
@@ -29,14 +29,17 @@ export const MarkdownDocument = memo(function MarkdownDocument({ content }: Mark
 
             if (block.level === 2) {
               return (
-                <h2 className="markdown-h2" key={`heading-${index}`}>
+                <h2
+                  className="m-0 text-[1.15rem] font-semibold text-[var(--accent-2)]"
+                  key={`heading-${index}`}
+                >
                   {renderInline(block.text)}
                 </h2>
               );
             }
 
             return (
-              <h3 className="markdown-h3" key={`heading-${index}`}>
+              <h3 className="m-0 text-base font-semibold" key={`heading-${index}`}>
                 {renderInline(block.text)}
               </h3>
             );
@@ -44,7 +47,10 @@ export const MarkdownDocument = memo(function MarkdownDocument({ content }: Mark
 
           case "paragraph":
             return (
-              <p className="markdown-paragraph" key={`paragraph-${index}`}>
+              <p
+                className="m-0 text-[var(--text-subtle)]"
+                key={`paragraph-${index}`}
+              >
                 {renderInline(block.text)}
               </p>
             );
@@ -53,7 +59,12 @@ export const MarkdownDocument = memo(function MarkdownDocument({ content }: Mark
             const ListTag = block.ordered ? "ol" : "ul";
 
             return (
-              <ListTag className="markdown-list" key={`list-${index}`}>
+              <ListTag
+                className={`m-0 grid gap-2 pl-5 text-[var(--text-subtle)] ${
+                  block.ordered ? "list-decimal" : "list-disc"
+                }`}
+                key={`list-${index}`}
+              >
                 {block.items.map((item) => (
                   <li key={`${index}-${item}`}>{renderInline(item)}</li>
                 ))}
@@ -63,14 +74,20 @@ export const MarkdownDocument = memo(function MarkdownDocument({ content }: Mark
 
           case "quote":
             return (
-              <blockquote className="markdown-quote" key={`quote-${index}`}>
+              <blockquote
+                className="m-0 border-l-[3px] border-[var(--accent)] pl-4 text-[var(--text-subtle)]"
+                key={`quote-${index}`}
+              >
                 {renderInline(block.text)}
               </blockquote>
             );
 
           case "code":
             return (
-              <pre className="markdown-code" key={`code-${index}`}>
+              <pre
+                className="m-0 overflow-auto rounded-[1rem] border border-white/6 bg-black/25 p-4 font-[var(--font-mono)] text-sm"
+                key={`code-${index}`}
+              >
                 <code>{block.text}</code>
               </pre>
             );
@@ -208,7 +225,10 @@ function renderInline(text: string) {
   return parts.map((part, index) => {
     if (part.startsWith("`") && part.endsWith("`")) {
       return (
-        <code className="markdown-inline-code" key={`code-${index}`}>
+        <code
+          className="rounded-[0.45rem] bg-white/5 px-1.5 py-0.5 font-[var(--font-mono)] text-[0.92em]"
+          key={`code-${index}`}
+        >
           {part.slice(1, -1)}
         </code>
       );

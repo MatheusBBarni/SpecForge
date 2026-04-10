@@ -1,13 +1,4 @@
 import {
-  CodeBracketsSquare,
-  Flask,
-  Folder,
-  Page,
-  PlaySolid,
-  Search,
-  Settings
-} from "iconoir-react";
-import {
   useCallback,
   startTransition,
   useDeferredValue,
@@ -18,7 +9,6 @@ import {
   type ChangeEvent
 } from "react";
 import {
-  NavLink,
   Navigate,
   Route,
   Routes,
@@ -27,10 +17,24 @@ import {
 
 import bundledPrd from "../docs/PRD.md?raw";
 import bundledSpec from "../docs/SPEC.md?raw";
-import { ControlColumn } from "./components/ControlColumn";
-import { InspectorColumn } from "./components/InspectorColumn";
-import { MainWorkspace } from "./components/MainWorkspace";
-import { SettingsView } from "./components/SettingsView";
+import { AppRail } from "./components/AppRail";
+import {
+  DocumentTarget,
+  FallbackStep,
+  WorkspaceFileSource,
+  WorkspaceSelectionPayload,
+  buildFallbackSteps,
+  clearFallbackTimer,
+  collectWorkspaceFiles,
+  filterWorkspaceEntries,
+  getDirectoryPicker,
+  isDirectoryPickerAbort,
+  isOpenableWorkspacePath,
+  normalizeWorkspacePath,
+  resolveTheme,
+  runFallbackStep,
+  stampLog
+} from "./lib/appShell";
 import {
   getModelLabel,
   getModelOptions,
@@ -63,46 +67,12 @@ import {
 import { useAgentStore } from "./store/useAgentStore";
 import { useProjectStore } from "./store/useProjectStore";
 import { useSettingsStore } from "./store/useSettingsStore";
+import { PrdScreen } from "./screens/PrdScreen";
+import { SettingsScreen } from "./screens/SettingsScreen";
 import type {
-  AgentStatus,
-  AutonomyMode,
   EnvironmentStatus,
-  ModelProvider,
-  ThemeMode,
-  WorkspaceDocument
+  ModelProvider
 } from "./types";
-
-type DocumentTarget = "prd" | "spec";
-
-type WorkspaceFileSource =
-  | {
-      kind: "browser";
-      file: ImportableFile;
-    }
-  | {
-      kind: "desktop";
-      sourcePath: string;
-      fileName: string;
-    };
-
-interface WorkspaceSelectionPayload {
-  rootName: string;
-  entries: ReturnType<typeof useSettingsStore.getState>["workspaceEntries"];
-  ignoredFileCount: number;
-  files: Record<string, WorkspaceFileSource>;
-  prdDocument: WorkspaceDocument | null;
-  specDocument: WorkspaceDocument | null;
-}
-
-interface FallbackStep {
-  delayMs: number;
-  line: string;
-  milestone: string;
-  gateLabel?: string;
-  diff?: string;
-  status?: AgentStatus;
-  summary?: string;
-}
 
 function App() {
   const location = useLocation();
@@ -196,7 +166,6 @@ function App() {
     () => resolveTheme(theme, systemPrefersDark),
     [theme, systemPrefersDark]
   );
-  const agentStatusLabel = useMemo(() => formatAgentStatus(agentStatus), [agentStatus]);
   const configuredModelProviders = useMemo<ModelProvider[]>(() => {
     const providers: ModelProvider[] = [];
 
@@ -810,168 +779,105 @@ function App() {
   }, [appendTerminalOutput, applyAgentEvent]);
 
   return (
-    <main className="app-shell">
-      <aside className="app-rail">
-        <div className="rail-logo">SF</div>
-        <NavLink className={getRailLinkClassName} end to="/">
-          <Page />
-        </NavLink>
-        <button className="rail-button" type="button">
-          <CodeBracketsSquare />
-        </button>
-        <button className="rail-button" type="button">
-          <Flask />
-        </button>
-        <button className="rail-button" type="button">
-          <Folder />
-        </button>
-        <div className="rail-spacer" />
-        <NavLink className={getRailLinkClassName} to="/settings">
-          <Settings />
-        </NavLink>
-      </aside>
+    <main className="min-h-screen w-full">
+      <AppRail />
 
-      <div className="app-frame">
-        {isSettingsRoute ? (
-          <header className="topbar">
-            <div className="topbar-title-block">
-              <p className="eyebrow">Navigation</p>
-              <h1>Settings</h1>
-            </div>
-
-            <div className="topbar-actions">
-              <span className={`status-pill status-pill-${agentStatus}`}>{agentStatusLabel}</span>
-              <button className="ghost-button" onClick={handleRefresh} type="button">
-                Refresh
-              </button>
-            </div>
-          </header>
-        ) : null}
-
-        {!isSettingsRoute && isSearchOpen ? (
-          <div className="floating-search">
-            <div className="topbar-search">
-              <Search />
-              <input
-                aria-label="Search workspace"
-                onChange={handleCommandSearchChange}
-                placeholder="Search SpecForge"
-                ref={searchInputRef}
-                value={commandSearch}
-              />
-              <span className="topbar-kbd">Esc</span>
-            </div>
-          </div>
-        ) : null}
-
+      <div className="relative flex min-h-screen min-w-0 flex-1 flex-col lg:ml-[72px]">
         <Routes>
           <Route
             element={
-              <div className="workspace-grid">
-                <div className="workspace-toolbar">
-                  <div className="topbar-actions">
-                    <span className={`status-pill status-pill-${agentStatus}`}>{agentStatusLabel}</span>
-                    <button className="ghost-button" onClick={handleRefresh} type="button">
-                      Refresh
-                    </button>
-                    <button
-                      className="primary-button"
-                      disabled={!isSpecApproved}
-                      onClick={handleStartBuildClick}
-                      type="button"
-                    >
-                      <PlaySolid />
-                      Start Build
-                    </button>
-                  </div>
-                </div>
-
-                <ControlColumn
-                  configuredModelProviders={configuredModelProviders}
-                  autonomyMode={autonomyMode}
-                  fileInputRef={fileInputRef}
-                  importError={importError}
-                  importPath={importPath}
-                  importTarget={importTarget}
-                  isImporting={isImporting}
-                  isSpecApproved={isSpecApproved}
-                  onApplyRefinement={applyRefinement}
-                  onApproveSpec={handleApproveSpec}
-                  onFileChange={handleFileSelection}
-                  onFilePick={handleOpenImportFile}
-                  onImportPathChange={setImportPath}
-                  onImportTargetChange={handleImportTargetChange}
-                  onModeChange={setAutonomyMode}
-                  onModelChange={setSelectedModel}
-                  onReasoningChange={setReasoningProfile}
-                  onPathImport={handlePathImportClick}
-                  onReviewPromptChange={setReviewPrompt}
-                  reviewPrompt={reviewPrompt}
-                  selectedModel={selectedModel}
-                  selectedReasoning={selectedReasoning}
-                  selectedSpecText={selectedSpecText}
-                />
-
-                <MainWorkspace
-                  activeTab={activeTab}
-                  agentStatus={agentStatus}
-                  executionSummary={executionSummary}
-                  onEditorTabChange={updateEditorTabContent}
-                  onEditorTabClose={closeEditorTab}
-                  onActiveTabChange={setActiveTab}
-                  onApproveExecutionGate={handleApproveExecutionGateClick}
-                  onEmergencyStop={handleEmergencyStopClick}
-                  openEditorTabs={openEditorTabs}
-                  onPrdContentChange={handlePrdContentChange}
-                  onPrdPaneModeChange={setPrdPaneMode}
-                  onSpecContentChange={handleSpecContentChange}
-                  onSpecPaneModeChange={setSpecPaneMode}
-                  onSpecSelect={handleSpecSelect}
-                  prdContent={prdContent}
-                  prdPaneMode={prdPaneMode}
-                  prdPath={prdPath}
-                  specContent={specContent}
-                  specPaneMode={specPaneMode}
-                  specPath={specPath}
-                  terminalOutput={terminalOutput}
-                  visibleDiff={visibleDiff}
-                  workspaceRootName={workspaceRootName}
-                />
-
-                <InspectorColumn
-                  emptyStateMessage={
-                    deferredSearch.trim()
-                      ? `No files match "${deferredSearch.trim()}".`
-                      : "Open a folder to scan its documents and build a workspace tree."
-                  }
-                  folderInputRef={folderInputRef}
-                  hasWorkspaceEntries={workspaceEntries.length > 0}
-                  onFileOpen={handleWorkspaceFileOpenClick}
-                  onFolderChange={handleWorkspaceFolderSelection}
-                  onOpenFolder={handleOpenWorkspaceFolder}
-                  workspaceEntries={filteredWorkspaceEntries}
-                  workspaceNotice={workspaceNotice}
-                  workspaceRootName={workspaceRootName}
-                />
-              </div>
+              <PrdScreen
+                agentStatus={agentStatus}
+                commandSearch={commandSearch}
+                controlColumnProps={{
+                  configuredModelProviders,
+                  autonomyMode,
+                  fileInputRef,
+                  importError,
+                  importPath,
+                  importTarget,
+                  isImporting,
+                  isSpecApproved,
+                  onApplyRefinement: applyRefinement,
+                  onApproveSpec: handleApproveSpec,
+                  onFileChange: handleFileSelection,
+                  onFilePick: handleOpenImportFile,
+                  onImportPathChange: setImportPath,
+                  onImportTargetChange: handleImportTargetChange,
+                  onModeChange: setAutonomyMode,
+                  onModelChange: setSelectedModel,
+                  onReasoningChange: setReasoningProfile,
+                  onPathImport: handlePathImportClick,
+                  onReviewPromptChange: setReviewPrompt,
+                  reviewPrompt,
+                  selectedModel,
+                  selectedReasoning,
+                  selectedSpecText
+                }}
+                inspectorColumnProps={{
+                  emptyStateMessage: deferredSearch.trim()
+                    ? `No files match "${deferredSearch.trim()}".`
+                    : "Open a folder to scan its documents and build a workspace tree.",
+                  folderInputRef,
+                  hasWorkspaceEntries: workspaceEntries.length > 0,
+                  onFileOpen: handleWorkspaceFileOpenClick,
+                  onFolderChange: handleWorkspaceFolderSelection,
+                  onOpenFolder: handleOpenWorkspaceFolder,
+                  workspaceEntries: filteredWorkspaceEntries,
+                  workspaceNotice,
+                  workspaceRootName
+                }}
+                isSearchOpen={isSearchOpen}
+                isSpecApproved={isSpecApproved}
+                mainWorkspaceProps={{
+                  activeTab,
+                  agentStatus,
+                  executionSummary,
+                  onEditorTabChange: updateEditorTabContent,
+                  onEditorTabClose: closeEditorTab,
+                  onActiveTabChange: setActiveTab,
+                  onApproveExecutionGate: handleApproveExecutionGateClick,
+                  onEmergencyStop: handleEmergencyStopClick,
+                  openEditorTabs,
+                  onPrdContentChange: handlePrdContentChange,
+                  onPrdPaneModeChange: setPrdPaneMode,
+                  onSpecContentChange: handleSpecContentChange,
+                  onSpecPaneModeChange: setSpecPaneMode,
+                  onSpecSelect: handleSpecSelect,
+                  prdContent,
+                  prdPaneMode,
+                  prdPath,
+                  specContent,
+                  specPaneMode,
+                  specPath,
+                  terminalOutput,
+                  visibleDiff,
+                  workspaceRootName
+                }}
+                onCommandSearchChange={handleCommandSearchChange}
+                onRefresh={handleRefresh}
+                onStartBuild={handleStartBuildClick}
+                searchInputRef={searchInputRef}
+              />
             }
             path="/"
           />
           <Route
             element={
-              <div className="settings-route">
-                <SettingsView
-                  annotations={annotations}
-                  claudePath={claudePath}
-                  codexPath={codexPath}
-                  environment={environment}
-                  onClaudePathChange={setClaudePath}
-                  onCodexPathChange={setCodexPath}
-                  onRefresh={handleRefresh}
-                  onThemeChange={setTheme}
-                  theme={theme}
-                />
-              </div>
+              <SettingsScreen
+                agentStatus={agentStatus}
+                onRefresh={handleRefresh}
+                settingsViewProps={{
+                  annotations,
+                  claudePath,
+                  codexPath,
+                  environment,
+                  onClaudePathChange: setClaudePath,
+                  onCodexPathChange: setCodexPath,
+                  onThemeChange: setTheme,
+                  theme
+                }}
+              />
             }
             path="/settings"
           />
@@ -981,289 +887,5 @@ function App() {
     </main>
   );
 }
-
-interface DirectoryPickerOptions {
-  mode?: "read" | "readwrite";
-}
-
-type DirectoryPicker = (options?: DirectoryPickerOptions) => Promise<FileSystemDirectoryHandle>;
-
-function getDirectoryPicker(): DirectoryPicker | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const maybeWindow = window as Window & {
-    showDirectoryPicker?: DirectoryPicker;
-  };
-
-  return maybeWindow.showDirectoryPicker?.bind(window) ?? null;
-}
-
-async function collectWorkspaceFiles(
-  directoryHandle: FileSystemDirectoryHandle,
-  parentPath = directoryHandle.name
-): Promise<ImportableFile[]> {
-  const files: ImportableFile[] = [];
-  const asyncDirectory = directoryHandle as unknown as AsyncIterable<
-    [string, FileSystemDirectoryHandle | FileSystemFileHandle]
-  >;
-
-  for await (const [entryName, entry] of asyncDirectory) {
-    const relativePath = parentPath ? `${parentPath}/${entryName}` : entryName;
-
-    if (entry.kind === "directory") {
-      files.push(...(await collectWorkspaceFiles(entry, relativePath)));
-      continue;
-    }
-
-    const file = (await entry.getFile()) as ImportableFile;
-    Object.defineProperty(file, "webkitRelativePath", {
-      configurable: true,
-      value: relativePath
-    });
-    files.push(file);
-  }
-
-  return files;
-}
-
-function isDirectoryPickerAbort(error: unknown) {
-  return error instanceof DOMException && error.name === "AbortError";
-}
-
-function resolveTheme(theme: ThemeMode, systemPrefersDark: boolean) {
-  if (theme === "system") {
-    return systemPrefersDark ? "dracula" : "light";
-  }
-
-  return theme;
-}
-
-function formatAgentStatus(status: AgentStatus) {
-  if (status === "awaiting_approval") {
-    return "Awaiting approval";
-  }
-
-  return `${status[0]?.toUpperCase()}${status.slice(1).replace("_", " ")}`;
-}
-
-function stampLog(scope: string, message: string) {
-  return `${new Date().toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit"
-  })}  [${scope}] ${message}`;
-}
-
-function getRailLinkClassName({ isActive }: { isActive: boolean }) {
-  return isActive ? "rail-button rail-button-active" : "rail-button";
-}
-
-function clearFallbackTimer(timerRef: { current: number | null }) {
-  if (timerRef.current !== null) {
-    window.clearTimeout(timerRef.current);
-    timerRef.current = null;
-  }
-}
-
-function runFallbackStep(
-  agent: ReturnType<typeof useAgentStore.getState>,
-  stepsRef: { current: FallbackStep[] },
-  indexRef: { current: number },
-  timerRef: { current: number | null },
-  setLatestDiff: (diff: string) => void
-) {
-  clearFallbackTimer(timerRef);
-  const nextStep = stepsRef.current[indexRef.current];
-
-  if (!nextStep) {
-    return;
-  }
-
-  timerRef.current = window.setTimeout(() => {
-    agent.appendTerminalOutput(stampLog("cli", nextStep.line));
-    agent.setCurrentMilestone(nextStep.milestone);
-
-    if (nextStep.gateLabel) {
-      agent.setStatus("awaiting_approval");
-      agent.setExecutionSummary(nextStep.gateLabel);
-      agent.setPendingDiff(nextStep.diff ?? DEFAULT_PENDING_DIFF);
-      setLatestDiff(nextStep.diff ?? DEFAULT_PENDING_DIFF);
-      indexRef.current += 1;
-      return;
-    }
-
-    if (nextStep.status) {
-      agent.setStatus(nextStep.status);
-    }
-
-    if (nextStep.summary) {
-      agent.setExecutionSummary(nextStep.summary);
-    }
-
-    if (nextStep.diff) {
-      setLatestDiff(nextStep.diff);
-    }
-
-    indexRef.current += 1;
-    runFallbackStep(agent, stepsRef, indexRef, timerRef, setLatestDiff);
-  }, nextStep.delayMs);
-}
-
-function buildFallbackSteps(
-  mode: AutonomyMode,
-  modelLabel: string,
-  reasoningLabel: string
-): FallbackStep[] {
-  const steps: FallbackStep[] = [
-    {
-      delayMs: 500,
-      line: `Launching ${modelLabel} with ${reasoningLabel.toLowerCase()} reasoning against the approved specification.`,
-      milestone: "Pre-flight Check",
-      status: "executing"
-    },
-    {
-      delayMs: 700,
-      line: "Scanning CLI environment and staging the workspace diff review.",
-      milestone: "Pre-flight Check"
-    },
-    {
-      delayMs: 800,
-      line: "Mapping milestones for React, Zustand, and Tauri command surfaces.",
-      milestone: "Milestone Planning"
-    }
-  ];
-
-  if (mode === "stepped") {
-    steps.push({
-      delayMs: 650,
-      line: "A write action is about to run against the approved spec.",
-      milestone: "Stepped Approval",
-      gateLabel: "Approve this write before the agent mutates code or shell state.",
-      diff: DEFAULT_PENDING_DIFF,
-      status: "awaiting_approval"
-    });
-  }
-
-  steps.push(
-    {
-      delayMs: 700,
-      line: "Writing Dracula theme tokens and desktop shell layout.",
-      milestone: "Compose Review Workspace"
-    },
-    {
-      delayMs: 650,
-      line: "Connecting state stores to the review surface and execution dashboard.",
-      milestone: "Compose Review Workspace"
-    }
-  );
-
-  if (mode === "milestone") {
-    steps.push({
-      delayMs: 650,
-      line: "Milestone complete. Review the diff before continuing to the next chunk.",
-      milestone: "Milestone Approval",
-      gateLabel: "Milestone boundary reached. Review the staged diff and approve to continue.",
-      diff: DEFAULT_PENDING_DIFF,
-      status: "awaiting_approval"
-    });
-  }
-
-  steps.push(
-    {
-      delayMs: 700,
-      line: "Streaming console output and enabling interruption controls.",
-      milestone: "Execution Dashboard"
-    },
-    {
-      delayMs: 650,
-      line: "Refreshing final diff state and packaging the handoff summary.",
-      milestone: "Execution Dashboard"
-    },
-    {
-      delayMs: 500,
-      line: "Fallback execution completed. Review the diff and continue in your IDE.",
-      milestone: "Complete",
-      status: "completed",
-      summary: "Fallback simulation completed. The approved spec, diff, and execution stream are ready for handoff."
-    }
-  );
-
-  return steps;
-}
-
-function normalizeWorkspacePath(path: string, rootName: string) {
-  const normalizedPath = path.replace(/\\/g, "/").replace(/^\/+/, "");
-
-  if (normalizedPath.startsWith(`${rootName}/`)) {
-    return normalizedPath.slice(rootName.length + 1);
-  }
-
-  return normalizedPath;
-}
-
-function isOpenableWorkspacePath(path: string) {
-  const normalizedPath = path.toLowerCase();
-
-  if (normalizedPath.endsWith("/.gitignore") || normalizedPath === ".gitignore") {
-    return true;
-  }
-
-  return OPENABLE_TEXT_EXTENSIONS.has(normalizedPath.split(".").pop() ?? "");
-}
-
-function filterWorkspaceEntries(
-  entries: ReturnType<typeof useSettingsStore.getState>["workspaceEntries"],
-  query: string
-) {
-  const normalizedQuery = query.trim().toLowerCase();
-
-  if (!normalizedQuery) {
-    return entries;
-  }
-
-  const visiblePaths = new Set<string>();
-
-  for (const entry of entries) {
-    const normalizedPath = entry.path.toLowerCase();
-    const normalizedName = entry.name.toLowerCase();
-
-    if (
-      !normalizedPath.includes(normalizedQuery) &&
-      !normalizedName.includes(normalizedQuery)
-    ) {
-      continue;
-    }
-
-    let currentPath = entry.path;
-
-    while (currentPath) {
-      visiblePaths.add(currentPath);
-      const nextSlashIndex = currentPath.lastIndexOf("/");
-      currentPath = nextSlashIndex >= 0 ? currentPath.slice(0, nextSlashIndex) : "";
-    }
-  }
-
-  return entries.filter((entry) => visiblePaths.has(entry.path));
-}
-
-const OPENABLE_TEXT_EXTENSIONS = new Set([
-  "css",
-  "gitignore",
-  "html",
-  "js",
-  "json",
-  "jsx",
-  "lock",
-  "md",
-  "rs",
-  "toml",
-  "ts",
-  "tsx",
-  "txt",
-  "yaml",
-  "yml"
-]);
 
 export default App;

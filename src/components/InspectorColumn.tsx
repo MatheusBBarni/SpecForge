@@ -63,37 +63,43 @@ export const InspectorColumn = memo(function InspectorColumn({
   }, []);
 
   return (
-    <aside className="inspector-column panel">
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">Workspace</p>
-          <h2>{workspaceRootName}</h2>
+    <aside className="flex h-full min-h-0 flex-col gap-4 rounded-[1.5rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-5 shadow-[var(--shadow)] backdrop-blur-[30px]">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="mb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
+            Workspace
+          </p>
+          <h2 className="m-0 truncate text-lg font-semibold text-[var(--text-main)]">
+            {workspaceRootName}
+          </h2>
         </div>
-        <button className="ghost-button" onClick={onOpenFolder} type="button">
-          <Folder />
+        <button className={BUTTON_CLASS} onClick={onOpenFolder} type="button">
+          <Folder className="size-5" />
           Open Folder
         </button>
       </div>
 
-      <div className="inspector-section">
-        <div className="section-title">
-          <Folder />
-          <span>Project Files</span>
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="flex items-center gap-3 text-[var(--text-main)]">
+          <Folder className="size-5 text-[var(--accent-2)]" />
+          <span className="text-sm font-semibold uppercase tracking-[0.08em]">
+            Project Files
+          </span>
         </div>
-        <p className="muted-copy">{workspaceNotice}</p>
+        <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">{workspaceNotice}</p>
         <input
           {...directoryPickerProps}
-          className="hidden-file-input"
+          className="hidden"
           onChange={onFolderChange}
           ref={folderInputRef}
           type="file"
         />
-        <div className="tree-list">
+        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto pr-1">
           {workspaceTree.map((node) =>
             renderTreeNode(node, collapsedFoldersLookup, toggleFolder, onFileOpen)
           )}
           {workspaceEntries.length === 0 ? (
-            <p className="muted-copy">
+            <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
               {hasWorkspaceEntries ? emptyStateMessage : "Open a folder to scan its documents and build a workspace tree."}
             </p>
           ) : null}
@@ -115,37 +121,40 @@ function renderTreeNode(
   const hasChildren = children.length > 0;
 
   return (
-    <div className="tree-node" key={entry.path}>
+    <div key={entry.path}>
       {isDirectory ? (
         <button
           aria-expanded={!isCollapsed}
-          className="tree-entry tree-entry-button"
+          className="flex w-full items-center gap-3 rounded-[0.8rem] py-2 pr-3 text-left text-[var(--text-subtle)] transition hover:bg-white/5 hover:text-[var(--text-main)]"
           onClick={() => onToggleFolder(entry.path)}
           style={{ paddingLeft: `${entry.depth * 18 + 12}px` }}
           type="button"
         >
-          <span className="tree-entry-caret">
+          <span className="inline-flex w-4 flex-none items-center justify-center">
             {hasChildren ? (isCollapsed ? <NavArrowRight /> : <NavArrowDown />) : null}
           </span>
-          <Folder />
-          <span>{entry.name}</span>
+          <Folder className="size-4 flex-none" />
+          <span className="truncate">{entry.name}</span>
         </button>
       ) : (
         <button
-          className="tree-entry tree-entry-button"
+          className="flex w-full items-center gap-3 rounded-[0.8rem] py-2 pr-3 text-left text-[var(--text-subtle)] transition hover:bg-white/5 hover:text-[var(--text-main)]"
           onClick={() => onFileOpen(entry.path)}
           style={{ paddingLeft: `${entry.depth * 18 + 12}px` }}
           type="button"
         >
-          <span className="tree-entry-caret" />
-          <Page />
-          <span>{entry.name}</span>
+          <span className="inline-flex w-4 flex-none items-center justify-center" />
+          <Page className="size-4 flex-none" />
+          <span className="truncate">{entry.name}</span>
         </button>
       )}
       {isDirectory && !isCollapsed ? children.map((child) => renderTreeNode(child, collapsedFolders, onToggleFolder, onFileOpen)) : null}
     </div>
   );
 }
+
+const BUTTON_CLASS =
+  "inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[var(--border-soft)] bg-white/5 px-4 py-3 font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/8";
 
 function buildWorkspaceTree(entries: WorkspaceEntry[]) {
   const nodes = new Map<string, WorkspaceTreeNode>();

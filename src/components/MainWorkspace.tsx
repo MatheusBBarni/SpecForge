@@ -1,13 +1,11 @@
 import {
-  CheckCircle,
-  CodeBracketsSquare,
-  Terminal,
-  XmarkCircle
+  FileNotFound
 } from "iconoir-react";
 import { memo, useEffect, useMemo, type ChangeEvent } from "react";
 
-import { DiffPreview } from "./DiffPreview";
-import { MarkdownDocument } from "./MarkdownDocument";
+import { DocumentPane } from "./DocumentPane";
+import { ExecutionPanel } from "./ExecutionPanel";
+import { WorkspaceTabBar } from "./WorkspaceTabBar";
 import type {
   AgentStatus,
   EditorTab,
@@ -108,203 +106,79 @@ export const MainWorkspace = memo(function MainWorkspace({
   }, [activeEditorTab, onEditorTabClose]);
 
   return (
-    <section className="main-column panel">
-      <div className="tabbar">
-        <button
-          className={activeTab === "review" ? "tab-active" : ""}
-          onClick={() => onActiveTabChange("review")}
-          type="button"
-        >
-          Review
-        </button>
-        <button
-          className={activeTab === "execute" ? "tab-active" : ""}
-          onClick={() => onActiveTabChange("execute")}
-          type="button"
-        >
-          Execute
-        </button>
-        {openEditorTabs.map((tab) => (
-          <div
-            className={tab.id === activeTab ? "workspace-file-tab workspace-file-tab-active" : "workspace-file-tab"}
-            key={tab.id}
-          >
-            <button
-              className="workspace-file-tab-button"
-              onClick={() => onActiveTabChange(tab.id)}
-              type="button"
-            >
-              {tab.title}
-            </button>
-            <button
-              aria-label={`Close ${tab.title}`}
-              className="workspace-file-tab-close"
-              onClick={() => onEditorTabClose(tab.path)}
-              type="button"
-            >
-              <span aria-hidden="true" className="workspace-file-tab-close-mark">
-                x
-              </span>
-            </button>
-          </div>
-        ))}
-      </div>
+    <section className="flex min-h-0 h-full flex-col overflow-hidden rounded-[1.5rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] shadow-[var(--shadow)] backdrop-blur-[30px]">
+      <WorkspaceTabBar
+        activeTab={activeTab}
+        onActiveTabChange={onActiveTabChange}
+        onEditorTabClose={onEditorTabClose}
+        openEditorTabs={openEditorTabs}
+      />
 
       {activeTab === "review" ? (
-        <div className="document-grid">
-          <article className="document-panel">
-            <div className="document-header">
-              <div>
-                <p className="eyebrow">Source PRD</p>
-                <h2>{displayPrdPath}</h2>
-              </div>
-              <div className="segmented-control">
-                <button
-                  aria-pressed={prdPaneMode === "preview"}
-                  className={prdPaneMode === "preview" ? "segment-active" : ""}
-                  onClick={() => onPrdPaneModeChange("preview")}
-                  type="button"
-                >
-                  Preview
-                </button>
-                <button
-                  aria-pressed={prdPaneMode === "edit"}
-                  className={prdPaneMode === "edit" ? "segment-active" : ""}
-                  onClick={() => onPrdPaneModeChange("edit")}
-                  type="button"
-                >
-                  Edit
-                </button>
-              </div>
-            </div>
-
-            {prdPaneMode === "preview" ? (
-              <div className="document-body">
-                <MarkdownDocument content={prdContent} />
-              </div>
-            ) : (
-              <textarea
-                className="document-editor"
-                onChange={(event) => onPrdContentChange(event.target.value)}
-                value={prdContent}
-              />
-            )}
-          </article>
-
-          <article className="document-panel">
-            <div className="document-header">
-              <div>
-                <p className="eyebrow">Technical Spec</p>
-                <h2>{displaySpecPath}</h2>
-              </div>
-              <div className="segmented-control">
-                <button
-                  aria-pressed={specPaneMode === "preview"}
-                  className={specPaneMode === "preview" ? "segment-active" : ""}
-                  onClick={() => onSpecPaneModeChange("preview")}
-                  type="button"
-                >
-                  Preview
-                </button>
-                <button
-                  aria-pressed={specPaneMode === "edit"}
-                  className={specPaneMode === "edit" ? "segment-active" : ""}
-                  onClick={() => onSpecPaneModeChange("edit")}
-                  type="button"
-                >
-                  Edit
-                </button>
-              </div>
-            </div>
-
-            {specPaneMode === "preview" ? (
-              <div className="document-body">
-                <MarkdownDocument content={specContent} />
-              </div>
-            ) : (
-              <textarea
-                className="document-editor"
-                onChange={(event) => onSpecContentChange(event.target.value)}
-                onSelect={onSpecSelect}
-                value={specContent}
-              />
-            )}
-          </article>
+        <div className="grid h-full min-h-0 gap-4 p-4 xl:grid-cols-2">
+          <DocumentPane
+            content={prdContent}
+            eyebrow="Source PRD"
+            mode={prdPaneMode}
+            onChange={onPrdContentChange}
+            onModeChange={onPrdPaneModeChange}
+            title={displayPrdPath}
+          />
+          <DocumentPane
+            content={specContent}
+            eyebrow="Technical Spec"
+            mode={specPaneMode}
+            onChange={onSpecContentChange}
+            onModeChange={onSpecPaneModeChange}
+            onSelect={onSpecSelect}
+            title={displaySpecPath}
+          />
         </div>
       ) : activeTab === "execute" ? (
-        <div className="execution-layout">
-          <section className="console-panel">
-            <div className="section-title">
-              <Terminal />
-              <span>Execution Stream</span>
-            </div>
-            <div className="console-window">
-              {terminalOutput.length === 0 ? (
-                <p className="console-placeholder">
-                  Approve the spec, then start a build to stream the agent loop here.
-                </p>
-              ) : (
-                terminalOutput.map((line, index) => (
-                  <div className="console-line" key={`${line}-${index}`}>
-                    {line}
-                  </div>
-                ))
-              )}
-            </div>
-            <div className="button-row">
-              {agentStatus === "awaiting_approval" ? (
-                <button className="primary-button" onClick={onApproveExecutionGate} type="button">
-                  <CheckCircle />
-                  Approve Gate
-                </button>
-              ) : null}
-              <button className="danger-button" onClick={onEmergencyStop} type="button">
-                <XmarkCircle />
-                Emergency Stop
-              </button>
-            </div>
-          </section>
-
-          <section className="diff-panel-wrapper">
-            <div className="section-title">
-              <CodeBracketsSquare />
-              <span>Approval Diff</span>
-            </div>
-            <DiffPreview diff={visibleDiff} />
-            <p className="muted-copy">
-              {executionSummary ||
-                "Diff output stays visible across approval gates so the next mutation can be reviewed in context."}
-            </p>
-          </section>
+        <div className="h-full min-h-0 p-4">
+          <ExecutionPanel
+            agentStatus={agentStatus}
+            executionSummary={executionSummary}
+            onApproveExecutionGate={onApproveExecutionGate}
+            onEmergencyStop={onEmergencyStop}
+            terminalOutput={terminalOutput}
+            visibleDiff={visibleDiff}
+          />
         </div>
       ) : activeEditorTab ? (
-        <div className="file-editor-layout">
-          <article className="document-panel">
-            <div className="document-header">
-              <div>
-                <p className="eyebrow">Workspace File</p>
-                <h2>{activeEditorTab.path}</h2>
-              </div>
+        <div className="grid h-full min-h-0 gap-4 p-4">
+          <article className="flex min-h-0 flex-col gap-4 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4">
+            <div>
+              <p className="mb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
+                Workspace File
+              </p>
+              <h2 className="m-0 text-lg font-semibold text-[var(--text-main)]">
+                {activeEditorTab.path}
+              </h2>
             </div>
+
             <textarea
-              className="document-editor"
+              className="min-h-[24rem] flex-1 resize-none rounded-[1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-7 text-[var(--text-main)]"
               onChange={(event) => onEditorTabChange(activeEditorTab.path, event.target.value)}
               value={activeEditorTab.content}
             />
           </article>
         </div>
       ) : (
-        <div className="file-editor-layout">
-          <article className="document-panel">
-            <div className="document-header">
-              <div>
-                <p className="eyebrow">Workspace File</p>
-                <h2>No file selected</h2>
-              </div>
+        <div className="grid h-full min-h-0 gap-4 p-4">
+          <article className="flex min-h-0 flex-col items-center justify-center gap-3 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-8 text-center">
+            <FileNotFound className="size-8 text-[var(--text-subtle)]" />
+            <div>
+              <p className="mb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
+                Workspace File
+              </p>
+              <h2 className="m-0 text-lg font-semibold text-[var(--text-main)]">
+                No file selected
+              </h2>
             </div>
-            <div className="document-body">
-              <p className="muted-copy">Open a text or code file from the right sidebar to edit it here.</p>
-            </div>
+            <p className="m-0 max-w-md text-sm leading-7 text-[var(--text-subtle)]">
+              Open a text or code file from the right sidebar to edit it here.
+            </p>
           </article>
         </div>
       )}

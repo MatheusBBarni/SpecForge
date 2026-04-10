@@ -101,15 +101,14 @@ export const ControlColumn = memo(function ControlColumn({
   }, [onFilePick, onImportTargetChange]);
 
   return (
-    <section className="control-column panel gap-4">
+    <section className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto rounded-[1.5rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-5 shadow-[var(--shadow)] backdrop-blur-[30px]">
       <header className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="eyebrow">Control Deck</p>
           <h1 className="m-0 text-[1.05rem] font-semibold text-[var(--text-main)]">
             SpecForge Review
           </h1>
         </div>
-        <div className="panel-badge shrink-0">
+        <div className="inline-flex shrink-0 items-center gap-2 rounded-full border border-white/8 bg-white/5 px-3 py-2 text-sm text-[var(--text-subtle)]">
           <Spark />
           MVP
         </div>
@@ -142,7 +141,7 @@ export const ControlColumn = memo(function ControlColumn({
             </div>
             <input
               accept=".md,.pdf"
-              className="hidden-file-input"
+              className="hidden"
               onChange={onFileChange}
               ref={fileInputRef}
               type="file"
