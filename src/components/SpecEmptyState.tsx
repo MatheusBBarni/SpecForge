@@ -2,46 +2,31 @@ import { Spark } from "iconoir-react";
 import { memo } from "react";
 
 import { DocumentEmptyState } from "./DocumentEmptyState";
-import type { PaneMode } from "../types";
 
 interface SpecEmptyStateProps {
-  title: string;
   prompt: string;
   error: string;
   helperText: string;
   isGenerating: boolean;
   canGenerate: boolean;
-  mode: PaneMode;
-  onLoad: () => void;
-  onModeChange: (mode: PaneMode) => void;
   onPromptChange: (value: string) => void;
   onGenerate: () => void;
 }
 
 export const SpecEmptyState = memo(function SpecEmptyState({
-  title,
   prompt,
   error,
   helperText,
   isGenerating,
   canGenerate,
-  mode,
-  onLoad,
-  onModeChange,
   onPromptChange,
   onGenerate
 }: SpecEmptyStateProps) {
   return (
     <DocumentEmptyState
       description="Load an existing spec or use the current PRD plus a short brief to draft a fresh technical specification for this workspace."
-      eyebrow="Technical Spec"
       heading="No spec file detected"
       icon={<Spark className="size-6" />}
-      loadLabel="Load Spec"
-      mode={mode}
-      onLoad={onLoad}
-      onModeChange={onModeChange}
-      title={title}
     >
         <textarea
           className="min-h-[10rem] w-full flex-none resize-none rounded-[1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-6 text-[var(--text-main)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
