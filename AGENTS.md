@@ -20,6 +20,7 @@
 - MUST run `cargo check --manifest-path .\src-tauri\Cargo.toml` after changing Rust commands or shared payload types.
 - MUST run `bun run build` after changing routes, stores, document loading, or shared UI contracts. If Bun reports broken shims first, repair them with `bun install --force`.
 - MUST extract new frontend behavior out of `src/App.tsx` when possible; it is already the main orchestration shell.
+- MUST use context7 mcp server for all documentation lookups.
 
 ## Ask First
 - Ask before changing autonomy defaults, approval-gate behavior, or the emergency-stop semantics.
