@@ -1231,7 +1231,9 @@ function App() {
           return;
         }
 
-        applyProjectContext(context);
+        applyProjectContext(context, {
+          navigateToReview: context.hasSavedSettings
+        });
       })
       .catch(() => {
         if (isDisposed) {
