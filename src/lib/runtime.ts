@@ -7,6 +7,8 @@ import type {
   EnvironmentStatus,
   ModelId,
   ModelProvider,
+  ProjectContext,
+  ProjectSettings,
   ReasoningProfileId,
   WorkspaceDocument,
   WorkspaceScanResult,
@@ -84,6 +86,36 @@ export async function pickDocument(): Promise<WorkspaceDocument | null> {
   return invoke<WorkspaceDocument | null>("pick_document");
 }
 
+export async function pickProjectFolder(): Promise<ProjectContext | null> {
+  if (!isTauriRuntime()) {
+    return null;
+  }
+
+  return invoke<ProjectContext | null>("pick_project_folder");
+}
+
+export async function loadProjectContext(folderPath: string): Promise<ProjectContext> {
+  if (!isTauriRuntime()) {
+    throw new Error("Project configuration requires the desktop runtime.");
+  }
+
+  return invoke<ProjectContext>("load_project_context", { folderPath });
+}
+
+export async function saveProjectSettings(payload: {
+  folderPath: string;
+  settings: ProjectSettings;
+}): Promise<ProjectSettings> {
+  if (!isTauriRuntime()) {
+    throw new Error("Project configuration requires the desktop runtime.");
+  }
+
+  return invoke<ProjectSettings>("save_project_settings", {
+    folderPath: payload.folderPath,
+    settings: payload.settings
+  });
+}
+
 export async function openWorkspaceFolder(): Promise<WorkspaceScanResult | null> {
   if (!isTauriRuntime()) {
     return null;
@@ -134,9 +166,39 @@ export async function startAgentRun(
   await invoke("spawn_cli_agent", { specPayload, mode, model, reasoning });
 }
 
+export async function generatePrdDocument(payload: {
+  workspaceRoot: string;
+  outputPath: string;
+  promptTemplate: string;
+  userPrompt: string;
+  provider: ModelProvider;
+  model: ModelId;
+  reasoning: ReasoningProfileId;
+  claudePath?: string;
+  codexPath?: string;
+}): Promise<WorkspaceDocument> {
+  if (!isTauriRuntime()) {
+    throw new Error("AI PRD generation requires the desktop runtime.");
+  }
+
+  return invoke<WorkspaceDocument>("generate_prd_document", {
+    workspaceRoot: payload.workspaceRoot,
+    outputPath: payload.outputPath,
+    promptTemplate: payload.promptTemplate,
+    userPrompt: payload.userPrompt,
+    provider: payload.provider,
+    model: payload.model,
+    reasoning: payload.reasoning,
+    claudePath: emptyToNull(payload.claudePath),
+    codexPath: emptyToNull(payload.codexPath)
+  });
+}
+
 export async function generateSpecDocument(payload: {
-  prdPath: string;
+  workspaceRoot: string;
+  outputPath: string;
   prdContent: string;
+  promptTemplate: string;
   userPrompt: string;
   provider: ModelProvider;
   model: ModelId;
@@ -149,8 +211,10 @@ export async function generateSpecDocument(payload: {
   }
 
   return invoke<WorkspaceDocument>("generate_spec_document", {
-    prdPath: payload.prdPath,
+    workspaceRoot: payload.workspaceRoot,
+    outputPath: payload.outputPath,
     prdContent: payload.prdContent,
+    promptTemplate: payload.promptTemplate,
     userPrompt: payload.userPrompt,
     provider: payload.provider,
     model: payload.model,

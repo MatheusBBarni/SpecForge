@@ -103,6 +103,14 @@ export function formatAgentStatus(status: AgentStatus) {
     return "Awaiting approval";
   }
 
+  if (status === "generating_prd") {
+    return "Generating PRD";
+  }
+
+  if (status === "generating_spec") {
+    return "Generating spec";
+  }
+
   return `${status[0]?.toUpperCase()}${status.slice(1).replace("_", " ")}`;
 }
 

@@ -20,6 +20,7 @@ export type WorkspaceTab = WorkspaceBaseTab | `file:${string}`;
 export type PaneMode = "preview" | "edit";
 export type AgentStatus =
   | "idle"
+  | "generating_prd"
   | "generating_spec"
   | "executing"
   | "awaiting_approval"
@@ -67,6 +68,28 @@ export interface WorkspaceDocument {
   content: string;
   sourcePath: string;
   fileName: string;
+}
+
+export interface ProjectSettings {
+  selectedModel: ModelId;
+  selectedReasoning: ReasoningProfileId;
+  prdPrompt: string;
+  specPrompt: string;
+  prdPath: string;
+  specPath: string;
+  supportingDocumentPaths: string[];
+}
+
+export interface ProjectContext {
+  rootName: string;
+  rootPath: string;
+  settingsPath: string;
+  hasSavedSettings: boolean;
+  settings: ProjectSettings;
+  entries: WorkspaceEntry[];
+  ignoredFileCount: number;
+  prdDocument: WorkspaceDocument | null;
+  specDocument: WorkspaceDocument | null;
 }
 
 export interface WorkspaceScanResult {

@@ -6,11 +6,13 @@ interface SettingsState {
   theme: ThemeMode;
   claudePath: string;
   codexPath: string;
+  lastProjectPath: string;
   environment: EnvironmentStatus;
   workspaceEntries: WorkspaceEntry[];
   setTheme: (theme: ThemeMode) => void;
   setClaudePath: (path: string) => void;
   setCodexPath: (path: string) => void;
+  setLastProjectPath: (path: string) => void;
   setEnvironment: (environment: EnvironmentStatus) => void;
   setWorkspaceEntries: (entries: WorkspaceEntry[]) => void;
 }
@@ -19,6 +21,7 @@ interface PersistedSettings {
   theme: ThemeMode;
   claudePath: string;
   codexPath: string;
+  lastProjectPath: string;
 }
 
 const SETTINGS_STORAGE_KEY = "specforge.settings";
@@ -52,7 +55,8 @@ function readPersistedSettings(): PersistedSettings {
     return {
       theme: "dracula",
       claudePath: "",
-      codexPath: ""
+      codexPath: "",
+      lastProjectPath: ""
     };
   }
 
@@ -63,7 +67,8 @@ function readPersistedSettings(): PersistedSettings {
       return {
         theme: "dracula",
         claudePath: "",
-        codexPath: ""
+        codexPath: "",
+        lastProjectPath: ""
       };
     }
 
@@ -72,13 +77,15 @@ function readPersistedSettings(): PersistedSettings {
     return {
       theme: parsedValue.theme ?? "dracula",
       claudePath: parsedValue.claudePath ?? "",
-      codexPath: parsedValue.codexPath ?? ""
+      codexPath: parsedValue.codexPath ?? "",
+      lastProjectPath: parsedValue.lastProjectPath ?? ""
     };
   } catch {
     return {
       theme: "dracula",
       claudePath: "",
-      codexPath: ""
+      codexPath: "",
+      lastProjectPath: ""
     };
   }
 }
@@ -97,6 +104,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   theme: persistedSettings.theme,
   claudePath: persistedSettings.claudePath,
   codexPath: persistedSettings.codexPath,
+  lastProjectPath: persistedSettings.lastProjectPath,
   environment: createEnvironmentPlaceholder(),
   workspaceEntries: [],
   setTheme: (theme) => {
@@ -104,7 +112,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     persistSettings({
       theme,
       claudePath: get().claudePath,
-      codexPath: get().codexPath
+      codexPath: get().codexPath,
+      lastProjectPath: get().lastProjectPath
     });
   },
   setClaudePath: (claudePath) => {
@@ -112,7 +121,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     persistSettings({
       theme: get().theme,
       claudePath,
-      codexPath: get().codexPath
+      codexPath: get().codexPath,
+      lastProjectPath: get().lastProjectPath
     });
   },
   setCodexPath: (codexPath) => {
@@ -120,7 +130,17 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     persistSettings({
       theme: get().theme,
       claudePath: get().claudePath,
-      codexPath
+      codexPath,
+      lastProjectPath: get().lastProjectPath
+    });
+  },
+  setLastProjectPath: (lastProjectPath) => {
+    set({ lastProjectPath });
+    persistSettings({
+      theme: get().theme,
+      claudePath: get().claudePath,
+      codexPath: get().codexPath,
+      lastProjectPath
     });
   },
   setEnvironment: (environment) => set({ environment }),

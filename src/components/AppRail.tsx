@@ -7,16 +7,34 @@ import {
 } from "iconoir-react";
 import { NavLink } from "react-router-dom";
 
-export function AppRail() {
+interface AppRailProps {
+  hasProjectConfigured: boolean;
+}
+
+export function AppRail({ hasProjectConfigured }: AppRailProps) {
   return (
     <aside className="sticky top-0 z-30 flex items-center justify-center gap-3 border-b border-[var(--border-strong)] bg-[var(--bg-panel-strong)]/95 px-4 py-4 backdrop-blur-xl lg:fixed lg:inset-y-0 lg:left-0 lg:w-[72px] lg:flex-col lg:justify-start lg:gap-3 lg:border-r lg:border-b-0 lg:px-3">
       <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,var(--accent),#ff79c6)] text-sm font-extrabold tracking-[0.18em] text-[#11111b] shadow-[0_12px_26px_-18px_rgba(189,147,249,0.65)]">
         SF
       </div>
 
-      <NavLink className={getRailLinkClassName} end to="/" title="Review workspace">
-        <Page className="size-5" />
+      <NavLink className={getRailLinkClassName} end to="/" title="Project setup">
+        <Folder className="size-5" />
       </NavLink>
+
+      {hasProjectConfigured ? (
+        <NavLink className={getRailLinkClassName} to="/review" title="Review workspace">
+          <Page className="size-5" />
+        </NavLink>
+      ) : (
+        <span
+          aria-hidden="true"
+          className={`${RAIL_BUTTON_CLASS} cursor-not-allowed opacity-40`}
+          title="Finish project setup first"
+        >
+          <Page className="size-5" />
+        </span>
+      )}
 
       <button className={RAIL_BUTTON_CLASS} title="Code surfaces" type="button">
         <CodeBracketsSquare className="size-5" />
