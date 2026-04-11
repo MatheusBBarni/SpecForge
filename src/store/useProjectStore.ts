@@ -7,11 +7,13 @@ import {
   getReasoningLabel,
   normalizeReasoningProfile
 } from "../lib/agentConfig";
+import { buildDefaultProjectSettings, normalizeProjectSettings } from "../lib/projectConfig";
 import type {
   AutonomyMode,
   EditorTab,
   ModelId,
   PaneMode,
+  ProjectSettings,
   ReasoningProfileId,
   SelectionRange,
   SpecAnnotation,
@@ -23,6 +25,11 @@ interface ProjectState {
   specContent: string;
   prdPath: string;
   specPath: string;
+  configuredPrdPath: string;
+  configuredSpecPath: string;
+  supportingDocumentPaths: string[];
+  prdPromptTemplate: string;
+  specPromptTemplate: string;
   selectedModel: ModelId;
   selectedReasoning: ReasoningProfileId;
   autonomyMode: AutonomyMode;
@@ -34,6 +41,12 @@ interface ProjectState {
   annotations: SpecAnnotation[];
   isSpecApproved: boolean;
   openEditorTabs: EditorTab[];
+  setProjectSettings: (settings: Partial<ProjectSettings>) => void;
+  setConfiguredPrdPath: (path: string) => void;
+  setConfiguredSpecPath: (path: string) => void;
+  setSupportingDocumentPaths: (paths: string[]) => void;
+  setPrdPromptTemplate: (prompt: string) => void;
+  setSpecPromptTemplate: (prompt: string) => void;
   setPrdContent: (content: string, path?: string) => void;
   setSpecContent: (content: string, path?: string) => void;
   setSelectedModel: (model: ModelId) => void;
@@ -110,12 +123,9 @@ function createEditorTabId(path: string) {
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
+  ...buildInitialProjectState(),
   prdContent: "",
   specContent: "",
-  prdPath: "docs/PRD.md",
-  specPath: "docs/SPEC.md",
-  selectedModel: DEFAULT_MODEL_ID,
-  selectedReasoning: DEFAULT_REASONING_PROFILE,
   autonomyMode: "milestone",
   activeTab: "review",
   prdPaneMode: "preview",
@@ -125,6 +135,34 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   annotations: buildInitialAnnotations(),
   isSpecApproved: false,
   openEditorTabs: [],
+  setProjectSettings: (settings) =>
+    set((state) => {
+      const nextSettings = normalizeProjectSettings({
+        selectedModel: state.selectedModel,
+        selectedReasoning: state.selectedReasoning,
+        prdPrompt: state.prdPromptTemplate,
+        specPrompt: state.specPromptTemplate,
+        prdPath: state.configuredPrdPath,
+        specPath: state.configuredSpecPath,
+        supportingDocumentPaths: state.supportingDocumentPaths,
+        ...settings
+      });
+
+      return {
+        configuredPrdPath: nextSettings.prdPath,
+        configuredSpecPath: nextSettings.specPath,
+        prdPromptTemplate: nextSettings.prdPrompt,
+        specPromptTemplate: nextSettings.specPrompt,
+        selectedModel: nextSettings.selectedModel,
+        selectedReasoning: nextSettings.selectedReasoning,
+        supportingDocumentPaths: nextSettings.supportingDocumentPaths
+      };
+    }),
+  setConfiguredPrdPath: (configuredPrdPath) => set({ configuredPrdPath }),
+  setConfiguredSpecPath: (configuredSpecPath) => set({ configuredSpecPath }),
+  setSupportingDocumentPaths: (supportingDocumentPaths) => set({ supportingDocumentPaths }),
+  setPrdPromptTemplate: (prdPromptTemplate) => set({ prdPromptTemplate }),
+  setSpecPromptTemplate: (specPromptTemplate) => set({ specPromptTemplate }),
   setPrdContent: (prdContent, path) =>
     set({
       prdContent,
@@ -236,3 +274,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     });
   }
 }));
+
+function buildInitialProjectState() {
+  const defaults = normalizeProjectSettings();
+
+  return {
+    configuredPrdPath: defaults.prdPath,
+    configuredSpecPath: defaults.specPath,
+    prdPath: defaults.prdPath,
+    specPath: defaults.specPath,
+    prdPromptTemplate: defaults.prdPrompt,
+    specPromptTemplate: defaults.specPrompt,
+    selectedModel: DEFAULT_MODEL_ID,
+    selectedReasoning: DEFAULT_REASONING_PROFILE,
+    supportingDocumentPaths: defaults.supportingDocumentPaths
+  };
+}

@@ -9,6 +9,7 @@ interface StatusPillProps {
 
 const STATUS_CLASS_MAP: Record<AgentStatus, string> = {
   idle: "text-[var(--text-subtle)]",
+  generating_prd: "text-[var(--accent-2)]",
   generating_spec: "text-[var(--accent-2)]",
   executing: "text-[var(--accent-2)]",
   awaiting_approval: "text-[var(--warning)]",

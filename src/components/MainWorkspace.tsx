@@ -8,6 +8,7 @@ import { DocumentActionBar } from "./DocumentActionBar";
 import { DocumentEmptyState } from "./DocumentEmptyState";
 import { DocumentPane } from "./DocumentPane";
 import { ExecutionPanel } from "./ExecutionPanel";
+import { PrdEmptyState } from "./PrdEmptyState";
 import { SpecEmptyState } from "./SpecEmptyState";
 import { WorkspaceTabBar } from "./WorkspaceTabBar";
 import type {
@@ -28,11 +29,19 @@ interface MainWorkspaceProps {
   prdPaneMode: PaneMode;
   specPaneMode: PaneMode;
   isSpecApproved: boolean;
+  canGeneratePrd: boolean;
+  isGeneratingPrd: boolean;
+  prdGenerationPrompt: string;
+  prdGenerationError: string;
+  prdGenerationHelperText: string;
   canGenerateSpec: boolean;
   isGeneratingSpec: boolean;
   specGenerationPrompt: string;
   specGenerationError: string;
   specGenerationHelperText: string;
+  prdPromptTemplate: string;
+  specPromptTemplate: string;
+  configPath: string;
   terminalOutput: string[];
   executionSummary: string | null;
   visibleDiff: string;
@@ -45,6 +54,8 @@ interface MainWorkspaceProps {
   onLoadPrd: () => void;
   onLoadSpec: () => void;
   onApproveSpec: () => void;
+  onPrdGenerationPromptChange: (value: string) => void;
+  onGeneratePrd: () => void;
   onSpecGenerationPromptChange: (value: string) => void;
   onGenerateSpec: () => void;
   onSpecSelect: (event: ChangeEvent<HTMLTextAreaElement>) => void;
@@ -65,11 +76,19 @@ export const MainWorkspace = memo(function MainWorkspace({
   prdPaneMode,
   specPaneMode,
   isSpecApproved,
+  canGeneratePrd,
+  isGeneratingPrd,
+  prdGenerationPrompt,
+  prdGenerationError,
+  prdGenerationHelperText,
   canGenerateSpec,
   isGeneratingSpec,
   specGenerationPrompt,
   specGenerationError,
   specGenerationHelperText,
+  prdPromptTemplate,
+  specPromptTemplate,
+  configPath,
   terminalOutput,
   executionSummary,
   visibleDiff,
@@ -82,6 +101,8 @@ export const MainWorkspace = memo(function MainWorkspace({
   onLoadPrd,
   onLoadSpec,
   onApproveSpec,
+  onPrdGenerationPromptChange,
+  onGeneratePrd,
   onSpecGenerationPromptChange,
   onGenerateSpec,
   onSpecSelect,
@@ -177,10 +198,16 @@ export const MainWorkspace = memo(function MainWorkspace({
               />
             </div>
             {showPrdEmptyState ? (
-              <DocumentEmptyState
-                description="Load an existing PRD or switch to Edit to draft one manually before generating a spec."
-                heading="No PRD file detected"
-                icon={<FileNotFound className="size-6" />}
+              <PrdEmptyState
+                canGenerate={canGeneratePrd}
+                configPath={configPath}
+                error={prdGenerationError}
+                helperText={prdGenerationHelperText}
+                isGenerating={isGeneratingPrd}
+                onGenerate={onGeneratePrd}
+                onPromptChange={onPrdGenerationPromptChange}
+                prompt={prdGenerationPrompt}
+                templatePrompt={prdPromptTemplate}
               />
             ) : (
               <DocumentPane content={prdContent} mode={prdPaneMode} onChange={onPrdContentChange} />
@@ -224,12 +251,14 @@ export const MainWorkspace = memo(function MainWorkspace({
             ) : (
               <SpecEmptyState
                 canGenerate={canGenerateSpec}
+                configPath={configPath}
                 error={specGenerationError}
                 helperText={specGenerationHelperText}
                 isGenerating={isGeneratingSpec}
                 onGenerate={onGenerateSpec}
                 onPromptChange={onSpecGenerationPromptChange}
                 prompt={specGenerationPrompt}
+                templatePrompt={specPromptTemplate}
               />
             )}
           </section>

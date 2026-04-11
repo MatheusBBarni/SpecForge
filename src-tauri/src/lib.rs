@@ -1,7 +1,7 @@
 use git2::{DiffFormat, DiffOptions, Repository};
 use ignore::WalkBuilder;
 use lopdf::Document;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fs,
@@ -73,6 +73,32 @@ struct WorkspaceDocument {
     file_name: String,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectSettings {
+    selected_model: String,
+    selected_reasoning: String,
+    prd_prompt: String,
+    spec_prompt: String,
+    prd_path: String,
+    spec_path: String,
+    supporting_document_paths: Vec<String>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectContextPayload {
+    root_name: String,
+    root_path: String,
+    settings_path: String,
+    has_saved_settings: bool,
+    settings: ProjectSettings,
+    entries: Vec<WorkspaceEntry>,
+    ignored_file_count: usize,
+    prd_document: Option<WorkspaceDocument>,
+    spec_document: Option<WorkspaceDocument>,
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct WorkspaceScanResult {
@@ -125,6 +151,36 @@ index 0000000..forge42 100644
 + Introduce PRD/spec review workspace with execution controls
 + Add Dracula-first theme tokens and persisted preferences
 + Surface CLI health, diff approvals, and terminal streaming"#;
+const SPECFORGE_SETTINGS_RELATIVE_PATH: &str = ".specforge/settings.json";
+const DEFAULT_PROJECT_PRD_PATH: &str = "docs/PRD.md";
+const DEFAULT_PROJECT_SPEC_PATH: &str = "docs/SPEC.md";
+const DEFAULT_PRD_PROMPT: &str = r#"Act as an Expert Senior Product Manager. Your goal is to help me write a comprehensive, well-structured Product Requirements Document (PRD) for a new [product / feature / app] called [Project Name].
+
+I have some initial ideas, but I want to make sure the PRD is thorough. Before you draft the full document, please ask me a series of clarifying questions to gather the necessary context.
+
+Please ask about:
+- The core problem we are solving
+- The target audience/user personas
+- Key features and user flows
+- Success metrics (KPIs)
+- Technical or timeline constraints
+
+Ask me these questions one or two at a time so I do not get overwhelmed. Once you have enough context, we will move on to drafting the actual PRD."#;
+const DEFAULT_SPEC_PROMPT: &str = r#"Act as an Expert Software Architect and Tech Lead. I have attached the Product Requirements Document (PRD) for our upcoming project.
+
+Your task is to analyze this PRD and draft a comprehensive Technical Specification Document.
+
+Please structure the spec with the following sections:
+
+1. High-Level Architecture: A conceptual overview of how the system components will interact.
+2. Tech Stack & Tooling: Define the frontend, backend, and infrastructure.
+3. Data Models & Database Schema: Define the core entities, their attributes, and relationships.
+4. API Contracts: Outline the primary endpoints (methods, routes, request/response structures) needed to support the user flows.
+5. Component & State Management: How data will flow through the application and how the UI will be structured.
+6. Security & Edge Cases: Potential vulnerabilities, error handling, and performance bottlenecks.
+7. Engineering Milestones: Break the implementation down into logical, phased deliverables.
+
+Before writing the full document, please provide a brief bulleted summary of your proposed technical approach, and ask me up to 3 clarifying questions about any technical constraints or non-functional requirements that might be missing from the PRD."#;
 
 #[tauri::command]
 fn run_environment_scan(
@@ -168,6 +224,74 @@ fn pick_document() -> Result<Option<WorkspaceDocument>, String> {
         source_path: resolved_path.display().to_string(),
         file_name,
     }))
+}
+
+#[tauri::command]
+fn pick_project_folder(state: State<SharedState>) -> Result<Option<ProjectContextPayload>, String> {
+    let Some(folder_path) = rfd::FileDialog::new().pick_folder() else {
+        return Ok(None);
+    };
+
+    load_project_context_from_folder(&state, &folder_path).map(Some)
+}
+
+#[tauri::command]
+fn load_project_context(
+    state: State<SharedState>,
+    folder_path: String,
+) -> Result<ProjectContextPayload, String> {
+    let trimmed_path = folder_path.trim();
+
+    if trimmed_path.is_empty() {
+        return Err(String::from("A workspace folder path is required."));
+    }
+
+    load_project_context_from_folder(&state, &PathBuf::from(trimmed_path))
+}
+
+#[tauri::command]
+fn save_project_settings(
+    folder_path: String,
+    settings: ProjectSettings,
+) -> Result<ProjectSettings, String> {
+    let trimmed_path = folder_path.trim();
+
+    if trimmed_path.is_empty() {
+        return Err(String::from("A workspace folder path is required."));
+    }
+
+    let workspace_root =
+        canonicalize_existing_path(&PathBuf::from(trimmed_path)).map_err(|error| {
+            format!(
+                "Unable to resolve the selected workspace folder {}: {error}",
+                trimmed_path
+            )
+        })?;
+    let default_settings = build_default_project_settings(&workspace_root, None, None);
+    let normalized_settings =
+        normalize_project_settings(&workspace_root, default_settings, Some(settings))?;
+    let settings_path = workspace_root.join(SPECFORGE_SETTINGS_RELATIVE_PATH);
+    let settings_directory = settings_path
+        .parent()
+        .ok_or_else(|| String::from("Unable to resolve the .specforge directory."))?;
+
+    fs::create_dir_all(settings_directory).map_err(|error| {
+        format!(
+            "Unable to create the project settings directory {}: {error}",
+            settings_directory.display()
+        )
+    })?;
+    let settings_json = serde_json::to_string_pretty(&normalized_settings)
+        .map_err(|error| format!("Unable to encode project settings: {error}"))?;
+
+    fs::write(&settings_path, settings_json.as_bytes()).map_err(|error| {
+        format!(
+            "Unable to write project settings to {}: {error}",
+            settings_path.display()
+        )
+    })?;
+
+    Ok(normalized_settings)
 }
 
 #[tauri::command]
@@ -369,6 +493,235 @@ fn scan_workspace_folder(root: &Path) -> Result<ScannedWorkspace, String> {
     })
 }
 
+fn load_project_context_from_folder(
+    state: &State<SharedState>,
+    folder_path: &Path,
+) -> Result<ProjectContextPayload, String> {
+    let scanned_workspace = scan_workspace_folder(folder_path)?;
+    let settings_path = scanned_workspace
+        .context
+        .root
+        .join(SPECFORGE_SETTINGS_RELATIVE_PATH);
+    let default_settings = build_default_project_settings(
+        &scanned_workspace.context.root,
+        scanned_workspace.result.prd_document.as_ref(),
+        scanned_workspace.result.spec_document.as_ref(),
+    );
+    let (settings, has_saved_settings) = read_project_settings(
+        &settings_path,
+        &scanned_workspace.context.root,
+        default_settings,
+    )?;
+    let prd_document =
+        load_configured_workspace_document(&scanned_workspace.context.root, &settings.prd_path)?;
+    let spec_document =
+        load_configured_workspace_document(&scanned_workspace.context.root, &settings.spec_path)?;
+    let mut active_workspace = state
+        .workspace
+        .lock()
+        .map_err(|_| String::from("Workspace lock was poisoned."))?;
+    *active_workspace = Some(scanned_workspace.context);
+
+    Ok(ProjectContextPayload {
+        root_name: scanned_workspace.result.root_name,
+        root_path: active_workspace
+            .as_ref()
+            .map(|workspace| workspace.root.display().to_string())
+            .unwrap_or_default(),
+        settings_path: settings_path.display().to_string(),
+        has_saved_settings,
+        settings,
+        entries: scanned_workspace.result.entries,
+        ignored_file_count: scanned_workspace.result.ignored_file_count,
+        prd_document,
+        spec_document,
+    })
+}
+
+fn build_default_project_settings(
+    workspace_root: &Path,
+    prd_document: Option<&WorkspaceDocument>,
+    spec_document: Option<&WorkspaceDocument>,
+) -> ProjectSettings {
+    ProjectSettings {
+        selected_model: String::from("gpt-5.4"),
+        selected_reasoning: String::from("medium"),
+        prd_prompt: String::from(DEFAULT_PRD_PROMPT),
+        spec_prompt: String::from(DEFAULT_SPEC_PROMPT),
+        prd_path: derive_default_document_path(
+            workspace_root,
+            prd_document,
+            DEFAULT_PROJECT_PRD_PATH,
+        ),
+        spec_path: derive_default_document_path(
+            workspace_root,
+            spec_document,
+            DEFAULT_PROJECT_SPEC_PATH,
+        ),
+        supporting_document_paths: Vec::new(),
+    }
+}
+
+fn read_project_settings(
+    settings_path: &Path,
+    workspace_root: &Path,
+    defaults: ProjectSettings,
+) -> Result<(ProjectSettings, bool), String> {
+    if !settings_path.exists() {
+        return Ok((defaults, false));
+    }
+
+    let raw_settings = fs::read_to_string(settings_path).map_err(|error| {
+        format!(
+            "Unable to read project settings {}: {error}",
+            settings_path.display()
+        )
+    })?;
+    let parsed_settings =
+        serde_json::from_str::<ProjectSettings>(&raw_settings).map_err(|error| {
+            format!(
+                "Unable to parse project settings {}: {error}",
+                settings_path.display()
+            )
+        })?;
+
+    Ok((
+        normalize_project_settings(workspace_root, defaults, Some(parsed_settings))?,
+        true,
+    ))
+}
+
+fn normalize_project_settings(
+    workspace_root: &Path,
+    defaults: ProjectSettings,
+    provided: Option<ProjectSettings>,
+) -> Result<ProjectSettings, String> {
+    let Some(provided) = provided else {
+        return Ok(defaults);
+    };
+
+    let selected_model =
+        normalize_project_model(&provided.selected_model, &defaults.selected_model);
+    let selected_reasoning =
+        normalize_project_reasoning(&provided.selected_reasoning, &defaults.selected_reasoning);
+    let normalized_prd_path =
+        normalize_project_path_or_default(workspace_root, &provided.prd_path, &defaults.prd_path)?;
+    let normalized_spec_path = normalize_project_path_or_default(
+        workspace_root,
+        &provided.spec_path,
+        &defaults.spec_path,
+    )?;
+    let supporting_document_paths = provided
+        .supporting_document_paths
+        .iter()
+        .filter_map(|entry| normalize_relative_path(entry).ok())
+        .collect::<Vec<_>>();
+
+    Ok(ProjectSettings {
+        selected_model,
+        selected_reasoning,
+        prd_prompt: if provided.prd_prompt.trim().is_empty() {
+            defaults.prd_prompt
+        } else {
+            provided.prd_prompt.trim().to_string()
+        },
+        spec_prompt: if provided.spec_prompt.trim().is_empty() {
+            defaults.spec_prompt
+        } else {
+            provided.spec_prompt.trim().to_string()
+        },
+        prd_path: normalized_prd_path,
+        spec_path: normalized_spec_path,
+        supporting_document_paths,
+    })
+}
+
+fn normalize_project_model(value: &str, fallback: &str) -> String {
+    const VALID_MODELS: &[&str] = &[
+        "gpt-5.4",
+        "gpt-5.4-mini",
+        "gpt-5.3-codex",
+        "gpt-5.2",
+        "claude-opus-4-1-20250805",
+        "claude-opus-4-20250514",
+        "claude-sonnet-4-20250514",
+        "claude-3-7-sonnet-20250219",
+        "claude-3-5-sonnet-20241022",
+        "claude-3-5-sonnet-20240620",
+        "claude-3-5-haiku-20241022",
+        "claude-3-haiku-20240307",
+    ];
+
+    if VALID_MODELS.contains(&value.trim()) {
+        return value.trim().to_string();
+    }
+
+    fallback.to_string()
+}
+
+fn normalize_project_reasoning(value: &str, fallback: &str) -> String {
+    match value.trim() {
+        "low" | "medium" | "high" | "max" => value.trim().to_string(),
+        _ => fallback.to_string(),
+    }
+}
+
+fn normalize_project_path_or_default(
+    workspace_root: &Path,
+    value: &str,
+    fallback: &str,
+) -> Result<String, String> {
+    if value.trim().is_empty() {
+        return Ok(fallback.to_string());
+    }
+
+    normalize_relative_path(value).map_err(|error| {
+        format!(
+            "Invalid project document path for workspace {}: {error}",
+            workspace_root.display()
+        )
+    })
+}
+
+fn derive_default_document_path(
+    workspace_root: &Path,
+    document: Option<&WorkspaceDocument>,
+    fallback: &str,
+) -> String {
+    document
+        .and_then(|entry| {
+            PathBuf::from(&entry.source_path)
+                .strip_prefix(workspace_root)
+                .ok()
+                .map(|path| path.to_string_lossy().replace('\\', "/"))
+        })
+        .unwrap_or_else(|| fallback.to_string())
+}
+
+fn load_configured_workspace_document(
+    workspace_root: &Path,
+    relative_path: &str,
+) -> Result<Option<WorkspaceDocument>, String> {
+    let resolved_path = resolve_relative_path_under_root(workspace_root, relative_path)?;
+
+    if !resolved_path.exists() {
+        return Ok(None);
+    }
+
+    let content = parse_workspace_document(&resolved_path)?;
+    let file_name = resolved_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("Document")
+        .to_string();
+
+    Ok(Some(WorkspaceDocument {
+        content,
+        source_path: resolved_path.display().to_string(),
+        file_name,
+    }))
+}
+
 #[tauri::command]
 fn git_get_diff() -> Result<String, String> {
     let repository = Repository::discover(project_root())
@@ -409,9 +762,49 @@ fn git_get_diff() -> Result<String, String> {
 }
 
 #[tauri::command]
+fn generate_prd_document(
+    workspace_root: String,
+    output_path: String,
+    prompt_template: String,
+    user_prompt: String,
+    provider: String,
+    model: String,
+    reasoning: String,
+    claude_path: Option<String>,
+    codex_path: Option<String>,
+) -> Result<WorkspaceDocument, String> {
+    let trimmed_prompt = user_prompt.trim();
+
+    if trimmed_prompt.is_empty() {
+        return Err(String::from(
+            "Add the product context you want the AI to consider.",
+        ));
+    }
+
+    let prompt_payload = build_generation_prompt(&prompt_template, trimmed_prompt, &[]);
+    let generated_prd = run_generation_request(
+        &provider,
+        &model,
+        &reasoning,
+        claude_path.as_deref(),
+        codex_path.as_deref(),
+        &prompt_payload,
+    )?;
+
+    write_generated_workspace_document(
+        &workspace_root,
+        &output_path,
+        generated_prd,
+        "PRD output path",
+    )
+}
+
+#[tauri::command]
 fn generate_spec_document(
-    prd_path: String,
+    workspace_root: String,
+    output_path: String,
     prd_content: String,
+    prompt_template: String,
     user_prompt: String,
     provider: String,
     model: String,
@@ -434,53 +827,26 @@ fn generate_spec_document(
         ));
     }
 
-    let prompt_payload = build_spec_generation_prompt(trimmed_prd, trimmed_prompt);
-    let generated_spec = match provider.as_str() {
-        "codex" => run_codex_spec_generation(
-            &resolve_cli_binary("codex", codex_path.as_deref())?,
-            &model,
-            &reasoning,
-            &prompt_payload,
-        )?,
-        "claude" => run_claude_spec_generation(
-            &resolve_cli_binary("claude", claude_path.as_deref())?,
-            &model,
-            &reasoning,
-            &prompt_payload,
-        )?,
-        _ => return Err(format!("Unsupported model provider: {provider}")),
-    };
+    let prompt_payload = build_generation_prompt(
+        &prompt_template,
+        trimmed_prompt,
+        &[("Attached Product Requirements Document (PRD)", trimmed_prd)],
+    );
+    let generated_spec = run_generation_request(
+        &provider,
+        &model,
+        &reasoning,
+        claude_path.as_deref(),
+        codex_path.as_deref(),
+        &prompt_payload,
+    )?;
 
-    let normalized_spec = strip_wrapping_code_fence(generated_spec.trim());
-    let rendered_spec = format!("{}\n", normalized_spec.trim());
-
-    if rendered_spec.trim().is_empty() {
-        return Err(String::from(
-            "The AI returned an empty specification. Adjust the prompt and try again.",
-        ));
-    }
-
-    let resolved_prd_path = resolve_existing_document_path(&prd_path)?;
-    let saved_spec_path = build_generated_spec_path(&resolved_prd_path);
-
-    fs::write(&saved_spec_path, rendered_spec.as_bytes()).map_err(|error| {
-        format!(
-            "Unable to save the generated spec to {}: {error}",
-            saved_spec_path.display()
-        )
-    })?;
-
-    let file_name = saved_spec_path
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or("SPEC.md")
-        .to_string();
-
-    Ok(WorkspaceDocument {
-        content: rendered_spec,
-        source_path: saved_spec_path.display().to_string(),
-        file_name,
-    })
+    write_generated_workspace_document(
+        &workspace_root,
+        &output_path,
+        generated_spec,
+        "SPEC output path",
+    )
 }
 
 #[tauri::command]
@@ -543,10 +909,14 @@ pub fn run() {
             run_environment_scan,
             parse_document,
             pick_document,
+            pick_project_folder,
+            load_project_context,
+            save_project_settings,
             open_workspace_folder,
             read_workspace_file,
             get_workspace_snapshot,
             git_get_diff,
+            generate_prd_document,
             generate_spec_document,
             spawn_cli_agent,
             approve_action,
@@ -790,54 +1160,74 @@ fn resolve_workspace_file_path(
     Ok(canonical_path)
 }
 
-fn resolve_existing_document_path(path_value: &str) -> Result<PathBuf, String> {
-    let trimmed_value = path_value.trim();
+fn resolve_relative_path_under_root(root: &Path, relative_path: &str) -> Result<PathBuf, String> {
+    let normalized_path = normalize_relative_path(relative_path)?;
+    Ok(root.join(normalized_path))
+}
 
-    if trimmed_value.is_empty() {
+fn write_generated_workspace_document(
+    workspace_root: &str,
+    output_path: &str,
+    generated_content: String,
+    field_name: &str,
+) -> Result<WorkspaceDocument, String> {
+    let trimmed_root = workspace_root.trim();
+
+    if trimmed_root.is_empty() {
+        return Err(String::from("A workspace root is required."));
+    }
+
+    let canonical_root = canonicalize_existing_path(&PathBuf::from(trimmed_root))
+        .map_err(|error| format!("Unable to resolve workspace root {}: {error}", trimmed_root))?;
+    let resolved_output_path = resolve_relative_path_under_root(&canonical_root, output_path)
+        .map_err(|error| format!("{field_name} is invalid: {error}"))?;
+    let rendered_document = format!(
+        "{}\n",
+        strip_wrapping_code_fence(generated_content.trim()).trim()
+    );
+
+    if rendered_document.trim().is_empty() {
         return Err(String::from(
-            "A PRD path is required to save the generated spec.",
+            "The AI returned an empty document. Adjust the prompt and try again.",
         ));
     }
 
-    let candidate = PathBuf::from(trimmed_value);
-
-    if candidate.is_absolute() {
-        return canonicalize_existing_path(&candidate).map_err(|error| {
-            format!(
-                "Unable to resolve PRD path {}: {error}",
-                candidate.display()
-            )
-        });
-    }
-
-    resolve_project_document_path(trimmed_value)
-}
-
-fn build_generated_spec_path(prd_path: &Path) -> PathBuf {
-    let file_name = prd_path
-        .file_name()
+    if resolved_output_path
+        .extension()
         .and_then(|value| value.to_str())
-        .map(derive_spec_file_name)
-        .unwrap_or_else(|| String::from("SPEC.md"));
-
-    prd_path
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .join(file_name)
-}
-
-fn derive_spec_file_name(prd_file_name: &str) -> String {
-    let normalized = prd_file_name.to_ascii_lowercase();
-
-    if normalized == "prd.md" || normalized == "prd.pdf" {
-        return if prd_file_name == prd_file_name.to_ascii_lowercase() {
-            String::from("spec.md")
-        } else {
-            String::from("SPEC.md")
-        };
+        .map(|value| !value.eq_ignore_ascii_case("md"))
+        .unwrap_or(true)
+    {
+        return Err(format!(
+            "{field_name} must point to a Markdown file inside the selected workspace."
+        ));
     }
 
-    String::from("SPEC.md")
+    if let Some(parent_directory) = resolved_output_path.parent() {
+        fs::create_dir_all(parent_directory).map_err(|error| {
+            format!(
+                "Unable to create the document folder {}: {error}",
+                parent_directory.display()
+            )
+        })?;
+    }
+
+    fs::write(&resolved_output_path, rendered_document.as_bytes()).map_err(|error| {
+        format!(
+            "Unable to save the generated document to {}: {error}",
+            resolved_output_path.display()
+        )
+    })?;
+
+    Ok(WorkspaceDocument {
+        content: rendered_document,
+        source_path: resolved_output_path.display().to_string(),
+        file_name: resolved_output_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("Document.md")
+            .to_string(),
+    })
 }
 
 fn resolve_override_path(path_value: &str) -> PathBuf {
@@ -957,25 +1347,59 @@ fn resolve_cli_binary(binary_name: &str, override_path: Option<&str>) -> Result<
     })
 }
 
-fn build_spec_generation_prompt(prd_content: &str, user_prompt: &str) -> String {
-    format!(
-        concat!(
-            "You are drafting a technical specification document from a PRD and operator notes.\n",
-            "Return only the final markdown for the SPEC document.\n",
-            "Do not use shell commands, tools, or external files. Work only from the provided text.\n",
-            "Use concrete technical detail, clear section headings, and explicit assumptions when the PRD leaves a gap.\n",
-            "Include architecture, workflows, data/contracts, constraints, edge cases, and acceptance criteria when relevant.\n\n",
-            "# Operator Notes\n",
-            "{user_prompt}\n\n",
-            "# PRD\n",
-            "{prd_content}\n"
-        ),
-        user_prompt = user_prompt,
-        prd_content = prd_content
-    )
+fn build_generation_prompt(
+    prompt_template: &str,
+    user_prompt: &str,
+    attachments: &[(&str, &str)],
+) -> String {
+    let mut prompt = String::new();
+    prompt.push_str(prompt_template.trim());
+    prompt.push_str("\n\n");
+    prompt.push_str("Additional operator context:\n");
+    prompt.push_str(user_prompt.trim());
+
+    for (label, content) in attachments {
+        let trimmed_content = content.trim();
+
+        if trimmed_content.is_empty() {
+            continue;
+        }
+
+        prompt.push_str("\n\n");
+        prompt.push_str(label);
+        prompt.push_str(":\n");
+        prompt.push_str(trimmed_content);
+    }
+
+    prompt
 }
 
-fn run_codex_spec_generation(
+fn run_generation_request(
+    provider: &str,
+    model: &str,
+    reasoning: &str,
+    claude_path: Option<&str>,
+    codex_path: Option<&str>,
+    prompt_payload: &str,
+) -> Result<String, String> {
+    match provider {
+        "codex" => run_codex_generation(
+            &resolve_cli_binary("codex", codex_path)?,
+            model,
+            reasoning,
+            prompt_payload,
+        ),
+        "claude" => run_claude_generation(
+            &resolve_cli_binary("claude", claude_path)?,
+            model,
+            reasoning,
+            prompt_payload,
+        ),
+        _ => Err(format!("Unsupported model provider: {provider}")),
+    }
+}
+
+fn run_codex_generation(
     binary_path: &Path,
     model: &str,
     reasoning: &str,
@@ -1030,7 +1454,7 @@ fn run_codex_spec_generation(
     result
 }
 
-fn run_claude_spec_generation(
+fn run_claude_generation(
     binary_path: &Path,
     model: &str,
     reasoning: &str,
@@ -1044,9 +1468,7 @@ fn run_claude_spec_generation(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .arg("--print")
-        .arg(
-            "Using the piped PRD and operator notes, write a complete technical specification in markdown and return only the specification.",
-        )
+        .arg("Respond to the request provided on stdin.")
         .arg("--model")
         .arg(model)
         .arg("--output-format")
