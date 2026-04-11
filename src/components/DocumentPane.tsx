@@ -1,54 +1,32 @@
 import { memo, type ChangeEvent, type ReactNode } from "react";
 
-import { DocumentActionBar } from "./DocumentActionBar";
 import { MarkdownDocument } from "./MarkdownDocument";
 import type { PaneMode } from "../types";
 
 interface DocumentPaneProps {
-  eyebrow: string;
-  title: string;
   content: string;
   mode: PaneMode;
-  loadLabel: string;
-  headerAction?: ReactNode;
-  onModeChange: (mode: PaneMode) => void;
+  className?: string;
+  children?: ReactNode;
   onChange: (value: string) => void;
-  onLoad: () => void;
   onSelect?: (event: ChangeEvent<HTMLTextAreaElement>) => void;
 }
 
 export const DocumentPane = memo(function DocumentPane({
-  eyebrow,
-  title,
   content,
   mode,
-  loadLabel,
-  headerAction,
-  onModeChange,
+  className,
+  children,
   onChange,
-  onLoad,
   onSelect
 }: DocumentPaneProps) {
   return (
-    <article className="flex min-h-0 flex-col gap-4 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="mb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
-            {eyebrow}
-          </p>
-          <h2 className="m-0 truncate text-lg font-semibold text-[var(--text-main)]">{title}</h2>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <DocumentActionBar
-            loadLabel={loadLabel}
-            mode={mode}
-            onLoad={onLoad}
-            onModeChange={onModeChange}
-          />
-          {headerAction}
-        </div>
-      </div>
+    <article
+      className={`flex min-h-0 flex-col gap-4 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4 ${
+        className ?? ""
+      }`}
+    >
+      {children}
 
       {mode === "preview" ? (
         <div className="min-h-0 overflow-auto pr-1">

@@ -4,6 +4,7 @@ import {
 } from "iconoir-react";
 import { memo, useEffect, useMemo, type ChangeEvent } from "react";
 
+import { DocumentActionBar } from "./DocumentActionBar";
 import { DocumentEmptyState } from "./DocumentEmptyState";
 import { DocumentPane } from "./DocumentPane";
 import { ExecutionPanel } from "./ExecutionPanel";
@@ -158,70 +159,80 @@ export const MainWorkspace = memo(function MainWorkspace({
 
       {activeTab === "review" ? (
         <div className="grid h-full min-h-0 gap-4 p-4 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-2 xl:grid-rows-1">
-          {showPrdEmptyState ? (
-            <DocumentEmptyState
-              description="Load an existing PRD or switch to Edit to draft one manually before generating a spec."
-              eyebrow="Source PRD"
-              heading="No PRD file detected"
-              icon={<FileNotFound className="size-6" />}
-              loadLabel="Load PRD"
-              mode={prdPaneMode}
-              onLoad={onLoadPrd}
-              onModeChange={onPrdPaneModeChange}
-              title={displayPrdPath || "PRD.md"}
-            />
-          ) : (
-            <DocumentPane
-              content={prdContent}
-              eyebrow="Source PRD"
-              loadLabel="Load PRD"
-              mode={prdPaneMode}
-              onChange={onPrdContentChange}
-              onLoad={onLoadPrd}
-              onModeChange={onPrdPaneModeChange}
-              title={displayPrdPath || "PRD.md"}
-            />
-          )}
-          {hasSpecContent || !showSpecPreviewState ? (
-            <DocumentPane
-              content={specContent}
-              eyebrow="Technical Spec"
-              headerAction={approveSpecButton}
-              loadLabel="Load Spec"
-              mode={specPaneMode}
-              onChange={onSpecContentChange}
-              onLoad={onLoadSpec}
-              onModeChange={onSpecPaneModeChange}
-              onSelect={onSpecSelect}
-              title={displaySpecPath || "spec.md"}
-            />
-          ) : !hasPrdContent ? (
-            <DocumentEmptyState
-              description="Load or draft a PRD first if you want SpecForge to generate a technical spec. You can still load an existing spec at any time."
-              eyebrow="Technical Spec"
-              heading="PRD required before generation"
-              icon={<FileNotFound className="size-6" />}
-              loadLabel="Load Spec"
-              mode={specPaneMode}
-              onLoad={onLoadSpec}
-              onModeChange={onSpecPaneModeChange}
-              title={displaySpecPath || "spec.md"}
-            />
-          ) : (
-            <SpecEmptyState
-              canGenerate={canGenerateSpec}
-              error={specGenerationError}
-              helperText={specGenerationHelperText}
-              isGenerating={isGeneratingSpec}
-              mode={specPaneMode}
-              onGenerate={onGenerateSpec}
-              onLoad={onLoadSpec}
-              onModeChange={onSpecPaneModeChange}
-              onPromptChange={onSpecGenerationPromptChange}
-              prompt={specGenerationPrompt}
-              title={displaySpecPath || "spec.md"}
-            />
-          )}
+          <section className="flex min-h-0 flex-col gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3 px-1">
+              <div className="min-w-0">
+                <h2 className="m-0 text-sm font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
+                  PRD (Product Requirements Document)
+                </h2>
+                <p className="m-0 truncate pt-1 text-lg font-semibold text-[var(--text-main)]">
+                  {displayPrdPath || "PRD.md"}
+                </p>
+              </div>
+              <DocumentActionBar
+                loadLabel="Load PRD"
+                mode={prdPaneMode}
+                onLoad={onLoadPrd}
+                onModeChange={onPrdPaneModeChange}
+              />
+            </div>
+            {showPrdEmptyState ? (
+              <DocumentEmptyState
+                description="Load an existing PRD or switch to Edit to draft one manually before generating a spec."
+                heading="No PRD file detected"
+                icon={<FileNotFound className="size-6" />}
+              />
+            ) : (
+              <DocumentPane content={prdContent} mode={prdPaneMode} onChange={onPrdContentChange} />
+            )}
+          </section>
+
+          <section className="flex min-h-0 flex-col gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3 px-1">
+              <div className="min-w-0">
+                <h2 className="m-0 text-sm font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
+                  Spec (Technical Specification)
+                </h2>
+                <p className="m-0 truncate pt-1 text-lg font-semibold text-[var(--text-main)]">
+                  {displaySpecPath || "spec.md"}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <DocumentActionBar
+                  loadLabel="Load Spec"
+                  mode={specPaneMode}
+                  onLoad={onLoadSpec}
+                  onModeChange={onSpecPaneModeChange}
+                  showModeButtons={hasSpecContent || !showSpecPreviewState}
+                />
+                {approveSpecButton}
+              </div>
+            </div>
+            {hasSpecContent || !showSpecPreviewState ? (
+              <DocumentPane
+                content={specContent}
+                mode={specPaneMode}
+                onChange={onSpecContentChange}
+                onSelect={onSpecSelect}
+              />
+            ) : !hasPrdContent ? (
+              <DocumentEmptyState
+                description="Load or draft a PRD first if you want SpecForge to generate a technical spec. You can still load an existing spec at any time."
+                heading="PRD required before generation"
+                icon={<FileNotFound className="size-6" />}
+              />
+            ) : (
+              <SpecEmptyState
+                canGenerate={canGenerateSpec}
+                error={specGenerationError}
+                helperText={specGenerationHelperText}
+                isGenerating={isGeneratingSpec}
+                onGenerate={onGenerateSpec}
+                onPromptChange={onSpecGenerationPromptChange}
+                prompt={specGenerationPrompt}
+              />
+            )}
+          </section>
         </div>
       ) : activeTab === "execute" ? (
         <div className="h-full min-h-0 p-4">
