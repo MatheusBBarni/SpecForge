@@ -18,9 +18,11 @@ export function AppRail({ hasProjectConfigured }: AppRailProps) {
         SF
       </div>
 
-      <NavLink className={getRailLinkClassName} end to="/" title="Project setup">
-        <Folder className="size-5" />
-      </NavLink>
+      {!hasProjectConfigured ? (
+        <NavLink className={getRailLinkClassName} end to="/" title="Project setup">
+          <Folder className="size-5" />
+        </NavLink>
+      ) : null}
 
       {hasProjectConfigured ? (
         <NavLink className={getRailLinkClassName} to="/review" title="Review workspace">

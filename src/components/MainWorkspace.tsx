@@ -4,6 +4,7 @@ import {
 } from "iconoir-react";
 import { memo, useEffect, useMemo, type ChangeEvent } from "react";
 
+import { getWorkspaceDisplayPath } from "../lib/projectConfig";
 import { DocumentActionBar } from "./DocumentActionBar";
 import { DocumentEmptyState } from "./DocumentEmptyState";
 import { DocumentPane } from "./DocumentPane";
@@ -116,11 +117,11 @@ export const MainWorkspace = memo(function MainWorkspace({
     [activeTab, openEditorTabs]
   );
   const displayPrdPath = useMemo(
-    () => getDisplayDocumentPath(prdPath, workspaceRootName),
+    () => getWorkspaceDisplayPath(prdPath, workspaceRootName),
     [prdPath, workspaceRootName]
   );
   const displaySpecPath = useMemo(
-    () => getDisplayDocumentPath(specPath, workspaceRootName),
+    () => getWorkspaceDisplayPath(specPath, workspaceRootName),
     [specPath, workspaceRootName]
   );
   const hasPrdContent = prdContent.trim().length > 0;
@@ -170,7 +171,7 @@ export const MainWorkspace = memo(function MainWorkspace({
   }, [activeEditorTab, onEditorTabClose]);
 
   return (
-    <section className="flex min-h-0 h-full flex-col overflow-hidden rounded-[1.5rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] shadow-[var(--shadow)] backdrop-blur-[30px]">
+    <section className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] shadow-[var(--shadow)] backdrop-blur-[30px]">
       <WorkspaceTabBar
         activeTab={activeTab}
         onActiveTabChange={onActiveTabChange}
@@ -180,7 +181,7 @@ export const MainWorkspace = memo(function MainWorkspace({
 
       {activeTab === "review" ? (
         <div className="grid h-full min-h-0 gap-4 p-4 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-2 xl:grid-rows-1">
-          <section className="flex min-h-0 flex-col gap-3">
+          <section className="flex min-h-0 min-w-0 flex-col gap-3">
             <div className="flex flex-wrap items-start justify-between gap-3 px-1">
               <div className="min-w-0">
                 <h2 className="m-0 text-sm font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
@@ -214,7 +215,7 @@ export const MainWorkspace = memo(function MainWorkspace({
             )}
           </section>
 
-          <section className="flex min-h-0 flex-col gap-3">
+          <section className="flex min-h-0 min-w-0 flex-col gap-3">
             <div className="flex flex-wrap items-start justify-between gap-3 px-1">
               <div className="min-w-0">
                 <h2 className="m-0 text-sm font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
@@ -275,8 +276,8 @@ export const MainWorkspace = memo(function MainWorkspace({
           />
         </div>
       ) : activeEditorTab ? (
-        <div className="grid h-full min-h-0 gap-4 p-4">
-          <article className="flex min-h-0 flex-col gap-4 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4">
+        <div className="grid h-full min-h-0 min-w-0 w-full gap-4 p-4">
+          <article className="flex min-h-0 min-w-0 w-full flex-col gap-4 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4">
             <div>
               <p className="mb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
                 Workspace File
@@ -287,7 +288,7 @@ export const MainWorkspace = memo(function MainWorkspace({
             </div>
 
             <textarea
-              className="min-h-0 flex-1 resize-none rounded-[1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-7 text-[var(--text-main)]"
+              className="min-h-0 min-w-0 w-full flex-1 resize-none rounded-[1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-7 text-[var(--text-main)]"
               onChange={(event) => onEditorTabChange(activeEditorTab.path, event.target.value)}
               value={activeEditorTab.content}
             />
@@ -314,25 +315,6 @@ export const MainWorkspace = memo(function MainWorkspace({
     </section>
   );
 });
-
-function getDisplayDocumentPath(path: string, workspaceRootName: string) {
-  const normalizedPath = path.replace(/\\/g, "/");
-
-  if (!workspaceRootName) {
-    return normalizedPath;
-  }
-
-  const segments = normalizedPath.split("/").filter(Boolean);
-  const rootIndex = segments.findIndex(
-    (segment) => segment.toLowerCase() === workspaceRootName.toLowerCase()
-  );
-
-  if (rootIndex >= 0 && rootIndex < segments.length - 1) {
-    return segments.slice(rootIndex + 1).join("/");
-  }
-
-  return normalizedPath;
-}
 
 const HEADER_ACTION_BUTTON_CLASS =
   "inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[var(--border-soft)] bg-white/5 px-4 py-3 font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/8";

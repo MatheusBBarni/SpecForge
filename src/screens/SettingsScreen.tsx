@@ -1,6 +1,8 @@
+import { Button } from "@heroui/react";
 import type { ComponentProps } from "react";
 
 import { SettingsView } from "../components/SettingsView";
+import { SECONDARY_BUTTON_CLASS } from "../components/SettingsPrimitives";
 import { StatusPill } from "../components/StatusPill";
 import type { AgentStatus } from "../types";
 
@@ -24,9 +26,9 @@ export function SettingsScreen({
 
         <div className="flex flex-wrap items-center gap-3">
           <StatusPill status={agentStatus} />
-          <button className={SECONDARY_BUTTON_CLASS} onClick={onRefresh} type="button">
+          <Button className={SECONDARY_BUTTON_CLASS} onPress={onRefresh}>
             Refresh
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -36,6 +38,3 @@ export function SettingsScreen({
     </section>
   );
 }
-
-const SECONDARY_BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[var(--border-soft)] bg-white/5 px-4 py-3 font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/8";

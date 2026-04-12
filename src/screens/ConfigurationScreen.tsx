@@ -1,8 +1,19 @@
+import {
+  Button,
+  Card,
+  Input
+} from "@heroui/react";
 import { Folder, Refresh, Terminal } from "iconoir-react";
 
 import { CliHealthCard } from "../components/CliHealthCard";
 import { ProjectAiSettingsCard } from "../components/ProjectAiSettingsCard";
 import { ProjectDocumentsCard } from "../components/ProjectDocumentsCard";
+import {
+  PRIMARY_BUTTON_CLASS,
+  SECONDARY_BUTTON_CLASS,
+  SETTINGS_PANEL_CLASS,
+  SETTINGS_SURFACE_CLASS
+} from "../components/SettingsPrimitives";
 import type { EnvironmentStatus, ModelId, ReasoningProfileId } from "../types";
 
 interface ConfigurationScreenProps {
@@ -73,96 +84,107 @@ export function ConfigurationScreen({
   onSupportingDocumentsChange
 }: ConfigurationScreenProps) {
   const canContinue = desktopRuntime && workspaceRootPath.length > 0 && !isSaving;
+  const folderActionLabel = isProjectLoading
+    ? "Opening..."
+    : hasSavedSettings
+      ? "Open New Folder"
+      : "Select Folder";
 
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-auto px-5 pb-5 pt-5">
       <div className="grid gap-4">
-        <article className="grid gap-4 rounded-[1.6rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-6 shadow-[var(--shadow)] backdrop-blur-[30px]">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="max-w-3xl">
-              <p className="mb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
-                Project Setup
-              </p>
-              <h1 className="m-0 text-[1.8rem] font-semibold text-[var(--text-main)]">
-                Configure SpecForge Before Review Starts
-              </h1>
-              <p className="mt-3 text-sm leading-7 text-[var(--text-subtle)]">
-                Choose the project folder, verify the available CLIs, set the default AI prompts
-                and model behavior, and point SpecForge at the PRD/spec files you want this
-                workspace to use.
-              </p>
+        <Card className={`${SETTINGS_PANEL_CLASS} rounded-[1.6rem]`}>
+          <Card.Content className="grid gap-4 px-6 py-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="max-w-3xl">
+                <p className="mb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
+                  Project Setup
+                </p>
+                <h1 className="m-0 text-[1.8rem] font-semibold text-[var(--text-main)]">
+                  Configure SpecForge Before Review Starts
+                </h1>
+                <p className="mt-3 text-sm leading-7 text-[var(--text-subtle)]">
+                  Choose the project folder, verify the available CLIs, set the default AI prompts
+                  and model behavior, and point SpecForge at the PRD/spec files you want this
+                  workspace to use.
+                </p>
+              </div>
+
+              <Button className={SECONDARY_BUTTON_CLASS} onPress={onRefresh}>
+                <Refresh className="size-5" />
+                Refresh
+              </Button>
             </div>
 
-            <button className={SECONDARY_BUTTON_CLASS} onClick={onRefresh} type="button">
-              <Refresh className="size-5" />
-              Refresh
-            </button>
-          </div>
+            {statusMessage ? (
+              <p className="m-0 text-sm leading-6 text-[var(--text-subtle)]">{statusMessage}</p>
+            ) : null}
+            {errorMessage ? (
+              <p className="m-0 text-sm leading-6 text-[var(--danger)]">{errorMessage}</p>
+            ) : null}
+          </Card.Content>
+        </Card>
 
-          {statusMessage ? (
-            <p className="m-0 text-sm leading-6 text-[var(--text-subtle)]">{statusMessage}</p>
-          ) : null}
-          {errorMessage ? (
-            <p className="m-0 text-sm leading-6 text-[var(--danger)]">{errorMessage}</p>
-          ) : null}
-        </article>
+        <Card className={`${SETTINGS_PANEL_CLASS} rounded-[1.5rem]`}>
+          <Card.Content className="grid gap-4 px-5 py-5">
+            <StepHeading
+              number="1"
+              title="Open The Project Folder"
+              description="This becomes the active workspace and the place where `.specforge/settings.json` is created."
+            />
 
-        <article className={PANEL_CLASS}>
-          <StepHeading
-            number="1"
-            title="Open The Project Folder"
-            description="This becomes the active workspace and the place where `.specforge/settings.json` is created."
-          />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button className={PRIMARY_BUTTON_CLASS} onPress={onPickFolder}>
+                <Folder className="size-5" />
+                {folderActionLabel}
+              </Button>
+            </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button className={PRIMARY_BUTTON_CLASS} onClick={onPickFolder} type="button">
-              <Folder className="size-5" />
-              {isProjectLoading ? "Opening..." : "Select Folder"}
-            </button>
-          </div>
+            <div className={`${SETTINGS_SURFACE_CLASS} grid gap-2 px-4 py-4 font-[var(--font-mono)] text-sm text-[var(--text-main)]`}>
+              <div>Workspace: {workspaceRootName || "No folder selected yet"}</div>
+              <div>Path: {workspaceRootPath || "Pick a folder to begin"}</div>
+              <div>Settings file: {settingsPath || ".specforge/settings.json"}</div>
+            </div>
+          </Card.Content>
+        </Card>
 
-          <div className="grid gap-2 rounded-[1rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] px-4 py-4 font-[var(--font-mono)] text-sm text-[var(--text-main)]">
-            <div>Workspace: {workspaceRootName || "No folder selected yet"}</div>
-            <div>Path: {workspaceRootPath || "Pick a folder to begin"}</div>
-            <div>Settings file: {settingsPath || ".specforge/settings.json"}</div>
-          </div>
-        </article>
+        <Card className={`${SETTINGS_PANEL_CLASS} rounded-[1.5rem]`}>
+          <Card.Content className="grid gap-4 px-5 py-5">
+            <StepHeading
+              number="2"
+              title="Review CLI Availability"
+              description="SpecForge keeps CLI discovery machine-local. Manual path overrides remain local preferences."
+            />
 
-        <article className={PANEL_CLASS}>
-          <StepHeading
-            number="2"
-            title="Review CLI Availability"
-            description="SpecForge keeps CLI discovery machine-local. Manual path overrides remain local preferences."
-          />
+            <div className="grid gap-4 xl:grid-cols-3">
+              <CliHealthCard entry={environment.claude} />
+              <CliHealthCard entry={environment.codex} />
+              <CliHealthCard entry={environment.git} />
+            </div>
 
-          <div className="grid gap-4 xl:grid-cols-3">
-            <CliHealthCard entry={environment.claude} />
-            <CliHealthCard entry={environment.codex} />
-            <CliHealthCard entry={environment.git} />
-          </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="grid gap-2">
+                <span className={FIELD_LABEL_CLASS}>Claude CLI override</span>
+                <Input
+                  className={INPUT_CLASS}
+                  onChange={(event) => onClaudePathChange(event.target.value)}
+                  placeholder="Optional manual path"
+                  value={claudePath}
+                />
+              </label>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="grid gap-2">
-              <span className={FIELD_LABEL_CLASS}>Claude CLI override</span>
-              <input
-                className={INPUT_CLASS}
-                onChange={(event) => onClaudePathChange(event.target.value)}
-                placeholder="Optional manual path"
-                value={claudePath}
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className={FIELD_LABEL_CLASS}>Codex CLI override</span>
-              <input
-                className={INPUT_CLASS}
-                onChange={(event) => onCodexPathChange(event.target.value)}
-                placeholder="Optional manual path"
-                value={codexPath}
-              />
-            </label>
-          </div>
-        </article>
+              <label className="grid gap-2">
+                <span className={FIELD_LABEL_CLASS}>Codex CLI override</span>
+                <Input
+                  className={INPUT_CLASS}
+                  onChange={(event) => onCodexPathChange(event.target.value)}
+                  placeholder="Optional manual path"
+                  value={codexPath}
+                />
+              </label>
+            </div>
+          </Card.Content>
+        </Card>
 
         <div className="grid gap-4 xl:grid-cols-2">
           <div className="grid gap-4">
@@ -181,6 +203,7 @@ export function ConfigurationScreen({
               selectedModel={selectedModel}
               selectedReasoning={selectedReasoning}
               specPrompt={specPrompt}
+              workspaceRootName={workspaceRootName}
             />
           </div>
 
@@ -203,8 +226,8 @@ export function ConfigurationScreen({
           </div>
         </div>
 
-        <article className={PANEL_CLASS}>
-          <div className="flex flex-wrap items-center justify-between gap-4">
+        <Card className={`${SETTINGS_PANEL_CLASS} rounded-[1.5rem]`}>
+          <Card.Content className="flex flex-wrap items-center justify-between gap-4 px-5 py-5">
             <div className="max-w-2xl">
               <div className="flex items-center gap-3 text-[var(--text-main)]">
                 <Terminal className="size-5 text-[var(--accent-2)]" />
@@ -219,20 +242,19 @@ export function ConfigurationScreen({
               </p>
             </div>
 
-            <button
+            <Button
               className={`${PRIMARY_BUTTON_CLASS} ${!canContinue ? "cursor-not-allowed opacity-50 hover:translate-y-0" : ""}`}
-              disabled={!canContinue}
-              onClick={onContinue}
-              type="button"
+              isDisabled={!canContinue}
+              onPress={onContinue}
             >
               {isSaving
                 ? "Saving..."
                 : hasSavedSettings
                   ? "Save Changes and Continue"
                   : "Create .specforge and Continue"}
-            </button>
-          </div>
-        </article>
+            </Button>
+          </Card.Content>
+        </Card>
       </div>
     </section>
   );
@@ -260,17 +282,8 @@ function StepHeading({
   );
 }
 
-const PANEL_CLASS =
-  "grid gap-4 rounded-[1.5rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-5 shadow-[var(--shadow)] backdrop-blur-[30px]";
-
 const FIELD_LABEL_CLASS =
   "text-sm font-medium leading-6 text-[var(--text-subtle)]";
 
 const INPUT_CLASS =
   "w-full rounded-[1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-3 text-[15px] text-[var(--text-main)] outline-none transition focus:border-[var(--accent)]";
-
-const SECONDARY_BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[var(--border-soft)] bg-white/5 px-4 py-3 font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/8";
-
-const PRIMARY_BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-[1rem] border-0 bg-[linear-gradient(135deg,var(--accent),#ff79c6)] px-4 py-3 font-semibold text-[#15131c] transition hover:-translate-y-0.5 hover:opacity-95";
