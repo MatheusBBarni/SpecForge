@@ -161,9 +161,9 @@ pub(crate) fn normalize_project_settings(
     };
 
     let selected_model =
-        normalize_project_model(&provided.selected_model, &defaults.selected_model);
+        normalize_project_model(&provided.selected_model, &defaults.selected_model)?;
     let selected_reasoning =
-        normalize_project_reasoning(&provided.selected_reasoning, &defaults.selected_reasoning);
+        normalize_project_reasoning(&provided.selected_reasoning, &defaults.selected_reasoning)?;
     let normalized_prd_path =
         normalize_project_path_or_default(workspace_root, &provided.prd_path, &defaults.prd_path)?;
     let normalized_spec_path = normalize_project_path_or_default(
@@ -265,7 +265,7 @@ pub(crate) fn load_project_settings_from_workspace_root(
     read_project_settings(&settings_path, workspace_root, defaults)
 }
 
-fn normalize_project_model(value: &str, fallback: &str) -> String {
+pub(crate) fn normalize_project_model(value: &str, fallback: &str) -> Result<String, String> {
     const VALID_MODELS: &[&str] = &[
         "gpt-5.4",
         "gpt-5.4-mini",
@@ -280,17 +280,30 @@ fn normalize_project_model(value: &str, fallback: &str) -> String {
         "claude-3-5-haiku-20241022",
         "claude-3-haiku-20240307",
     ];
+    let trimmed_value = value.trim();
 
-    if VALID_MODELS.contains(&value.trim()) {
-        return value.trim().to_string();
+    if trimmed_value.is_empty() {
+        return Ok(fallback.to_string());
     }
 
-    fallback.to_string()
+    if VALID_MODELS.contains(&trimmed_value) {
+        return Ok(trimmed_value.to_string());
+    }
+
+    Err(format!("Unsupported model `{trimmed_value}` in project settings."))
 }
 
-fn normalize_project_reasoning(value: &str, fallback: &str) -> String {
-    match value.trim() {
-        "low" | "medium" | "high" | "max" => value.trim().to_string(),
-        _ => fallback.to_string(),
+pub(crate) fn normalize_project_reasoning(value: &str, fallback: &str) -> Result<String, String> {
+    let trimmed_value = value.trim();
+
+    if trimmed_value.is_empty() {
+        return Ok(fallback.to_string());
+    }
+
+    match trimmed_value {
+        "low" | "medium" | "high" | "max" => Ok(trimmed_value.to_string()),
+        _ => Err(format!(
+            "Unsupported reasoning profile `{trimmed_value}` in project settings."
+        )),
     }
 }

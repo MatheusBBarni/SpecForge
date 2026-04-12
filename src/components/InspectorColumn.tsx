@@ -4,7 +4,16 @@ import {
   Folder,
   Page
 } from "iconoir-react";
-import { memo, useCallback, useEffect, useMemo, useState, type ChangeEvent, type RefObject } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type RefObject
+} from "react";
 
 import type { WorkspaceEntry } from "../types";
 
@@ -19,6 +28,7 @@ interface InspectorColumnProps {
   hasWorkspaceEntries: boolean;
   emptyStateMessage: string;
   workspaceRootName: string;
+  workspaceRootPath: string;
   workspaceNotice: string;
   folderInputRef: RefObject<HTMLInputElement | null>;
   onOpenFolder: () => void;
@@ -36,6 +46,7 @@ export const InspectorColumn = memo(function InspectorColumn({
   hasWorkspaceEntries,
   emptyStateMessage,
   workspaceRootName,
+  workspaceRootPath,
   workspaceNotice,
   folderInputRef,
   onOpenFolder,
@@ -49,10 +60,31 @@ export const InspectorColumn = memo(function InspectorColumn({
   );
   const [collapsedFolders, setCollapsedFolders] = useState<string[]>(() => directoryPaths);
   const collapsedFoldersLookup = useMemo(() => new Set(collapsedFolders), [collapsedFolders]);
+  const previousWorkspaceRootPathRef = useRef(workspaceRootPath);
 
   useEffect(() => {
-    setCollapsedFolders(directoryPaths);
-  }, [directoryPaths, workspaceRootName]);
+    setCollapsedFolders((currentValue) => {
+      if (previousWorkspaceRootPathRef.current !== workspaceRootPath) {
+        previousWorkspaceRootPathRef.current = workspaceRootPath;
+        return directoryPaths;
+      }
+
+      const currentLookup = new Set(currentValue);
+      const nextValue = [...currentValue];
+      let hasNewDirectory = false;
+
+      for (const path of directoryPaths) {
+        if (currentLookup.has(path)) {
+          continue;
+        }
+
+        nextValue.push(path);
+        hasNewDirectory = true;
+      }
+
+      return hasNewDirectory ? nextValue : currentValue;
+    });
+  }, [directoryPaths, workspaceRootPath]);
 
   const toggleFolder = useCallback((path: string) => {
     setCollapsedFolders((currentValue) =>

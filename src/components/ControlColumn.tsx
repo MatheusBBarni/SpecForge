@@ -14,6 +14,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type Key,
   type ReactNode
 } from "react";
 
@@ -190,9 +191,9 @@ function ModelSelectField({
   }, [activeProviderTab, hasProviderTabs, singleConfiguredProvider]);
 
   const handleSelectionChange = useCallback(
-    (value: string | number | null) => {
-      if (value !== null) {
-        onSelectionChange(String(value) as ModelId);
+    (key: Key | null) => {
+      if (key !== null) {
+        onSelectionChange(String(key) as ModelId);
       }
     },
     [onSelectionChange]
@@ -201,8 +202,8 @@ function ModelSelectField({
   return (
     <Select
       className="flex w-full min-w-0 flex-col gap-2"
-      onChange={handleSelectionChange}
-      value={selectedKey}
+      onSelectionChange={handleSelectionChange}
+      selectedKey={selectedKey}
     >
       <Label className={FIELD_LABEL_CLASS}>{label}</Label>
       <Select.Trigger className={SELECT_TRIGGER_CLASS}>
@@ -295,9 +296,9 @@ function ControlSelectField<Value extends string>({
   onSelectionChange
 }: ControlSelectFieldProps<Value>) {
   const handleSelectionChange = useCallback(
-    (value: string | number | null) => {
-      if (value !== null) {
-        onSelectionChange(String(value) as Value);
+    (key: Key | null) => {
+      if (key !== null) {
+        onSelectionChange(String(key) as Value);
       }
     },
     [onSelectionChange]
@@ -306,8 +307,8 @@ function ControlSelectField<Value extends string>({
   return (
     <Select
       className="flex w-full min-w-0 flex-col gap-2"
-      onChange={handleSelectionChange}
-      value={selectedKey}
+      onSelectionChange={handleSelectionChange}
+      selectedKey={selectedKey}
     >
       <Label className={FIELD_LABEL_CLASS}>{label}</Label>
       <Select.Trigger className={SELECT_TRIGGER_CLASS}>

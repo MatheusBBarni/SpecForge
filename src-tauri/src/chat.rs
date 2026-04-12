@@ -11,7 +11,10 @@ use crate::{
         ChatSessionSnapshot, ChatSessionSummary, ProjectSettings,
     },
     paths::resolve_relative_path_under_root,
-    project::{build_default_project_settings, load_project_settings_from_workspace_root},
+    project::{
+        build_default_project_settings, load_project_settings_from_workspace_root,
+        normalize_project_model, normalize_project_reasoning,
+    },
     state::{ChatExecutionRuntime, SharedState, WorkspaceContext},
 };
 use std::{
@@ -96,8 +99,10 @@ pub(crate) fn save_chat_session(
 ) -> Result<ChatSessionSnapshot, String> {
     let workspace = active_workspace_context(&state)?;
     let mut snapshot = read_chat_session_snapshot(&workspace.root, &session_id)?;
-    snapshot.selected_model = selected_model.trim().to_string();
-    snapshot.selected_reasoning = selected_reasoning.trim().to_string();
+    snapshot.selected_model =
+        normalize_project_model(&selected_model, &snapshot.selected_model)?;
+    snapshot.selected_reasoning =
+        normalize_project_reasoning(&selected_reasoning, &snapshot.selected_reasoning)?;
     snapshot.autonomy_mode = normalize_autonomy_mode(&autonomy_mode);
     snapshot.context_items = normalize_context_items(context_items);
     snapshot.updated_at = current_timestamp();
