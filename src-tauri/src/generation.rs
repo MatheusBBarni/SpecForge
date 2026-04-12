@@ -6,9 +6,24 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tauri::async_runtime;
+
+struct DocumentGenerationRequest {
+    workspace_root: String,
+    output_path: String,
+    prompt_template: String,
+    user_prompt: String,
+    attachments: Vec<(String, String)>,
+    provider: String,
+    model: String,
+    reasoning: String,
+    claude_path: Option<String>,
+    codex_path: Option<String>,
+    field_name: &'static str,
+}
 
 #[tauri::command]
-pub(crate) fn generate_prd_document(
+pub(crate) async fn generate_prd_document(
     workspace_root: String,
     output_path: String,
     prompt_template: String,
@@ -27,26 +42,24 @@ pub(crate) fn generate_prd_document(
         ));
     }
 
-    let prompt_payload = build_generation_prompt(&prompt_template, trimmed_prompt, &[]);
-    let generated_prd = run_generation_request(
-        &provider,
-        &model,
-        &reasoning,
-        claude_path.as_deref(),
-        codex_path.as_deref(),
-        &prompt_payload,
-    )?;
-
-    write_generated_workspace_document(
-        &workspace_root,
-        &output_path,
-        generated_prd,
-        "PRD output path",
-    )
+    run_workspace_document_generation(DocumentGenerationRequest {
+        workspace_root,
+        output_path,
+        prompt_template,
+        user_prompt: trimmed_prompt.to_string(),
+        attachments: Vec::new(),
+        provider,
+        model,
+        reasoning,
+        claude_path,
+        codex_path,
+        field_name: "PRD output path",
+    })
+    .await
 }
 
 #[tauri::command]
-pub(crate) fn generate_spec_document(
+pub(crate) async fn generate_spec_document(
     workspace_root: String,
     output_path: String,
     prd_content: String,
@@ -73,25 +86,57 @@ pub(crate) fn generate_spec_document(
         ));
     }
 
-    let prompt_payload = build_generation_prompt(
-        &prompt_template,
-        trimmed_prompt,
-        &[("Attached Product Requirements Document (PRD)", trimmed_prd)],
-    );
-    let generated_spec = run_generation_request(
-        &provider,
-        &model,
-        &reasoning,
-        claude_path.as_deref(),
-        codex_path.as_deref(),
+    run_workspace_document_generation(DocumentGenerationRequest {
+        workspace_root,
+        output_path,
+        prompt_template,
+        user_prompt: trimmed_prompt.to_string(),
+        attachments: vec![(
+            String::from("Attached Product Requirements Document (PRD)"),
+            trimmed_prd.to_string(),
+        )],
+        provider,
+        model,
+        reasoning,
+        claude_path,
+        codex_path,
+        field_name: "SPEC output path",
+    })
+    .await
+}
+
+async fn run_workspace_document_generation(
+    request: DocumentGenerationRequest,
+) -> Result<WorkspaceDocument, String> {
+    async_runtime::spawn_blocking(move || run_workspace_document_generation_blocking(request))
+        .await
+        .map_err(|error| format!("Document generation task failed: {error}"))?
+}
+
+fn run_workspace_document_generation_blocking(
+    request: DocumentGenerationRequest,
+) -> Result<WorkspaceDocument, String> {
+    let attachments = request
+        .attachments
+        .iter()
+        .map(|(label, content)| (label.as_str(), content.as_str()))
+        .collect::<Vec<_>>();
+    let prompt_payload =
+        build_generation_prompt(&request.prompt_template, &request.user_prompt, &attachments);
+    let generated_document = run_generation_request(
+        &request.provider,
+        &request.model,
+        &request.reasoning,
+        request.claude_path.as_deref(),
+        request.codex_path.as_deref(),
         &prompt_payload,
     )?;
 
     write_generated_workspace_document(
-        &workspace_root,
-        &output_path,
-        generated_spec,
-        "SPEC output path",
+        &request.workspace_root,
+        &request.output_path,
+        generated_document,
+        request.field_name,
     )
 }
 

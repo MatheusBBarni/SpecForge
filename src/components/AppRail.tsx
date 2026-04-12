@@ -1,4 +1,5 @@
 import {
+  ChatBubble,
   CodeBracketsSquare,
   Flask,
   Folder,
@@ -23,6 +24,20 @@ export function AppRail({ hasProjectConfigured }: AppRailProps) {
           <Folder className="size-5" />
         </NavLink>
       ) : null}
+
+      {hasProjectConfigured ? (
+        <NavLink className={getRailLinkClassName} to="/chat" title="Chat workspace">
+          <ChatBubble className="size-5" />
+        </NavLink>
+      ) : (
+        <span
+          aria-hidden="true"
+          className={`${RAIL_BUTTON_CLASS} cursor-not-allowed opacity-40`}
+          title="Finish project setup first"
+        >
+          <ChatBubble className="size-5" />
+        </span>
+      )}
 
       {hasProjectConfigured ? (
         <NavLink className={getRailLinkClassName} to="/review" title="Review workspace">

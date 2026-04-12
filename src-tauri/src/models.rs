@@ -59,6 +59,8 @@ pub(crate) struct ProjectContextPayload {
     pub(crate) ignored_file_count: usize,
     pub(crate) prd_document: Option<WorkspaceDocument>,
     pub(crate) spec_document: Option<WorkspaceDocument>,
+    pub(crate) chat_sessions: Vec<ChatSessionSummary>,
+    pub(crate) last_active_session_id: Option<String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -78,6 +80,113 @@ pub(crate) struct AgentStateEvent {
     pub(crate) current_milestone: Option<String>,
     pub(crate) pending_diff: Option<String>,
     pub(crate) summary: Option<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ChatContextItem {
+    pub(crate) id: String,
+    pub(crate) kind: String,
+    pub(crate) label: String,
+    pub(crate) path: Option<String>,
+    pub(crate) is_default: bool,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ChatMessage {
+    pub(crate) id: String,
+    pub(crate) role: String,
+    pub(crate) content: String,
+    pub(crate) created_at: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ChatRuntimeState {
+    pub(crate) status: String,
+    pub(crate) terminal_output: Vec<String>,
+    pub(crate) current_milestone: Option<String>,
+    pub(crate) pending_diff: Option<String>,
+    pub(crate) execution_summary: Option<String>,
+    pub(crate) awaiting_approval: bool,
+    pub(crate) last_error: Option<String>,
+    pub(crate) is_busy: bool,
+    pub(crate) pending_request: Option<String>,
+}
+
+impl Default for ChatRuntimeState {
+    fn default() -> Self {
+        Self {
+            status: String::from("idle"),
+            terminal_output: Vec::new(),
+            current_milestone: None,
+            pending_diff: None,
+            execution_summary: None,
+            awaiting_approval: false,
+            last_error: None,
+            is_busy: false,
+            pending_request: None,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ChatSessionSummary {
+    pub(crate) id: String,
+    pub(crate) title: String,
+    pub(crate) created_at: String,
+    pub(crate) updated_at: String,
+    pub(crate) status: String,
+    pub(crate) last_message_preview: String,
+    pub(crate) selected_model: String,
+    pub(crate) selected_reasoning: String,
+    pub(crate) autonomy_mode: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ChatSessionSnapshot {
+    pub(crate) id: String,
+    pub(crate) title: String,
+    pub(crate) created_at: String,
+    pub(crate) updated_at: String,
+    pub(crate) status: String,
+    pub(crate) last_message_preview: String,
+    pub(crate) selected_model: String,
+    pub(crate) selected_reasoning: String,
+    pub(crate) autonomy_mode: String,
+    pub(crate) context_items: Vec<ChatContextItem>,
+    pub(crate) messages: Vec<ChatMessage>,
+    pub(crate) runtime: ChatRuntimeState,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ChatSessionIndexPayload {
+    pub(crate) sessions: Vec<ChatSessionSummary>,
+    pub(crate) last_active_session_id: Option<String>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CavemanStatusPayload {
+    pub(crate) ready: bool,
+    pub(crate) detail: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ChatEventPayload {
+    pub(crate) session_id: String,
+    pub(crate) event_type: String,
+    pub(crate) message: Option<ChatMessage>,
+    pub(crate) message_delta: Option<String>,
+    pub(crate) terminal_line: Option<String>,
+    pub(crate) session: Option<ChatSessionSnapshot>,
+    pub(crate) runtime: Option<ChatRuntimeState>,
+    pub(crate) summary: Option<ChatSessionSummary>,
 }
 
 #[derive(Clone)]

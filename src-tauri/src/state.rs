@@ -8,6 +8,7 @@ use std::{
 #[derive(Default)]
 pub(crate) struct SharedState {
     pub(crate) runtime: Arc<ExecutionRuntime>,
+    pub(crate) chat_runtime: Arc<ChatExecutionRuntime>,
     pub(crate) workspace: Mutex<Option<WorkspaceContext>>,
 }
 
@@ -24,6 +25,20 @@ pub(crate) struct ExecutionControl {
     pub(crate) stop_requested: bool,
 }
 
+#[derive(Default)]
+pub(crate) struct ChatExecutionRuntime {
+    pub(crate) control: Mutex<HashMap<String, ChatExecutionControl>>,
+    pub(crate) signal: Condvar,
+}
+
+#[derive(Default, Clone)]
+pub(crate) struct ChatExecutionControl {
+    pub(crate) run_id: u64,
+    pub(crate) awaiting_approval: bool,
+    pub(crate) stop_requested: bool,
+}
+
+#[derive(Clone)]
 pub(crate) struct WorkspaceContext {
     pub(crate) root: PathBuf,
     pub(crate) files: HashMap<String, PathBuf>,

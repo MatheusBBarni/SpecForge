@@ -14,6 +14,7 @@ interface ExecutionPanelProps {
   terminalOutput: string[];
   executionSummary: string | null;
   visibleDiff: string;
+  showControls?: boolean;
   onApproveExecutionGate: () => void;
   onEmergencyStop: () => void;
 }
@@ -23,6 +24,7 @@ export const ExecutionPanel = memo(function ExecutionPanel({
   terminalOutput,
   executionSummary,
   visibleDiff,
+  showControls = true,
   onApproveExecutionGate,
   onEmergencyStop
 }: ExecutionPanelProps) {
@@ -39,7 +41,9 @@ export const ExecutionPanel = memo(function ExecutionPanel({
         <div className="grid min-h-0 flex-1 gap-1 overflow-auto rounded-[1rem] border border-white/6 bg-black/25 p-4 font-[var(--font-mono)] text-sm leading-7 text-[var(--text-main)]">
           {terminalOutput.length === 0 ? (
             <p className="m-0 whitespace-pre-wrap text-[var(--text-subtle)]">
-              Approve the spec, then start a build to stream the agent loop here.
+              {showControls
+                ? "Approve the spec, then start a build to stream the agent loop here."
+                : "The active chat topic streams terminal output here. Review mode is read-only."}
             </p>
           ) : (
             terminalOutput.map((line, index) => (
@@ -50,23 +54,25 @@ export const ExecutionPanel = memo(function ExecutionPanel({
           )}
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          {agentStatus === "awaiting_approval" ? (
-            <button
-              className={PRIMARY_BUTTON_CLASS}
-              onClick={onApproveExecutionGate}
-              type="button"
-            >
-              <CheckCircle className="size-5" />
-              Approve Gate
-            </button>
-          ) : null}
+        {showControls ? (
+          <div className="flex flex-wrap gap-3">
+            {agentStatus === "awaiting_approval" ? (
+              <button
+                className={PRIMARY_BUTTON_CLASS}
+                onClick={onApproveExecutionGate}
+                type="button"
+              >
+                <CheckCircle className="size-5" />
+                Approve Gate
+              </button>
+            ) : null}
 
-          <button className={DANGER_BUTTON_CLASS} onClick={onEmergencyStop} type="button">
-            <XmarkCircle className="size-5" />
-            Emergency Stop
-          </button>
-        </div>
+            <button className={DANGER_BUTTON_CLASS} onClick={onEmergencyStop} type="button">
+              <XmarkCircle className="size-5" />
+              Emergency Stop
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <section className="flex min-h-0 flex-col gap-4 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4">
@@ -81,7 +87,9 @@ export const ExecutionPanel = memo(function ExecutionPanel({
 
         <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
           {executionSummary ||
-            "Diff output stays visible across approval gates so the next mutation can be reviewed in context."}
+            (showControls
+              ? "Diff output stays visible across approval gates so the next mutation can be reviewed in context."
+              : "This panel mirrors the active chat topic diff so review stays aligned with the current session state.")}
         </p>
       </section>
     </div>

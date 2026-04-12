@@ -29,6 +29,22 @@ export type AgentStatus =
   | "completed";
 export type CliHealth = "found" | "missing" | "unauthorized";
 export type AnnotationTone = "info" | "warning" | "success";
+export type ChatContextKind =
+  | "prd"
+  | "spec"
+  | "supporting_document"
+  | "workspace_summary"
+  | "file";
+export type ChatMessageRole = "user" | "assistant";
+export type ChatEventType =
+  | "messageStarted"
+  | "messageDelta"
+  | "terminalLine"
+  | "approvalRequired"
+  | "completed"
+  | "halted"
+  | "error"
+  | "sessionUpdated";
 
 export interface SelectionRange {
   start: number;
@@ -90,6 +106,8 @@ export interface ProjectContext {
   ignoredFileCount: number;
   prdDocument: WorkspaceDocument | null;
   specDocument: WorkspaceDocument | null;
+  chatSessions: ChatSessionSummary[];
+  lastActiveSessionId: string | null;
 }
 
 export interface WorkspaceScanResult {
@@ -112,4 +130,70 @@ export interface AgentEventPayload {
   currentMilestone: string | null;
   pendingDiff: string | null;
   summary: string | null;
+}
+
+export interface ChatContextItem {
+  id: string;
+  kind: ChatContextKind;
+  label: string;
+  path: string | null;
+  isDefault: boolean;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: ChatMessageRole;
+  content: string;
+  createdAt: string;
+}
+
+export interface ChatRuntimeState {
+  status: AgentStatus;
+  terminalOutput: string[];
+  currentMilestone: string | null;
+  pendingDiff: string | null;
+  executionSummary: string | null;
+  awaitingApproval: boolean;
+  lastError: string | null;
+  isBusy: boolean;
+  pendingRequest: string | null;
+}
+
+export interface ChatSessionSummary {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  status: AgentStatus;
+  lastMessagePreview: string;
+  selectedModel: ModelId;
+  selectedReasoning: ReasoningProfileId;
+  autonomyMode: AutonomyMode;
+}
+
+export interface ChatSession extends ChatSessionSummary {
+  contextItems: ChatContextItem[];
+  messages: ChatMessage[];
+  runtime: ChatRuntimeState;
+}
+
+export interface ChatSessionIndex {
+  sessions: ChatSessionSummary[];
+  lastActiveSessionId: string | null;
+}
+
+export interface ChatEventPayload {
+  sessionId: string;
+  eventType: ChatEventType;
+  message: ChatMessage | null;
+  messageDelta: string | null;
+  terminalLine: string | null;
+  session: ChatSession | null;
+  runtime: ChatRuntimeState | null;
+  summary: ChatSessionSummary | null;
+}
+
+export interface CavemanStatus {
+  ready: boolean;
+  detail: string;
 }

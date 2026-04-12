@@ -1,7 +1,6 @@
 import {
   startTransition,
   useCallback,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -18,49 +17,50 @@ import {
 
 import { AppRail } from "./components/AppRail";
 import {
-  FallbackStep,
-  WorkspaceFileSource,
   buildFallbackSteps,
   clearFallbackTimer,
-  filterWorkspaceEntries,
   isOpenableWorkspacePath,
-  resolveTheme,
   runFallbackStep,
   stampLog,
-  type DocumentTarget
+  type DocumentTarget,
+  type FallbackStep,
+  type WorkspaceFileSource
 } from "./lib/appShell";
 import {
   getModelLabel,
-  getModelProvider,
   getReasoningLabel
 } from "./lib/agentConfig";
 import {
-  DEFAULT_PROJECT_PRD_PATH,
-  DEFAULT_PROJECT_SPEC_PATH,
-  SPECFORGE_SETTINGS_RELATIVE_PATH,
-  formatSupportingDocumentPaths,
-  getWorkspaceDisplayPath,
-  normalizeProjectRelativePath,
-  normalizeProjectSettings,
-  parseSupportingDocumentPaths
-} from "./lib/projectConfig";
+  buildConfigPathDisplay,
+  buildWorkspaceNotice,
+  waitForNextPaint
+} from "./lib/appState";
 import {
   DEFAULT_PENDING_DIFF,
+  approveChatSession,
   approveAgentAction,
+  createChatSession,
+  deleteChatSession,
   emergencyStop,
+  ensureCavemanSkill,
   generatePrdDocument,
   generateSpecDocument,
   getGitDiff,
   getWorkspaceSnapshot,
   isTauriRuntime,
+  loadChatSession,
   loadProjectContext,
   pickDocument,
   pickProjectFolder,
   readWorkspaceFile,
+  renameChatSession,
   runEnvironmentScan,
   saveProjectSettings,
+  saveChatSession,
+  sendChatMessage,
   startAgentRun,
-  subscribeToAgentEvents
+  stopChatSession,
+  subscribeToChatSessionEvents
 } from "./lib/runtime";
 import {
   isOpenableTextFile,
@@ -68,88 +68,69 @@ import {
   parseWorkspaceTextFile,
   type ImportableFile
 } from "./lib/workspaceImport";
+import {
+  useAgentEventSubscription,
+  useDocumentTheme,
+  useInitialDiagnostics,
+  useProjectRestore,
+  useSystemThemePreference,
+  useWorkspaceSearchFocus,
+  useWorkspaceSearchRouteReset,
+  useWorkspaceSearchShortcuts
+} from "./hooks/useAppLifecycle";
+import {
+  useAgentStoreSlice,
+  useChatStoreSlice,
+  useProjectStoreSlice,
+  useSettingsStoreSlice
+} from "./hooks/useAppStoreSlices";
+import {
+  useAppDerivedState,
+  useAppScreenProps,
+  useAppUiHandlers,
+  useProjectSettingsHandlers
+} from "./hooks/useAppView";
 import { ConfigurationScreen } from "./screens/ConfigurationScreen";
+import { ChatScreen } from "./screens/ChatScreen";
 import { PrdScreen } from "./screens/PrdScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { useAgentStore } from "./store/useAgentStore";
-import { useProjectStore } from "./store/useProjectStore";
-import { useSettingsStore } from "./store/useSettingsStore";
+import { useChatStore } from "./store/useChatStore";
 import type {
+  ChatContextItem,
+  ChatSession,
   EnvironmentStatus,
-  ModelProvider,
   ProjectContext
 } from "./types";
 
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
+  const isChatRoute = location.pathname === "/chat";
   const isReviewRoute = location.pathname === "/review";
   const desktopRuntime = isTauriRuntime();
 
-  const agentStatus = useAgentStore((state) => state.status);
-  const terminalOutput = useAgentStore((state) => state.terminalOutput);
-  const pendingDiff = useAgentStore((state) => state.pendingDiff);
-  const executionSummary = useAgentStore((state) => state.executionSummary);
-  const resetRun = useAgentStore((state) => state.resetRun);
-  const appendTerminalOutput = useAgentStore((state) => state.appendTerminalOutput);
-  const setAgentStatus = useAgentStore((state) => state.setStatus);
-  const setCurrentMilestone = useAgentStore((state) => state.setCurrentMilestone);
-  const setPendingDiff = useAgentStore((state) => state.setPendingDiff);
-  const setExecutionSummary = useAgentStore((state) => state.setExecutionSummary);
-  const applyAgentEvent = useAgentStore((state) => state.applyEvent);
-
-  const annotations = useProjectStore((state) => state.annotations);
-  const activeTab = useProjectStore((state) => state.activeTab);
-  const autonomyMode = useProjectStore((state) => state.autonomyMode);
-  const configuredPrdPath = useProjectStore((state) => state.configuredPrdPath);
-  const configuredSpecPath = useProjectStore((state) => state.configuredSpecPath);
-  const isSpecApproved = useProjectStore((state) => state.isSpecApproved);
-  const openEditorTabs = useProjectStore((state) => state.openEditorTabs);
-  const prdContent = useProjectStore((state) => state.prdContent);
-  const prdPaneMode = useProjectStore((state) => state.prdPaneMode);
-  const prdPath = useProjectStore((state) => state.prdPath);
-  const prdPromptTemplate = useProjectStore((state) => state.prdPromptTemplate);
-  const selectedModel = useProjectStore((state) => state.selectedModel);
-  const selectedReasoning = useProjectStore((state) => state.selectedReasoning);
-  const selectedSpecRange = useProjectStore((state) => state.selectedSpecRange);
-  const specContent = useProjectStore((state) => state.specContent);
-  const specPaneMode = useProjectStore((state) => state.specPaneMode);
-  const specPath = useProjectStore((state) => state.specPath);
-  const specPromptTemplate = useProjectStore((state) => state.specPromptTemplate);
-  const supportingDocumentPaths = useProjectStore((state) => state.supportingDocumentPaths);
-  const approveSpec = useProjectStore((state) => state.approveSpec);
-  const closeEditorTab = useProjectStore((state) => state.closeEditorTab);
-  const openEditorTab = useProjectStore((state) => state.openEditorTab);
-  const resetWorkspaceContext = useProjectStore((state) => state.resetWorkspaceContext);
-  const setActiveTab = useProjectStore((state) => state.setActiveTab);
-  const setAutonomyMode = useProjectStore((state) => state.setAutonomyMode);
-  const setConfiguredPrdPath = useProjectStore((state) => state.setConfiguredPrdPath);
-  const setConfiguredSpecPath = useProjectStore((state) => state.setConfiguredSpecPath);
-  const setPrdContent = useProjectStore((state) => state.setPrdContent);
-  const setPrdPaneMode = useProjectStore((state) => state.setPrdPaneMode);
-  const setPrdPromptTemplate = useProjectStore((state) => state.setPrdPromptTemplate);
-  const setProjectSettings = useProjectStore((state) => state.setProjectSettings);
-  const setReasoningProfile = useProjectStore((state) => state.setReasoningProfile);
-  const setSelectedModel = useProjectStore((state) => state.setSelectedModel);
-  const setSelectedSpecRange = useProjectStore((state) => state.setSelectedSpecRange);
-  const setSpecContent = useProjectStore((state) => state.setSpecContent);
-  const setSpecPaneMode = useProjectStore((state) => state.setSpecPaneMode);
-  const setSpecPromptTemplate = useProjectStore((state) => state.setSpecPromptTemplate);
-  const setSupportingDocumentPaths = useProjectStore((state) => state.setSupportingDocumentPaths);
-  const updateEditorTabContent = useProjectStore((state) => state.updateEditorTabContent);
-
-  const claudePath = useSettingsStore((state) => state.claudePath);
-  const codexPath = useSettingsStore((state) => state.codexPath);
-  const environment = useSettingsStore((state) => state.environment);
-  const lastProjectPath = useSettingsStore((state) => state.lastProjectPath);
-  const theme = useSettingsStore((state) => state.theme);
-  const workspaceEntries = useSettingsStore((state) => state.workspaceEntries);
-  const setClaudePath = useSettingsStore((state) => state.setClaudePath);
-  const setCodexPath = useSettingsStore((state) => state.setCodexPath);
-  const setEnvironment = useSettingsStore((state) => state.setEnvironment);
-  const setLastProjectPath = useSettingsStore((state) => state.setLastProjectPath);
-  const setTheme = useSettingsStore((state) => state.setTheme);
-  const setWorkspaceEntries = useSettingsStore((state) => state.setWorkspaceEntries);
+  const agentState = useAgentStoreSlice();
+  const chatState = useChatStoreSlice();
+  const projectState = useProjectStoreSlice();
+  const settingsState = useSettingsStoreSlice();
+  const {
+    sessions: chatSessions,
+    activeSessionId,
+    loadedSessions,
+    drafts: chatDrafts,
+    cavemanReady,
+    cavemanMessage,
+    cavemanChecking,
+    setSessions: setChatSessions,
+    setActiveSessionId,
+    upsertSession,
+    setDraft: setChatDraft,
+    setContextItems: setChatContextItems,
+    setSessionConfig,
+    deleteSession: deleteChatSessionState,
+    setCavemanStatus
+  } = chatState;
 
   const [commandSearch, setCommandSearch] = useState("");
   const [isImporting, setIsImporting] = useState(false);
@@ -185,231 +166,66 @@ function App() {
   const hasScannedEnvironmentRef = useRef(false);
   const projectSaveTimerRef = useRef<number | null>(null);
   const pendingProjectReloadRef = useRef(false);
-  const deferredSearch = useDeferredValue(commandSearch);
 
-  const filteredWorkspaceEntries = useMemo(
-    () => filterWorkspaceEntries(workspaceEntries, deferredSearch),
-    [deferredSearch, workspaceEntries]
+  const activeChatSession = useMemo(
+    () => (activeSessionId ? loadedSessions[activeSessionId] ?? null : null),
+    [activeSessionId, loadedSessions]
   );
-  const selectedModelProvider = useMemo(
-    () => getModelProvider(selectedModel),
-    [selectedModel]
-  );
-  const isGeneratingPrd = agentStatus === "generating_prd";
-  const isGeneratingSpec = agentStatus === "generating_spec";
-  const visibleDiff = pendingDiff ?? latestDiff;
-  const resolvedTheme = useMemo(
-    () => resolveTheme(theme, systemPrefersDark),
-    [theme, systemPrefersDark]
-  );
-  const configuredModelProviders = useMemo<ModelProvider[]>(() => {
-    const providers: ModelProvider[] = [];
+  const activeChatDraft = activeSessionId ? chatDrafts[activeSessionId] ?? "" : "";
+  const reviewVisibleDiff = activeChatSession
+    ? activeChatSession.runtime.pendingDiff ?? "No diff captured for the active chat topic yet."
+    : agentState.pendingDiff ?? latestDiff;
 
-    if (environment.claude.status === "found") {
-      providers.push("claude");
-    }
-
-    if (environment.codex.status === "found") {
-      providers.push("codex");
-    }
-
-    return providers;
-  }, [environment.claude.status, environment.codex.status]);
-  const mcpItems = useMemo(
-    () => [
-      { name: environment.codex.name, detail: environment.codex.detail, status: environment.codex.status },
-      { name: environment.claude.name, detail: environment.claude.detail, status: environment.claude.status },
-      { name: environment.git.name, detail: environment.git.detail, status: environment.git.status }
-    ],
-    [environment]
-  );
-  const selectedProviderStatus =
-    selectedModelProvider === "claude" ? environment.claude : environment.codex;
-  const currentProjectSettings = useMemo(
-    () =>
-      normalizeProjectSettings({
-        selectedModel,
-        selectedReasoning,
-        prdPrompt: prdPromptTemplate,
-        specPrompt: specPromptTemplate,
-        prdPath: configuredPrdPath || DEFAULT_PROJECT_PRD_PATH,
-        specPath: configuredSpecPath || DEFAULT_PROJECT_SPEC_PATH,
-        supportingDocumentPaths
-      }),
-    [
-      configuredPrdPath,
-      configuredSpecPath,
-      prdPromptTemplate,
-      selectedModel,
-      selectedReasoning,
-      specPromptTemplate,
-      supportingDocumentPaths
-    ]
-  );
-  const configPathDisplay = useMemo(() => {
-    if (projectConfigPath.trim()) {
-      return getWorkspaceDisplayPath(projectConfigPath, projectRootName);
-    }
-
-    return SPECFORGE_SETTINGS_RELATIVE_PATH;
-  }, [projectConfigPath, projectRootName]);
-  const supportingDocumentsValue = useMemo(
-    () => formatSupportingDocumentPaths(supportingDocumentPaths),
-    [supportingDocumentPaths]
-  );
-
-  const canGeneratePrd = useMemo(
-    () =>
-      desktopRuntime &&
-      !isGeneratingPrd &&
-      projectRootPath.trim().length > 0 &&
-      configuredPrdPath.trim().length > 0 &&
-      prdGenerationPrompt.trim().length > 0,
-    [
-      configuredPrdPath,
-      desktopRuntime,
-      isGeneratingPrd,
-      prdGenerationPrompt,
-      projectRootPath
-    ]
-  );
-  const canGenerateSpec = useMemo(
-    () =>
-      desktopRuntime &&
-      !isGeneratingSpec &&
-      projectRootPath.trim().length > 0 &&
-      prdContent.trim().length > 0 &&
-      configuredSpecPath.trim().length > 0 &&
-      specGenerationPrompt.trim().length > 0,
-    [
-      configuredSpecPath,
-      desktopRuntime,
-      isGeneratingSpec,
-      prdContent,
-      projectRootPath,
-      specGenerationPrompt
-    ]
-  );
-  const prdGenerationHelperText = useMemo(() => {
-    if (!desktopRuntime) {
-      return "AI PRD generation requires the desktop runtime.";
-    }
-
-    if (!projectRootPath.trim()) {
-      return "Choose a project folder in setup before generating a PRD.";
-    }
-
-    if (!configuredPrdPath.trim()) {
-      return "Configure a PRD path in setup or settings first.";
-    }
-
-    if (!configuredPrdPath.toLowerCase().endsWith(".md")) {
-      return "Configure the PRD path as a Markdown file if you want generated output saved into the workspace.";
-    }
-
-    if (!prdGenerationPrompt.trim()) {
-      return "Add the product context you want to append after the saved PRD prompt.";
-    }
-
-    if (selectedProviderStatus.status !== "found") {
-      return `${selectedProviderStatus.name} is not currently marked ready. Update its path in Settings and refresh if generation fails.`;
-    }
-
-    return `This appends your note after the saved PRD prompt from ${configPathDisplay}, runs ${getModelLabel(selectedModel)}, and writes markdown to ${configuredPrdPath}.`;
-  }, [
-    configPathDisplay,
-    configuredPrdPath,
+  const derivedState = useAppDerivedState({
+    agentState,
+    commandSearch,
     desktopRuntime,
+    latestDiff,
     prdGenerationPrompt,
+    projectConfigPath,
+    projectRootName,
     projectRootPath,
-    selectedModel,
-    selectedProviderStatus.name,
-    selectedProviderStatus.status
-  ]);
-  const specGenerationHelperText = useMemo(() => {
-    if (!desktopRuntime) {
-      return "AI spec generation requires the desktop runtime.";
-    }
-
-    if (!projectRootPath.trim()) {
-      return "Choose a project folder in setup before generating a spec.";
-    }
-
-    if (!prdContent.trim()) {
-      return "Load or generate a PRD first. The spec generator appends your note after the saved spec prompt and includes the current PRD content.";
-    }
-
-    if (!configuredSpecPath.trim()) {
-      return "Configure a spec path in setup or settings first.";
-    }
-
-    if (!configuredSpecPath.toLowerCase().endsWith(".md")) {
-      return "Configure the spec path as a Markdown file if you want generated output saved into the workspace.";
-    }
-
-    if (!specGenerationPrompt.trim()) {
-      return "Add the technical guidance you want to append after the saved spec prompt.";
-    }
-
-    if (selectedProviderStatus.status !== "found") {
-      return `${selectedProviderStatus.name} is not currently marked ready. Update its path in Settings and refresh if generation fails.`;
-    }
-
-    return `This appends your note after the saved spec prompt from ${configPathDisplay}, includes the current PRD content, and writes markdown to ${configuredSpecPath}.`;
-  }, [
-    configPathDisplay,
-    configuredSpecPath,
-    desktopRuntime,
-    prdContent,
-    projectRootPath,
-    selectedProviderStatus.name,
-    selectedProviderStatus.status,
-    specGenerationPrompt
-  ]);
+    projectState,
+    settingsState,
+    specGenerationPrompt,
+    systemPrefersDark
+  });
 
   const refreshDiagnostics = useCallback(
     async (previousEnvironment?: EnvironmentStatus) => {
       const [nextEnvironment, snapshotEntries, diff] = await Promise.all([
         runEnvironmentScan({
-          claudePath,
-          codexPath
-        }).catch(() => previousEnvironment ?? environment),
+          claudePath: settingsState.claudePath,
+          codexPath: settingsState.codexPath
+        }).catch(() => previousEnvironment ?? settingsState.environment),
         hasSelectedProject
-          ? Promise.resolve(workspaceEntries)
-          : getWorkspaceSnapshot().catch(() => workspaceEntries),
+          ? Promise.resolve(settingsState.workspaceEntries)
+          : getWorkspaceSnapshot().catch(() => settingsState.workspaceEntries),
         getGitDiff().catch(() => DEFAULT_PENDING_DIFF)
       ]);
 
-      setEnvironment(nextEnvironment);
+      settingsState.setEnvironment(nextEnvironment);
 
       if (!hasSelectedProject) {
-        setWorkspaceEntries(snapshotEntries);
+        settingsState.setWorkspaceEntries(snapshotEntries);
       }
 
       setLatestDiff(diff);
     },
-    [
-      claudePath,
-      codexPath,
-      environment,
-      hasSelectedProject,
-      setEnvironment,
-      setWorkspaceEntries,
-      workspaceEntries
-    ]
+    [hasSelectedProject, settingsState]
   );
 
   const assignDocument = useCallback(
     (target: DocumentTarget, content: string, path: string) => {
       startTransition(() => {
         if (target === "prd") {
-          setPrdContent(content, path);
-          setPrdPaneMode("preview");
+          projectState.setPrdContent(content, path);
+          projectState.setPrdPaneMode("preview");
           return;
         }
 
-        setSpecContent(content, path);
-        setSpecPaneMode("preview");
+        projectState.setSpecContent(content, path);
+        projectState.setSpecPaneMode("preview");
       });
 
       if (target === "prd") {
@@ -421,11 +237,15 @@ function App() {
       setSpecGenerationPrompt("");
       setSpecGenerationError("");
     },
-    [setPrdContent, setPrdPaneMode, setSpecContent, setSpecPaneMode]
+    [projectState]
   );
 
   const applyProjectContext = useCallback(
-    (context: ProjectContext, options?: { navigateToReview?: boolean }) => {
+    (context: ProjectContext, options?: { navigateToChat?: boolean }) => {
+      const settingsPathDisplay = buildConfigPathDisplay(
+        context.settingsPath,
+        context.rootName
+      );
       const nextWorkspaceFiles = Object.fromEntries(
         context.entries
           .filter((entry) => entry.kind === "file")
@@ -438,59 +258,61 @@ function App() {
           ])
       );
 
-      resetWorkspaceContext();
+      projectState.resetWorkspaceContext();
       setProjectRootName(context.rootName);
       setProjectRootPath(context.rootPath);
       setProjectConfigPath(context.settingsPath);
       setHasSelectedProject(true);
       setHasSavedProjectSettings(context.hasSavedSettings);
-      setWorkspaceEntries(context.entries);
+      settingsState.setWorkspaceEntries(context.entries);
       setWorkspaceFiles(nextWorkspaceFiles);
-      setLastProjectPath(context.rootPath);
-      setProjectSettings(context.settings);
+      settingsState.setLastProjectPath(context.rootPath);
+      projectState.setProjectSettings(context.settings);
       setPrdGenerationPrompt("");
       setPrdGenerationError("");
       setSpecGenerationPrompt("");
       setSpecGenerationError("");
+      setChatSessions(context.chatSessions);
+      setActiveSessionId(context.lastActiveSessionId ?? context.chatSessions[0]?.id ?? null);
+      setCavemanStatus({
+        ready: false,
+        message: "Caveman has not been verified for this project yet."
+      });
       setProjectStatusMessage(
         context.hasSavedSettings
-          ? `Loaded project settings from ${context.rootName}/${getWorkspaceDisplayPath(context.settingsPath, context.rootName)}.`
-          : `Selected ${context.rootName}. Save the setup to create ${context.rootName}/${getWorkspaceDisplayPath(context.settingsPath, context.rootName)}.`
+          ? `Loaded project settings from ${context.rootName}/${settingsPathDisplay}.`
+          : `Selected ${context.rootName}. Save the setup to create ${context.rootName}/${settingsPathDisplay}.`
       );
       setProjectErrorMessage("");
       setWorkspaceNotice(buildWorkspaceNotice(context));
 
       startTransition(() => {
-        setPrdContent(context.prdDocument?.content ?? "", context.prdDocument?.sourcePath ?? context.settings.prdPath);
-        setSpecContent(context.specDocument?.content ?? "", context.specDocument?.sourcePath ?? context.settings.specPath);
-        setPrdPaneMode("preview");
-        setSpecPaneMode("preview");
+        projectState.setPrdContent(
+          context.prdDocument?.content ?? "",
+          context.prdDocument?.sourcePath ?? context.settings.prdPath
+        );
+        projectState.setSpecContent(
+          context.specDocument?.content ?? "",
+          context.specDocument?.sourcePath ?? context.settings.specPath
+        );
+        projectState.setPrdPaneMode("preview");
+        projectState.setSpecPaneMode("preview");
       });
 
-      if (options?.navigateToReview) {
-        navigate("/review");
+      if (options?.navigateToChat) {
+        navigate("/chat");
       }
     },
-    [
-      navigate,
-      resetWorkspaceContext,
-      setLastProjectPath,
-      setPrdContent,
-      setPrdPaneMode,
-      setProjectSettings,
-      setSpecContent,
-      setSpecPaneMode,
-      setWorkspaceEntries
-    ]
+    [navigate, projectState, setActiveSessionId, setCavemanStatus, setChatSessions, settingsState]
   );
 
   const saveCurrentProjectSettings = useCallback(
     async ({
       reloadProject = false,
-      navigateToReview = false
+      navigateToChat = false
     }: {
       reloadProject?: boolean;
-      navigateToReview?: boolean;
+      navigateToChat?: boolean;
     } = {}) => {
       if (!desktopRuntime) {
         setProjectErrorMessage("Project configuration requires the desktop runtime.");
@@ -509,20 +331,20 @@ function App() {
       try {
         const savedSettings = await saveProjectSettings({
           folderPath: projectRootPath,
-          settings: currentProjectSettings
+          settings: derivedState.currentProjectSettings
         });
 
-        setProjectSettings(savedSettings);
+        projectState.setProjectSettings(savedSettings);
         setHasSavedProjectSettings(true);
         setProjectStatusMessage(
           projectRootName
-            ? `Saved project settings to ${projectRootName}/${configPathDisplay}.`
-            : `Saved project settings to ${configPathDisplay}.`
+            ? `Saved project settings to ${projectRootName}/${derivedState.configPathDisplay}.`
+            : `Saved project settings to ${derivedState.configPathDisplay}.`
         );
 
-        if (reloadProject || navigateToReview) {
+        if (reloadProject || navigateToChat) {
           const reloadedContext = await loadProjectContext(projectRootPath);
-          applyProjectContext(reloadedContext, { navigateToReview });
+          applyProjectContext(reloadedContext, { navigateToChat });
         }
       } catch (error) {
         setProjectErrorMessage(
@@ -534,12 +356,12 @@ function App() {
     },
     [
       applyProjectContext,
-      configPathDisplay,
-      currentProjectSettings,
+      derivedState.configPathDisplay,
+      derivedState.currentProjectSettings,
       desktopRuntime,
       projectRootName,
       projectRootPath,
-      setProjectSettings
+      projectState
     ]
   );
 
@@ -564,6 +386,18 @@ function App() {
     },
     [desktopRuntime, hasSavedProjectSettings, projectRootPath, saveCurrentProjectSettings]
   );
+
+  const projectSettingsHandlers = useProjectSettingsHandlers({
+    saveCurrentProjectSettings,
+    scheduleProjectSettingsSave,
+    setConfiguredPrdPath: projectState.setConfiguredPrdPath,
+    setConfiguredSpecPath: projectState.setConfiguredSpecPath,
+    setPrdPromptTemplate: projectState.setPrdPromptTemplate,
+    setReasoningProfile: projectState.setReasoningProfile,
+    setSelectedModel: projectState.setSelectedModel,
+    setSpecPromptTemplate: projectState.setSpecPromptTemplate,
+    setSupportingDocumentPaths: projectState.setSupportingDocumentPaths
+  });
 
   const handlePickProjectFolder = useCallback(async () => {
     if (!desktopRuntime) {
@@ -620,11 +454,6 @@ function App() {
     [assignDocument]
   );
 
-  const handleWorkspaceFolderSelection = useCallback(
-    (_event: ChangeEvent<HTMLInputElement>) => undefined,
-    []
-  );
-
   const handleWorkspaceFileOpen = useCallback(
     async (path: string) => {
       const file = workspaceFiles[path];
@@ -641,7 +470,7 @@ function App() {
         }
 
         const document = await parseWorkspaceTextFile(file.file);
-        openEditorTab({
+        projectState.openEditorTab({
           title: file.file.name,
           path,
           content: document.content
@@ -656,7 +485,7 @@ function App() {
 
       try {
         const content = await readWorkspaceFile(path);
-        openEditorTab({
+        projectState.openEditorTab({
           title: file.fileName,
           path,
           content
@@ -669,7 +498,7 @@ function App() {
         );
       }
     },
-    [openEditorTab, workspaceFiles]
+    [projectState, workspaceFiles]
   );
 
   const handleOpenImportFile = useCallback(
@@ -707,37 +536,50 @@ function App() {
   );
 
   const handleApproveSpec = useCallback(() => {
-    if (!specContent.trim()) {
+    if (!projectState.specContent.trim()) {
       return;
     }
 
-    approveSpec();
-    appendTerminalOutput(stampLog("review", "Specification approved. Build controls are now armed."));
-  }, [appendTerminalOutput, approveSpec, specContent]);
+    projectState.approveSpec();
+    agentState.appendTerminalOutput(
+      stampLog("review", "Specification approved. The active chat topics can now work from this spec.")
+    );
+  }, [agentState, projectState]);
 
   const handleStartBuild = useCallback(async () => {
-    if (!isSpecApproved) {
+    if (!projectState.isSpecApproved) {
       return;
     }
 
-    const modelLabel = getModelLabel(selectedModel);
-    const reasoningLabel = getReasoningLabel(selectedModel, selectedReasoning);
+    const modelLabel = getModelLabel(projectState.selectedModel);
+    const reasoningLabel = getReasoningLabel(
+      projectState.selectedModel,
+      projectState.selectedReasoning
+    );
 
     clearFallbackTimer(fallbackTimerRef);
-    resetRun();
-    setActiveTab("execute");
-    setAgentStatus("executing");
-    setCurrentMilestone("Pre-flight Check");
-    appendTerminalOutput(
-      stampLog("build", `Starting spec-driven build run with ${modelLabel} (${reasoningLabel} reasoning).`)
+    agentState.resetRun();
+    projectState.setActiveTab("execute");
+    agentState.setStatus("executing");
+    agentState.setCurrentMilestone("Pre-flight Check");
+    agentState.appendTerminalOutput(
+      stampLog(
+        "build",
+        `Starting spec-driven build run with ${modelLabel} (${reasoningLabel} reasoning).`
+      )
     );
 
     if (desktopRuntime) {
       try {
-        await startAgentRun(specContent, autonomyMode, selectedModel, selectedReasoning);
+        await startAgentRun(
+          projectState.specContent,
+          projectState.autonomyMode,
+          projectState.selectedModel,
+          projectState.selectedReasoning
+        );
         return;
       } catch (error) {
-        appendTerminalOutput(
+        agentState.appendTerminalOutput(
           stampLog(
             "error",
             `${error instanceof Error ? error.message : "Agent startup failed."} Falling back to the local simulator.`
@@ -746,36 +588,34 @@ function App() {
       }
     }
 
-    fallbackStepsRef.current = buildFallbackSteps(autonomyMode, modelLabel, reasoningLabel);
+    fallbackStepsRef.current = buildFallbackSteps(
+      projectState.autonomyMode,
+      modelLabel,
+      reasoningLabel
+    );
     fallbackIndexRef.current = 0;
-    runFallbackStep(useAgentStore.getState(), fallbackStepsRef, fallbackIndexRef, fallbackTimerRef, setLatestDiff);
-  }, [
-    appendTerminalOutput,
-    autonomyMode,
-    desktopRuntime,
-    isSpecApproved,
-    resetRun,
-    selectedModel,
-    selectedReasoning,
-    setActiveTab,
-    setAgentStatus,
-    setCurrentMilestone,
-    specContent
-  ]);
+    runFallbackStep(
+      useAgentStore.getState(),
+      fallbackStepsRef,
+      fallbackIndexRef,
+      fallbackTimerRef,
+      setLatestDiff
+    );
+  }, [agentState, desktopRuntime, projectState]);
 
   const handleApproveExecutionGate = useCallback(async () => {
-    if (agentStatus !== "awaiting_approval") {
+    if (agentState.status !== "awaiting_approval") {
       return;
     }
 
     if (desktopRuntime) {
       try {
         await approveAgentAction();
-        appendTerminalOutput(stampLog("gate", "Approval received. Resuming execution."));
-        setPendingDiff(null);
-        setAgentStatus("executing");
+        agentState.appendTerminalOutput(stampLog("gate", "Approval received. Resuming execution."));
+        agentState.setPendingDiff(null);
+        agentState.setStatus("executing");
       } catch (error) {
-        appendTerminalOutput(
+        agentState.appendTerminalOutput(
           stampLog(
             "error",
             error instanceof Error ? error.message : "Unable to approve the current execution gate."
@@ -785,22 +625,30 @@ function App() {
       return;
     }
 
-    appendTerminalOutput(stampLog("gate", "Approval received. Resuming execution."));
-    setPendingDiff(null);
-    setAgentStatus("executing");
-    runFallbackStep(useAgentStore.getState(), fallbackStepsRef, fallbackIndexRef, fallbackTimerRef, setLatestDiff);
-  }, [agentStatus, appendTerminalOutput, desktopRuntime, setAgentStatus, setPendingDiff]);
+    agentState.appendTerminalOutput(stampLog("gate", "Approval received. Resuming execution."));
+    agentState.setPendingDiff(null);
+    agentState.setStatus("executing");
+    runFallbackStep(
+      useAgentStore.getState(),
+      fallbackStepsRef,
+      fallbackIndexRef,
+      fallbackTimerRef,
+      setLatestDiff
+    );
+  }, [agentState, desktopRuntime]);
 
   const handleEmergencyStop = useCallback(async () => {
     if (desktopRuntime) {
       try {
         await emergencyStop();
-        setAgentStatus("halted");
-        setExecutionSummary("Execution stopped by the operator.");
-        setPendingDiff(null);
-        appendTerminalOutput(stampLog("halt", "Emergency stop triggered. Agent loop is paused."));
+        agentState.setStatus("halted");
+        agentState.setExecutionSummary("Execution stopped by the operator.");
+        agentState.setPendingDiff(null);
+        agentState.appendTerminalOutput(
+          stampLog("halt", "Emergency stop triggered. Agent loop is paused.")
+        );
       } catch (error) {
-        appendTerminalOutput(
+        agentState.appendTerminalOutput(
           stampLog(
             "error",
             error instanceof Error ? error.message : "Unable to stop the current execution run."
@@ -811,67 +659,13 @@ function App() {
     }
 
     clearFallbackTimer(fallbackTimerRef);
-    setAgentStatus("halted");
-    setExecutionSummary("Execution stopped by the operator.");
-    setPendingDiff(null);
-    appendTerminalOutput(stampLog("halt", "Emergency stop triggered. Agent loop is paused."));
-  }, [appendTerminalOutput, desktopRuntime, setAgentStatus, setExecutionSummary, setPendingDiff]);
-
-  const handlePrdContentChange = useCallback(
-    (value: string) => setPrdContent(value, prdPath),
-    [prdPath, setPrdContent]
-  );
-
-  const handleSpecContentChange = useCallback(
-    (value: string) => {
-      if (value.trim()) {
-        setSpecGenerationError("");
-      }
-
-      setSpecContent(value, specPath);
-    },
-    [setSpecContent, specPath]
-  );
-
-  const handleSpecSelect = useCallback(
-    (event: ChangeEvent<HTMLTextAreaElement>) => {
-      const { selectionStart, selectionEnd, value } = event.target;
-      setSelectedSpecRange(
-        selectionStart === selectionEnd
-          ? null
-          : {
-              start: selectionStart,
-              end: selectionEnd,
-              text: value.slice(selectionStart, selectionEnd)
-            }
-      );
-    },
-    [setSelectedSpecRange]
-  );
-
-  const handlePrdGenerationPromptChange = useCallback((value: string) => {
-    setPrdGenerationPrompt(value);
-
-    if (prdGenerationError) {
-      setPrdGenerationError("");
-    }
-
-    if (agentStatus === "error") {
-      setAgentStatus("idle");
-    }
-  }, [agentStatus, prdGenerationError, setAgentStatus]);
-
-  const handleSpecGenerationPromptChange = useCallback((value: string) => {
-    setSpecGenerationPrompt(value);
-
-    if (specGenerationError) {
-      setSpecGenerationError("");
-    }
-
-    if (agentStatus === "error") {
-      setAgentStatus("idle");
-    }
-  }, [agentStatus, setAgentStatus, specGenerationError]);
+    agentState.setStatus("halted");
+    agentState.setExecutionSummary("Execution stopped by the operator.");
+    agentState.setPendingDiff(null);
+    agentState.appendTerminalOutput(
+      stampLog("halt", "Emergency stop triggered. Agent loop is paused.")
+    );
+  }, [agentState, desktopRuntime]);
 
   const handleGeneratePrd = useCallback(async () => {
     const trimmedPrompt = prdGenerationPrompt.trim();
@@ -886,7 +680,7 @@ function App() {
       return;
     }
 
-    if (!currentProjectSettings.prdPath.toLowerCase().endsWith(".md")) {
+    if (!derivedState.currentProjectSettings.prdPath.toLowerCase().endsWith(".md")) {
       setPrdGenerationError("Configure the PRD path as a Markdown file before generating.");
       return;
     }
@@ -897,34 +691,36 @@ function App() {
     }
 
     setPrdGenerationError("");
-    setAgentStatus("generating_prd");
-    appendTerminalOutput(
+    agentState.setStatus("generating_prd");
+    agentState.appendTerminalOutput(
       stampLog(
         "prd",
-        `Generating a PRD draft with ${getModelLabel(selectedModel)} (${getReasoningLabel(selectedModel, selectedReasoning)} reasoning).`
+        `Generating a PRD draft with ${getModelLabel(projectState.selectedModel)} (${getReasoningLabel(projectState.selectedModel, projectState.selectedReasoning)} reasoning).`
       )
     );
 
     try {
+      await waitForNextPaint();
+
       const generatedPrd = await generatePrdDocument({
         workspaceRoot: projectRootPath,
-        outputPath: currentProjectSettings.prdPath,
-        promptTemplate: currentProjectSettings.prdPrompt,
+        outputPath: derivedState.currentProjectSettings.prdPath,
+        promptTemplate: derivedState.currentProjectSettings.prdPrompt,
         userPrompt: trimmedPrompt,
-        provider: selectedModelProvider,
-        model: selectedModel,
-        reasoning: selectedReasoning,
-        claudePath,
-        codexPath
+        provider: derivedState.selectedModelProvider,
+        model: projectState.selectedModel,
+        reasoning: projectState.selectedReasoning,
+        claudePath: settingsState.claudePath,
+        codexPath: settingsState.codexPath
       });
 
       startTransition(() => {
-        setPrdContent(generatedPrd.content, generatedPrd.sourcePath);
-        setPrdPaneMode("preview");
+        projectState.setPrdContent(generatedPrd.content, generatedPrd.sourcePath);
+        projectState.setPrdPaneMode("preview");
       });
       setPrdGenerationPrompt("");
-      setAgentStatus("idle");
-      appendTerminalOutput(
+      agentState.setStatus("idle");
+      agentState.appendTerminalOutput(
         stampLog(
           "prd",
           `PRD draft generated, saved to ${generatedPrd.fileName}, and loaded into the review pane.`
@@ -933,24 +729,18 @@ function App() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to generate a PRD.";
       setPrdGenerationError(message);
-      setAgentStatus("error");
-      appendTerminalOutput(stampLog("error", message));
+      agentState.setStatus("error");
+      agentState.appendTerminalOutput(stampLog("error", message));
     }
   }, [
-    appendTerminalOutput,
-    claudePath,
-    codexPath,
-    currentProjectSettings.prdPath,
-    currentProjectSettings.prdPrompt,
+    agentState,
+    derivedState.currentProjectSettings,
+    derivedState.selectedModelProvider,
     desktopRuntime,
     prdGenerationPrompt,
     projectRootPath,
-    selectedModel,
-    selectedModelProvider,
-    selectedReasoning,
-    setAgentStatus,
-    setPrdContent,
-    setPrdPaneMode
+    projectState,
+    settingsState
   ]);
 
   const handleGenerateSpec = useCallback(async () => {
@@ -966,12 +756,12 @@ function App() {
       return;
     }
 
-    if (!prdContent.trim()) {
+    if (!projectState.prdContent.trim()) {
       setSpecGenerationError("Load or generate a PRD before drafting a specification.");
       return;
     }
 
-    if (!currentProjectSettings.specPath.toLowerCase().endsWith(".md")) {
+    if (!derivedState.currentProjectSettings.specPath.toLowerCase().endsWith(".md")) {
       setSpecGenerationError("Configure the spec path as a Markdown file before generating.");
       return;
     }
@@ -982,35 +772,37 @@ function App() {
     }
 
     setSpecGenerationError("");
-    setAgentStatus("generating_spec");
-    appendTerminalOutput(
+    agentState.setStatus("generating_spec");
+    agentState.appendTerminalOutput(
       stampLog(
         "spec",
-        `Generating a technical specification with ${getModelLabel(selectedModel)} (${getReasoningLabel(selectedModel, selectedReasoning)} reasoning).`
+        `Generating a technical specification with ${getModelLabel(projectState.selectedModel)} (${getReasoningLabel(projectState.selectedModel, projectState.selectedReasoning)} reasoning).`
       )
     );
 
     try {
+      await waitForNextPaint();
+
       const generatedSpec = await generateSpecDocument({
         workspaceRoot: projectRootPath,
-        outputPath: currentProjectSettings.specPath,
-        prdContent,
-        promptTemplate: currentProjectSettings.specPrompt,
+        outputPath: derivedState.currentProjectSettings.specPath,
+        prdContent: projectState.prdContent,
+        promptTemplate: derivedState.currentProjectSettings.specPrompt,
         userPrompt: trimmedPrompt,
-        provider: selectedModelProvider,
-        model: selectedModel,
-        reasoning: selectedReasoning,
-        claudePath,
-        codexPath
+        provider: derivedState.selectedModelProvider,
+        model: projectState.selectedModel,
+        reasoning: projectState.selectedReasoning,
+        claudePath: settingsState.claudePath,
+        codexPath: settingsState.codexPath
       });
 
       startTransition(() => {
-        setSpecContent(generatedSpec.content, generatedSpec.sourcePath);
-        setSpecPaneMode("preview");
+        projectState.setSpecContent(generatedSpec.content, generatedSpec.sourcePath);
+        projectState.setSpecPaneMode("preview");
       });
       setSpecGenerationPrompt("");
-      setAgentStatus("idle");
-      appendTerminalOutput(
+      agentState.setStatus("idle");
+      agentState.appendTerminalOutput(
         stampLog(
           "spec",
           `Specification draft generated, saved to ${generatedSpec.fileName}, and loaded into the review pane.`
@@ -1020,256 +812,437 @@ function App() {
       const message =
         error instanceof Error ? error.message : "Unable to generate a specification.";
       setSpecGenerationError(message);
-      setAgentStatus("error");
-      appendTerminalOutput(stampLog("error", message));
+      agentState.setStatus("error");
+      agentState.appendTerminalOutput(stampLog("error", message));
     }
   }, [
-    appendTerminalOutput,
-    claudePath,
-    codexPath,
-    currentProjectSettings.specPath,
-    currentProjectSettings.specPrompt,
+    agentState,
+    derivedState.currentProjectSettings,
+    derivedState.selectedModelProvider,
     desktopRuntime,
-    prdContent,
     projectRootPath,
-    selectedModel,
-    selectedModelProvider,
-    selectedReasoning,
-    setAgentStatus,
-    setSpecContent,
-    setSpecPaneMode,
+    projectState,
+    settingsState,
     specGenerationPrompt
   ]);
 
-  const handleProjectModelChange = useCallback((model: typeof selectedModel) => {
-    setSelectedModel(model);
-    scheduleProjectSettingsSave(false);
-  }, [scheduleProjectSettingsSave, setSelectedModel]);
+  const uiHandlers = useAppUiHandlers({
+    agentState,
+    handleApproveExecutionGate,
+    handleEmergencyStop,
+    handleGeneratePrd,
+    handleGenerateSpec,
+    handleOpenImportFile,
+    handleStartBuild,
+    handleWorkspaceFileOpen,
+    prdGenerationError,
+    projectState,
+    refreshDiagnostics,
+    setCommandSearch,
+    setIsSearchOpen,
+    setPrdGenerationError,
+    setPrdGenerationPrompt,
+    setSpecGenerationError,
+    setSpecGenerationPrompt,
+    specGenerationError
+  });
 
-  const handleProjectReasoningChange = useCallback((reasoning: typeof selectedReasoning) => {
-    setReasoningProfile(reasoning);
-    scheduleProjectSettingsSave(false);
-  }, [scheduleProjectSettingsSave, setReasoningProfile]);
-
-  const handlePrdPromptTemplateChange = useCallback((value: string) => {
-    setPrdPromptTemplate(value);
-    scheduleProjectSettingsSave(false);
-  }, [scheduleProjectSettingsSave, setPrdPromptTemplate]);
-
-  const handleSpecPromptTemplateChange = useCallback((value: string) => {
-    setSpecPromptTemplate(value);
-    scheduleProjectSettingsSave(false);
-  }, [scheduleProjectSettingsSave, setSpecPromptTemplate]);
-
-  const handleConfiguredPrdPathChange = useCallback((value: string) => {
-    setConfiguredPrdPath(normalizeProjectRelativePath(value));
-    scheduleProjectSettingsSave(true);
-  }, [scheduleProjectSettingsSave, setConfiguredPrdPath]);
-
-  const handleConfiguredSpecPathChange = useCallback((value: string) => {
-    setConfiguredSpecPath(normalizeProjectRelativePath(value));
-    scheduleProjectSettingsSave(true);
-  }, [scheduleProjectSettingsSave, setConfiguredSpecPath]);
-
-  const handleSupportingDocumentsChange = useCallback((value: string) => {
-    setSupportingDocumentPaths(parseSupportingDocumentPaths(value));
-    scheduleProjectSettingsSave(false);
-  }, [scheduleProjectSettingsSave, setSupportingDocumentPaths]);
-
-  const handleCommandSearchChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => setCommandSearch(event.target.value),
-    []
+  const persistChatSession = useCallback(
+    async (payload: {
+      sessionId: string;
+      selectedModel: ChatSession["selectedModel"];
+      selectedReasoning: ChatSession["selectedReasoning"];
+      autonomyMode: ChatSession["autonomyMode"];
+      contextItems: ChatContextItem[];
+    }) => {
+      const nextSession = await saveChatSession(payload);
+      upsertSession(nextSession);
+      return nextSession;
+    },
+    [upsertSession]
   );
 
-  const closeWorkspaceSearch = useCallback(() => {
-    setIsSearchOpen(false);
-    setCommandSearch("");
-  }, []);
-
-  const handleRefresh = useCallback(() => {
-    void refreshDiagnostics();
-  }, [refreshDiagnostics]);
-
-  const handleOpenPrdImportClick = useCallback(() => {
-    void handleOpenImportFile("prd");
-  }, [handleOpenImportFile]);
-
-  const handleOpenSpecImportClick = useCallback(() => {
-    void handleOpenImportFile("spec");
-  }, [handleOpenImportFile]);
-
-  const handleStartBuildClick = useCallback(() => {
-    void handleStartBuild();
-  }, [handleStartBuild]);
-
-  const handleApproveExecutionGateClick = useCallback(() => {
-    void handleApproveExecutionGate();
-  }, [handleApproveExecutionGate]);
-
-  const handleEmergencyStopClick = useCallback(() => {
-    void handleEmergencyStop();
-  }, [handleEmergencyStop]);
-
-  const handleWorkspaceFileOpenClick = useCallback((path: string) => {
-    void handleWorkspaceFileOpen(path);
-  }, [handleWorkspaceFileOpen]);
-
-  const handleGeneratePrdClick = useCallback(() => {
-    void handleGeneratePrd();
-  }, [handleGeneratePrd]);
-
-  const handleGenerateSpecClick = useCallback(() => {
-    void handleGenerateSpec();
-  }, [handleGenerateSpec]);
-
-  const handleSaveConfigurationAndContinue = useCallback(() => {
-    void saveCurrentProjectSettings({ reloadProject: true, navigateToReview: true });
-  }, [saveCurrentProjectSettings]);
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) {
-      return;
+  const handleCreateChatSessionClick = useCallback(async () => {
+    try {
+      const nextSession = await createChatSession();
+      upsertSession(nextSession);
+      setActiveSessionId(nextSession.id);
+    } catch (error) {
+      setProjectErrorMessage(
+        error instanceof Error ? error.message : "Unable to create a new chat topic."
+      );
     }
+  }, [setActiveSessionId, upsertSession]);
 
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    setSystemPrefersDark(mediaQuery.matches);
-    const handleThemeChange = (event: MediaQueryListEvent) => setSystemPrefersDark(event.matches);
-    mediaQuery.addEventListener("change", handleThemeChange);
-    return () => mediaQuery.removeEventListener("change", handleThemeChange);
-  }, []);
+  const handleSelectChatSession = useCallback(
+    (sessionId: string) => {
+      setActiveSessionId(sessionId);
+    },
+    [setActiveSessionId]
+  );
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = resolvedTheme;
-    document.documentElement.classList.toggle("dark", resolvedTheme === "dracula");
-  }, [resolvedTheme]);
+  const handleRenameChatSession = useCallback(
+    async (sessionId: string, title: string) => {
+      try {
+        await renameChatSession({ sessionId, title });
+        const nextSession = await loadChatSession(sessionId);
+        upsertSession(nextSession);
+      } catch (error) {
+        setProjectErrorMessage(
+          error instanceof Error ? error.message : "Unable to rename the selected chat topic."
+        );
+      }
+    },
+    [upsertSession]
+  );
 
-  useEffect(() => {
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing) {
+  const handleDeleteChatSession = useCallback(
+    async (sessionId: string) => {
+      const confirmed = window.confirm("Delete this topic and its saved context?");
+
+      if (!confirmed) {
         return;
       }
 
-      const isFindShortcut =
-        (event.ctrlKey || event.metaKey) &&
-        !event.altKey &&
-        !event.shiftKey &&
-        event.key.toLowerCase() === "f";
+      try {
+        const nextIndex = await deleteChatSession(sessionId);
+        deleteChatSessionState(sessionId, nextIndex.lastActiveSessionId);
+        setChatSessions(nextIndex.sessions);
 
-      if (isFindShortcut) {
-        if (!isReviewRoute) {
-          return;
+        if (nextIndex.lastActiveSessionId) {
+          setActiveSessionId(nextIndex.lastActiveSessionId);
         }
+      } catch (error) {
+        setProjectErrorMessage(
+          error instanceof Error ? error.message : "Unable to delete the selected chat topic."
+        );
+      }
+    },
+    [deleteChatSessionState, setActiveSessionId, setChatSessions]
+  );
 
-        event.preventDefault();
-        setIsSearchOpen((currentValue) => {
-          if (currentValue) {
-            setCommandSearch("");
-            return false;
-          }
-
-          return true;
-        });
+  const handleChatDraftChange = useCallback(
+    (value: string) => {
+      if (!activeSessionId) {
         return;
       }
 
-      if (event.key === "Escape" && isSearchOpen) {
-        event.preventDefault();
-        closeWorkspaceSearch();
+      setChatDraft(activeSessionId, value);
+    },
+    [activeSessionId, setChatDraft]
+  );
+
+  const handleSendChatMessage = useCallback(async () => {
+    if (!activeChatSession || !activeChatDraft.trim() || !cavemanReady) {
+      return;
+    }
+
+    try {
+      await sendChatMessage({
+        sessionId: activeChatSession.id,
+        message: activeChatDraft,
+        claudePath: settingsState.claudePath,
+        codexPath: settingsState.codexPath
+      });
+      setChatDraft(activeChatSession.id, "");
+    } catch (error) {
+      setProjectErrorMessage(
+        error instanceof Error ? error.message : "Unable to send the current chat message."
+      );
+    }
+  }, [activeChatDraft, activeChatSession, cavemanReady, setChatDraft, settingsState]);
+
+  const handleApproveChatSession = useCallback(async () => {
+    if (!activeChatSession) {
+      return;
+    }
+
+    try {
+      await approveChatSession(activeChatSession.id);
+    } catch (error) {
+      setProjectErrorMessage(
+        error instanceof Error ? error.message : "Unable to approve the active chat topic."
+      );
+    }
+  }, [activeChatSession]);
+
+  const handleStopChatSession = useCallback(async () => {
+    if (!activeChatSession) {
+      return;
+    }
+
+    try {
+      await stopChatSession(activeChatSession.id);
+    } catch (error) {
+      setProjectErrorMessage(
+        error instanceof Error ? error.message : "Unable to stop the active chat topic."
+      );
+    }
+  }, [activeChatSession]);
+
+  const handleSaveChatSessionConfig = useCallback(
+    async (payload: {
+      sessionId: string;
+      selectedModel: ChatSession["selectedModel"];
+      selectedReasoning: ChatSession["selectedReasoning"];
+      autonomyMode: ChatSession["autonomyMode"];
+      contextItems: ChatContextItem[];
+    }) => {
+      setSessionConfig(payload);
+      setChatContextItems(payload.sessionId, payload.contextItems);
+
+      try {
+        await persistChatSession(payload);
+      } catch (error) {
+        setProjectErrorMessage(
+          error instanceof Error ? error.message : "Unable to save the current chat topic."
+        );
       }
-    };
+    },
+    [persistChatSession, setChatContextItems, setSessionConfig]
+  );
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeWorkspaceSearch, isReviewRoute, isSearchOpen]);
+  const handleAttachChatFile = useCallback(
+    (path: string) => {
+      if (!activeChatSession) {
+        return;
+      }
 
+      if (activeChatSession.contextItems.some((item) => item.path === path)) {
+        return;
+      }
+
+      const nextContextItems = [
+        ...activeChatSession.contextItems,
+        {
+          id: `file-${Date.now().toString(36)}`,
+          kind: "file" as const,
+          label: path.split("/").pop() ?? path,
+          path,
+          isDefault: false
+        }
+      ];
+
+      void handleSaveChatSessionConfig({
+        sessionId: activeChatSession.id,
+        selectedModel: activeChatSession.selectedModel,
+        selectedReasoning: activeChatSession.selectedReasoning,
+        autonomyMode: activeChatSession.autonomyMode,
+        contextItems: nextContextItems
+      });
+    },
+    [activeChatSession, handleSaveChatSessionConfig]
+  );
+
+  const handleRemoveChatContextItem = useCallback(
+    (itemId: string) => {
+      if (!activeChatSession) {
+        return;
+      }
+
+      const nextContextItems = activeChatSession.contextItems.filter(
+        (item) => item.id !== itemId
+      );
+
+      void handleSaveChatSessionConfig({
+        sessionId: activeChatSession.id,
+        selectedModel: activeChatSession.selectedModel,
+        selectedReasoning: activeChatSession.selectedReasoning,
+        autonomyMode: activeChatSession.autonomyMode,
+        contextItems: nextContextItems
+      });
+    },
+    [activeChatSession, handleSaveChatSessionConfig]
+  );
+
+  const handleOpenChat = useCallback(() => {
+    navigate("/chat");
+  }, [navigate]);
+
+  const handleOpenReview = useCallback(() => {
+    navigate("/review");
+  }, [navigate]);
+
+  useSystemThemePreference(setSystemPrefersDark);
+  useDocumentTheme(derivedState.resolvedTheme);
+  useWorkspaceSearchShortcuts({
+    closeWorkspaceSearch: uiHandlers.closeWorkspaceSearch,
+    isReviewRoute,
+    isSearchOpen,
+    setCommandSearch,
+    setIsSearchOpen
+  });
+  useWorkspaceSearchRouteReset({
+    closeWorkspaceSearch: uiHandlers.closeWorkspaceSearch,
+    isReviewRoute,
+    isSearchOpen
+  });
+  useWorkspaceSearchFocus({
+    isReviewRoute,
+    isSearchOpen,
+    searchInputRef
+  });
+  useInitialDiagnostics({
+    environment: settingsState.environment,
+    hasScannedEnvironmentRef,
+    refreshDiagnostics
+  });
+  useProjectRestore({
+    applyProjectContext,
+    desktopRuntime,
+    hasAttemptedProjectRestore,
+    lastProjectPath: settingsState.lastProjectPath,
+    setHasAttemptedProjectRestore,
+    setIsProjectLoading,
+    setLastProjectPath: settingsState.setLastProjectPath
+  });
   useEffect(() => {
-    if (!isReviewRoute && isSearchOpen) {
-      closeWorkspaceSearch();
-    }
-  }, [closeWorkspaceSearch, isReviewRoute, isSearchOpen]);
-
-  useEffect(() => {
-    if (!isSearchOpen || !isReviewRoute) {
-      return;
-    }
-
-    const focusFrame = window.requestAnimationFrame(() => {
-      searchInputRef.current?.focus();
-      searchInputRef.current?.select();
-    });
-
-    return () => window.cancelAnimationFrame(focusFrame);
-  }, [isReviewRoute, isSearchOpen]);
-
-  useEffect(() => {
-    if (hasScannedEnvironmentRef.current) {
-      return;
-    }
-
-    hasScannedEnvironmentRef.current = true;
-    void refreshDiagnostics(environment);
-  }, [environment, refreshDiagnostics]);
-
-  useEffect(() => {
-    if (hasAttemptedProjectRestore || !desktopRuntime) {
-      return;
-    }
-
-    if (!lastProjectPath.trim()) {
-      setHasAttemptedProjectRestore(true);
+    if (
+      !desktopRuntime ||
+      !activeSessionId ||
+      loadedSessions[activeSessionId]
+    ) {
       return;
     }
 
     let isDisposed = false;
-    setIsProjectLoading(true);
 
-    void loadProjectContext(lastProjectPath)
-      .then((context) => {
+    void loadChatSession(activeSessionId)
+      .then((session) => {
         if (isDisposed) {
           return;
         }
 
-        applyProjectContext(context, {
-          navigateToReview: context.hasSavedSettings
-        });
+        upsertSession(session);
       })
-      .catch(() => {
+      .catch((error) => {
         if (isDisposed) {
           return;
         }
 
-        setLastProjectPath("");
+        setProjectErrorMessage(
+          error instanceof Error ? error.message : "Unable to load the selected chat topic."
+        );
+      });
+
+    return () => {
+      isDisposed = true;
+    };
+  }, [activeSessionId, desktopRuntime, loadedSessions, upsertSession]);
+
+  useEffect(() => {
+    if (
+      !desktopRuntime ||
+      !hasSavedProjectSettings ||
+      !isChatRoute ||
+      chatSessions.length > 0
+    ) {
+      return;
+    }
+
+    let isDisposed = false;
+
+    void createChatSession()
+      .then((session) => {
+        if (isDisposed) {
+          return;
+        }
+
+        upsertSession(session);
+        setActiveSessionId(session.id);
       })
-      .finally(() => {
+      .catch((error) => {
         if (isDisposed) {
           return;
         }
 
-        setIsProjectLoading(false);
-        setHasAttemptedProjectRestore(true);
+        setProjectErrorMessage(
+          error instanceof Error ? error.message : "Unable to create the first chat topic."
+        );
       });
 
     return () => {
       isDisposed = true;
     };
   }, [
-    applyProjectContext,
+    chatSessions.length,
     desktopRuntime,
-    hasAttemptedProjectRestore,
-    lastProjectPath,
-    setLastProjectPath
+    hasSavedProjectSettings,
+    isChatRoute,
+    setActiveSessionId,
+    upsertSession
+  ]);
+
+  useEffect(() => {
+    if (
+      !desktopRuntime ||
+      !hasSavedProjectSettings ||
+      !isChatRoute ||
+      cavemanReady ||
+      cavemanChecking
+    ) {
+      return;
+    }
+
+    let isDisposed = false;
+    setCavemanStatus({
+      ready: false,
+      message: "Verifying Caveman skill...",
+      checking: true
+    });
+
+    void ensureCavemanSkill()
+      .then((status) => {
+        if (isDisposed) {
+          return;
+        }
+
+        setCavemanStatus({
+          ready: status.ready,
+          message: status.detail
+        });
+      })
+      .catch((error) => {
+        if (isDisposed) {
+          return;
+        }
+
+        setCavemanStatus({
+          ready: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Unable to verify the Caveman skill for this workspace."
+        });
+      });
+
+    return () => {
+      isDisposed = true;
+    };
+  }, [
+    cavemanChecking,
+    cavemanReady,
+    desktopRuntime,
+    hasSavedProjectSettings,
+    isChatRoute,
+    setCavemanStatus
   ]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     let isDisposed = false;
 
-    void subscribeToAgentEvents({
-      onLine: appendTerminalOutput,
-      onState: (payload) => {
-        applyAgentEvent(payload);
-        if (payload.pendingDiff) {
-          setLatestDiff(payload.pendingDiff);
-        }
+    void subscribeToChatSessionEvents((payload) => {
+      const nextSession = payload.session;
+
+      if (nextSession) {
+        upsertSession(nextSession);
+      } else if (payload.summary) {
+        const currentSessions = useChatStore.getState().sessions;
+        setChatSessions([
+          ...currentSessions.filter((entry) => entry.id !== payload.summary!.id),
+          payload.summary
+        ]);
       }
     }).then((dispose) => {
       if (isDisposed) {
@@ -1283,143 +1256,112 @@ function App() {
     return () => {
       isDisposed = true;
       unlisten?.();
-      clearFallbackTimer(fallbackTimerRef);
-
-      if (projectSaveTimerRef.current !== null) {
-        window.clearTimeout(projectSaveTimerRef.current);
-        projectSaveTimerRef.current = null;
-      }
     };
-  }, [appendTerminalOutput, applyAgentEvent]);
+  }, [setChatSessions, upsertSession]);
 
-  const reviewScreen = hasSavedProjectSettings ? (
-    <PrdScreen
-      agentStatus={agentStatus}
-      commandSearch={commandSearch}
-      controlColumnProps={{
-        configuredModelProviders,
-        autonomyMode,
-        mcpItems,
-        onModeChange: setAutonomyMode,
-        onModelChange: handleProjectModelChange,
-        onReasoningChange: handleProjectReasoningChange,
-        selectedModel,
-        selectedReasoning
-      }}
-      inspectorColumnProps={{
-        emptyStateMessage: deferredSearch.trim()
-          ? `No files match "${deferredSearch.trim()}".`
-          : "Choose another project folder from setup if you want to switch workspaces.",
-        folderInputRef,
-        hasWorkspaceEntries: workspaceEntries.length > 0,
-        onFileOpen: handleWorkspaceFileOpenClick,
-        onFolderChange: handleWorkspaceFolderSelection,
-        onOpenFolder: handlePickProjectFolder,
-        workspaceEntries: filteredWorkspaceEntries,
-        workspaceNotice,
-        workspaceRootName: projectRootName
-      }}
-      isSearchOpen={isSearchOpen}
-      isSpecApproved={isSpecApproved}
-      mainWorkspaceProps={{
-        activeTab,
-        agentStatus,
-        canGeneratePrd,
-        canGenerateSpec,
-        configPath: configPathDisplay,
-        executionSummary,
-        isGeneratingPrd,
-        isGeneratingSpec,
-        isSpecApproved,
-        onActiveTabChange: setActiveTab,
-        onApproveExecutionGate: handleApproveExecutionGateClick,
-        onApproveSpec: handleApproveSpec,
-        onEditorTabChange: updateEditorTabContent,
-        onEditorTabClose: closeEditorTab,
-        onEmergencyStop: handleEmergencyStopClick,
-        onGeneratePrd: handleGeneratePrdClick,
-        onGenerateSpec: handleGenerateSpecClick,
-        onLoadPrd: handleOpenPrdImportClick,
-        onLoadSpec: handleOpenSpecImportClick,
-        onPrdContentChange: handlePrdContentChange,
-        onPrdGenerationPromptChange: handlePrdGenerationPromptChange,
-        onPrdPaneModeChange: setPrdPaneMode,
-        onSpecContentChange: handleSpecContentChange,
-        onSpecGenerationPromptChange: handleSpecGenerationPromptChange,
-        onSpecPaneModeChange: setSpecPaneMode,
-        onSpecSelect: handleSpecSelect,
-        openEditorTabs,
-        prdContent,
-        prdGenerationError,
-        prdGenerationHelperText,
-        prdGenerationPrompt,
-        prdPaneMode,
-        prdPath,
-        prdPromptTemplate,
-        specContent,
-        specGenerationError,
-        specGenerationHelperText,
-        specGenerationPrompt,
-        specPaneMode,
-        specPath,
-        specPromptTemplate,
-        terminalOutput,
-        visibleDiff,
-        workspaceRootName: projectRootName
-      }}
-      onCommandSearchChange={handleCommandSearchChange}
-      onRefresh={handleRefresh}
-      onStartBuild={handleStartBuildClick}
-      searchInputRef={searchInputRef}
-      workspaceRootName={projectRootName}
-    />
-  ) : hasAttemptedProjectRestore ? (
-    <Navigate replace to="/" />
-  ) : (
+  useEffect(() => {
+    if (activeChatSession) {
+      agentState.syncFromChatRuntime(activeChatSession.runtime);
+      return;
+    }
+
+    agentState.resetRun();
+  }, [activeChatSession, agentState]);
+
+  useAgentEventSubscription({
+    appendTerminalOutput: agentState.appendTerminalOutput,
+    applyAgentEvent: agentState.applyEvent,
+    fallbackTimerRef,
+    projectSaveTimerRef,
+    setLatestDiff
+  });
+
+  const {
+    configurationScreenProps,
+    reviewScreenProps,
+    settingsScreenProps
+  } = useAppScreenProps({
+    agentState,
+    commandSearch,
+    derivedState,
+    desktopRuntime,
+    folderInputRef,
+    handleApproveSpec,
+    handleOpenChat,
+    handlePickProjectFolder,
+    hasSavedProjectSettings,
+    isImporting,
+    isProjectLoading,
+    isProjectSaving,
+    isSearchOpen,
+    reviewVisibleDiff,
+    prdGenerationError,
+    prdGenerationPrompt,
+    projectErrorMessage,
+    projectRootName,
+    projectRootPath,
+    projectSettingsHandlers,
+    projectState,
+    projectStatusMessage,
+    searchInputRef,
+    settingsState,
+    specGenerationError,
+    specGenerationPrompt,
+    uiHandlers,
+    workspaceNotice
+  });
+
+  const loadingState = (
     <section className="flex min-h-0 flex-1 items-center justify-center text-sm text-[var(--text-subtle)]">
       Loading project configuration...
     </section>
   );
 
-  const settingsScreen = hasSavedProjectSettings ? (
-    <SettingsScreen
-      agentStatus={agentStatus}
-      onRefresh={handleRefresh}
-      settingsViewProps={{
-        annotations,
-        claudePath,
-        codexPath,
-        configPath: configPathDisplay,
-        environment,
-        onClaudePathChange: setClaudePath,
-        onCodexPathChange: setCodexPath,
-        onModelChange: handleProjectModelChange,
-        onPrdPathChange: handleConfiguredPrdPathChange,
-        onPrdPromptChange: handlePrdPromptTemplateChange,
-        onReasoningChange: handleProjectReasoningChange,
-        onSpecPathChange: handleConfiguredSpecPathChange,
-        onSpecPromptChange: handleSpecPromptTemplateChange,
-        onSupportingDocumentsChange: handleSupportingDocumentsChange,
-        onThemeChange: setTheme,
-        prdPath: configuredPrdPath,
-        prdPrompt: prdPromptTemplate,
-        projectErrorMessage,
-        projectStatusMessage,
-        selectedModel,
-        selectedReasoning,
-        specPath: configuredSpecPath,
-        specPrompt: specPromptTemplate,
-        supportingDocumentsValue,
-        theme,
-        workspaceRootName: projectRootName
-      }}
+  const reviewScreen = hasSavedProjectSettings ? (
+    <PrdScreen {...reviewScreenProps} />
+  ) : hasAttemptedProjectRestore ? (
+    <Navigate replace to="/" />
+  ) : (
+    loadingState
+  );
+
+  const chatScreen = hasSavedProjectSettings ? (
+    <ChatScreen
+      activeDraft={activeChatDraft}
+      activeSession={activeChatSession}
+      cavemanChecking={cavemanChecking}
+      cavemanMessage={cavemanMessage}
+      cavemanReady={cavemanReady}
+      configuredModelProviders={derivedState.configuredModelProviders}
+      onApprove={handleApproveChatSession}
+      onAttachFile={handleAttachChatFile}
+      onCreateSession={handleCreateChatSessionClick}
+      onDeleteSession={handleDeleteChatSession}
+      onDraftChange={handleChatDraftChange}
+      onOpenReview={handleOpenReview}
+      onRefresh={uiHandlers.handleRefresh}
+      onRemoveContextItem={handleRemoveChatContextItem}
+      onRenameSession={handleRenameChatSession}
+      onSaveSessionConfig={handleSaveChatSessionConfig}
+      onSelectSession={handleSelectChatSession}
+      onSend={handleSendChatMessage}
+      onStop={handleStopChatSession}
+      sessions={chatSessions}
+      workspaceEntries={settingsState.workspaceEntries}
+      workspaceRootName={projectRootName}
     />
   ) : hasAttemptedProjectRestore ? (
     <Navigate replace to="/" />
   ) : (
-    <section className="flex min-h-0 flex-1 items-center justify-center text-sm text-[var(--text-subtle)]">
-      Loading project configuration...
-    </section>
+    loadingState
+  );
+
+  const settingsScreen = hasSavedProjectSettings ? (
+    <SettingsScreen {...settingsScreenProps} />
+  ) : hasAttemptedProjectRestore ? (
+    <Navigate replace to="/" />
+  ) : (
+    loadingState
   );
 
   return (
@@ -1437,46 +1379,16 @@ function App() {
 
         <Routes>
           <Route
-            element={
-              <ConfigurationScreen
-                claudePath={claudePath}
-                codexPath={codexPath}
-                desktopRuntime={desktopRuntime}
-                environment={environment}
-                errorMessage={projectErrorMessage}
-                hasSavedSettings={hasSavedProjectSettings}
-                isProjectLoading={isProjectLoading || isImporting}
-                isSaving={isProjectSaving}
-                onClaudePathChange={setClaudePath}
-                onCodexPathChange={setCodexPath}
-                onContinue={handleSaveConfigurationAndContinue}
-                onModelChange={handleProjectModelChange}
-                onPickFolder={handlePickProjectFolder}
-                onPrdPathChange={handleConfiguredPrdPathChange}
-                onPrdPromptChange={handlePrdPromptTemplateChange}
-                onReasoningChange={handleProjectReasoningChange}
-                onRefresh={handleRefresh}
-                onSpecPathChange={handleConfiguredSpecPathChange}
-                onSpecPromptChange={handleSpecPromptTemplateChange}
-                onSupportingDocumentsChange={handleSupportingDocumentsChange}
-                prdPath={configuredPrdPath}
-                prdPrompt={prdPromptTemplate}
-                selectedModel={selectedModel}
-                selectedReasoning={selectedReasoning}
-                settingsPath={configPathDisplay}
-                specPath={configuredSpecPath}
-                specPrompt={specPromptTemplate}
-                statusMessage={projectStatusMessage}
-                supportingDocumentsValue={supportingDocumentsValue}
-                workspaceRootName={projectRootName}
-                workspaceRootPath={projectRootPath}
-              />
-            }
+            element={<ConfigurationScreen {...configurationScreenProps} />}
             path="/"
           />
+          <Route element={chatScreen} path="/chat" />
           <Route element={reviewScreen} path="/review" />
           <Route element={settingsScreen} path="/settings" />
-          <Route element={<Navigate replace to="/" />} path="*" />
+          <Route
+            element={<Navigate replace to={hasSavedProjectSettings ? "/chat" : "/"} />}
+            path="*"
+          />
         </Routes>
       </div>
     </main>
@@ -1484,16 +1396,3 @@ function App() {
 }
 
 export default App;
-
-function buildWorkspaceNotice(context: ProjectContext) {
-  const loadedDocuments = [
-    context.prdDocument?.fileName ? `PRD: ${context.prdDocument.fileName}` : null,
-    context.specDocument?.fileName ? `SPEC: ${context.specDocument.fileName}` : null
-  ].filter((value): value is string => value !== null);
-
-  if (loadedDocuments.length === 0) {
-    return `${context.rootName} is configured. No document exists yet at ${context.settings.prdPath} or ${context.settings.specPath}.`;
-  }
-
-  return `${context.rootName} is configured. Loaded ${loadedDocuments.join(" and ")} from the saved project paths.`;
-}

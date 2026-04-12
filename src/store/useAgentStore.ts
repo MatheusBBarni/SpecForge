@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import type { AgentEventPayload, AgentStatus } from "../types";
+import type { AgentEventPayload, AgentStatus, ChatRuntimeState } from "../types";
 
 interface AgentState {
   status: AgentStatus;
@@ -14,6 +14,7 @@ interface AgentState {
   setCurrentMilestone: (milestone: string | null) => void;
   setPendingDiff: (diff: string | null) => void;
   setExecutionSummary: (summary: string | null) => void;
+  syncFromChatRuntime: (runtime: ChatRuntimeState) => void;
   applyEvent: (payload: AgentEventPayload) => void;
 }
 
@@ -39,6 +40,14 @@ export const useAgentStore = create<AgentState>((set) => ({
   setCurrentMilestone: (currentMilestone) => set({ currentMilestone }),
   setPendingDiff: (pendingDiff) => set({ pendingDiff }),
   setExecutionSummary: (executionSummary) => set({ executionSummary }),
+  syncFromChatRuntime: (runtime) =>
+    set({
+      status: runtime.status,
+      terminalOutput: runtime.terminalOutput,
+      currentMilestone: runtime.currentMilestone,
+      pendingDiff: runtime.pendingDiff,
+      executionSummary: runtime.executionSummary
+    }),
   applyEvent: (payload) =>
     set({
       status: payload.status,

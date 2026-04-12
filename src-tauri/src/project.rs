@@ -1,4 +1,5 @@
 use crate::{
+    chat::load_chat_session_index,
     constants::{
         DEFAULT_PRD_PROMPT, DEFAULT_PROJECT_PRD_PATH, DEFAULT_PROJECT_SPEC_PATH,
         DEFAULT_SPEC_PROMPT, SPECFORGE_SETTINGS_RELATIVE_PATH,
@@ -98,9 +99,10 @@ pub(crate) fn load_project_context_from_folder(
         result.spec_document.as_ref(),
     );
     let (settings, has_saved_settings) =
-        read_project_settings(&settings_path, &context.root, default_settings)?;
+        load_project_settings_from_workspace_root(&context.root, default_settings)?;
     let prd_document = load_configured_workspace_document(&context.root, &settings.prd_path)?;
     let spec_document = load_configured_workspace_document(&context.root, &settings.spec_path)?;
+    let chat_index = load_chat_session_index(&context.root)?;
     let mut active_workspace = state
         .workspace
         .lock()
@@ -120,6 +122,8 @@ pub(crate) fn load_project_context_from_folder(
         ignored_file_count: result.ignored_file_count,
         prd_document,
         spec_document,
+        chat_sessions: chat_index.sessions,
+        last_active_session_id: chat_index.last_active_session_id,
     })
 }
 
@@ -251,6 +255,14 @@ fn read_project_settings(
         normalize_project_settings(workspace_root, defaults, Some(parsed_settings))?,
         true,
     ))
+}
+
+pub(crate) fn load_project_settings_from_workspace_root(
+    workspace_root: &Path,
+    defaults: ProjectSettings,
+) -> Result<(ProjectSettings, bool), String> {
+    let settings_path = workspace_root.join(SPECFORGE_SETTINGS_RELATIVE_PATH);
+    read_project_settings(&settings_path, workspace_root, defaults)
 }
 
 fn normalize_project_model(value: &str, fallback: &str) -> String {

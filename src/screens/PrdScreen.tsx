@@ -15,8 +15,8 @@ interface PrdScreenProps {
   isSpecApproved: boolean;
   workspaceRootName: string;
   onCommandSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onOpenChat: () => void;
   onRefresh: () => void;
-  onStartBuild: () => void;
   searchInputRef: RefObject<HTMLInputElement | null>;
   controlColumnProps: ComponentProps<typeof ControlColumn>;
   mainWorkspaceProps: ComponentProps<typeof MainWorkspace>;
@@ -30,8 +30,8 @@ export function PrdScreen({
   isSpecApproved,
   workspaceRootName,
   onCommandSearchChange,
+  onOpenChat,
   onRefresh,
-  onStartBuild,
   searchInputRef,
   controlColumnProps,
   mainWorkspaceProps,
@@ -60,14 +60,9 @@ export function PrdScreen({
             <button className={SECONDARY_BUTTON_CLASS} onClick={onRefresh} type="button">
               Refresh
             </button>
-            <button
-              className={`${PRIMARY_BUTTON_CLASS} ${!isSpecApproved ? "cursor-not-allowed opacity-50 hover:translate-y-0" : ""}`}
-              disabled={!isSpecApproved}
-              onClick={onStartBuild}
-              type="button"
-            >
+            <button className={PRIMARY_BUTTON_CLASS} onClick={onOpenChat} type="button">
               <PlaySolid className="size-5" />
-              Start Build
+              Open Chat
             </button>
           </div>
         </div>
