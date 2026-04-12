@@ -1265,8 +1265,18 @@ function App() {
       return;
     }
 
-    agentState.resetRun();
-  }, [activeChatSession, agentState]);
+    const nextAgentState = useAgentStore.getState();
+    const isAlreadyReset =
+      nextAgentState.status === "idle" &&
+      nextAgentState.terminalOutput.length === 0 &&
+      nextAgentState.currentMilestone === null &&
+      nextAgentState.pendingDiff === null &&
+      nextAgentState.executionSummary === null;
+
+    if (!isAlreadyReset) {
+      agentState.resetRun();
+    }
+  }, [activeChatSession, agentState.resetRun, agentState.syncFromChatRuntime]);
 
   useAgentEventSubscription({
     appendTerminalOutput: agentState.appendTerminalOutput,
