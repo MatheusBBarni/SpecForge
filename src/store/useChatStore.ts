@@ -90,8 +90,8 @@ export const useChatStore = create<ChatStoreState>((set) => ({
   activeSessionId: null,
   loadedSessions: {},
   drafts: {},
-  cavemanReady: false,
-  cavemanMessage: "Caveman has not been verified yet.",
+  cavemanReady: true,
+  cavemanMessage: "Caveman mode is built into every topic.",
   cavemanChecking: false,
   setSessions: (sessions) =>
     set((state) => {

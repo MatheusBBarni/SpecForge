@@ -3,7 +3,6 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import type {
   AgentEventPayload,
-  CavemanStatus,
   ChatContextItem,
   ChatEventPayload,
   ChatSession,
@@ -330,14 +329,6 @@ export async function stopChatSession(sessionId: string): Promise<void> {
   }
 
   await invoke("stop_chat_session", { sessionId });
-}
-
-export async function ensureCavemanSkill(): Promise<CavemanStatus> {
-  if (!isTauriRuntime()) {
-    throw new Error("Chat sessions require the desktop runtime.");
-  }
-
-  return invoke<CavemanStatus>("ensure_caveman_skill");
 }
 
 export async function subscribeToAgentEvents(handlers: {

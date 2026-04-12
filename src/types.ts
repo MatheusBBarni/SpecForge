@@ -192,8 +192,3 @@ export interface ChatEventPayload {
   runtime: ChatRuntimeState | null;
   summary: ChatSessionSummary | null;
 }
-
-export interface CavemanStatus {
-  ready: boolean;
-  detail: string;
-}

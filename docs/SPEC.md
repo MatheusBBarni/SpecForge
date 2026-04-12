@@ -111,23 +111,16 @@ The desktop runtime currently exposes:
 * `send_chat_message`
 * `approve_chat_session`
 * `stop_chat_session`
-* `ensure_caveman_skill`
 
 Chat runtime updates are streamed through a typed `chat-session-event` payload carrying the session id plus the current session snapshot or summary update.
 
 ## 6. Caveman Integration
 
-Entering `/chat` triggers backend verification of the Caveman skill. If it is missing, the backend attempts installation with:
+SpecForge now treats Caveman as a built-in chat response mode instead of a runtime-installed dependency.
 
-* `npx skills add JuliusBrussee/caveman`
+Each outgoing chat turn prepends a compact Caveman-style instruction before the normal SpecForge system prompt, so the behavior stays active without making the user spend tokens enabling it manually.
 
-If verification or installation fails:
-
-* the frontend stores a failed Caveman state in `useChatStore`
-* the composer send action remains disabled
-* the user sees a blocking but recoverable banner in chat
-
-Each outgoing chat turn prepends a Caveman activation preamble before the normal SpecForge system prompt so the skill is active on every turn, not merely installed on disk.
+There is no chat-entry verification or installation path tied to navigation, and Caveman state must never block topic changes, route changes, or session configuration edits.
 
 ## 7. Review Workspace
 

@@ -14,7 +14,6 @@ import {
   useEffect,
   useMemo,
   useState,
-  type Key,
   type ReactNode
 } from "react";
 
@@ -191,9 +190,9 @@ function ModelSelectField({
   }, [activeProviderTab, hasProviderTabs, singleConfiguredProvider]);
 
   const handleSelectionChange = useCallback(
-    (key: Key | null) => {
-      if (key !== null) {
-        onSelectionChange(String(key) as ModelId);
+    (value: string | number | null) => {
+      if (value !== null) {
+        onSelectionChange(String(value) as ModelId);
       }
     },
     [onSelectionChange]
@@ -202,8 +201,8 @@ function ModelSelectField({
   return (
     <Select
       className="flex w-full min-w-0 flex-col gap-2"
-      onSelectionChange={handleSelectionChange}
-      selectedKey={selectedKey}
+      onChange={handleSelectionChange}
+      value={selectedKey}
     >
       <Label className={FIELD_LABEL_CLASS}>{label}</Label>
       <Select.Trigger className={SELECT_TRIGGER_CLASS}>
@@ -219,7 +218,14 @@ function ModelSelectField({
                   provider === activeProviderTab ? MODEL_PROVIDER_TAB_ACTIVE_CLASS : MODEL_PROVIDER_TAB_CLASS
                 }
                 key={provider}
-                onClick={() => setActiveProviderTab(provider)}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setActiveProviderTab(provider);
+                }}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                }}
                 type="button"
               >
                 {getProviderLabel(provider)}
@@ -289,9 +295,9 @@ function ControlSelectField<Value extends string>({
   onSelectionChange
 }: ControlSelectFieldProps<Value>) {
   const handleSelectionChange = useCallback(
-    (key: Key | null) => {
-      if (key !== null) {
-        onSelectionChange(String(key) as Value);
+    (value: string | number | null) => {
+      if (value !== null) {
+        onSelectionChange(String(value) as Value);
       }
     },
     [onSelectionChange]
@@ -300,8 +306,8 @@ function ControlSelectField<Value extends string>({
   return (
     <Select
       className="flex w-full min-w-0 flex-col gap-2"
-      onSelectionChange={handleSelectionChange}
-      selectedKey={selectedKey}
+      onChange={handleSelectionChange}
+      value={selectedKey}
     >
       <Label className={FIELD_LABEL_CLASS}>{label}</Label>
       <Select.Trigger className={SELECT_TRIGGER_CLASS}>

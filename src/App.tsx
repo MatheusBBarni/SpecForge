@@ -14,6 +14,7 @@ import {
   useLocation,
   useNavigate
 } from "react-router-dom";
+import { useShallow } from "zustand/react/shallow";
 
 import { AppRail } from "./components/AppRail";
 import {
@@ -31,6 +32,7 @@ import {
   getReasoningLabel
 } from "./lib/agentConfig";
 import {
+  buildCurrentProjectSettings,
   buildConfigPathDisplay,
   buildWorkspaceNotice,
   waitForNextPaint
@@ -42,7 +44,6 @@ import {
   createChatSession,
   deleteChatSession,
   emergencyStop,
-  ensureCavemanSkill,
   generatePrdDocument,
   generateSpecDocument,
   getGitDiff,
@@ -80,7 +81,6 @@ import {
 } from "./hooks/useAppLifecycle";
 import {
   useAgentStoreSlice,
-  useChatStoreSlice,
   useProjectStoreSlice,
   useSettingsStoreSlice
 } from "./hooks/useAppStoreSlices";
@@ -96,6 +96,7 @@ import { PrdScreen } from "./screens/PrdScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { useAgentStore } from "./store/useAgentStore";
 import { useChatStore } from "./store/useChatStore";
+import { useProjectStore } from "./store/useProjectStore";
 import type {
   ChatContextItem,
   ChatSession,
@@ -111,14 +112,11 @@ function App() {
   const desktopRuntime = isTauriRuntime();
 
   const agentState = useAgentStoreSlice();
-  const chatState = useChatStoreSlice();
   const projectState = useProjectStoreSlice();
   const settingsState = useSettingsStoreSlice();
   const {
     sessions: chatSessions,
     activeSessionId,
-    loadedSessions,
-    drafts: chatDrafts,
     cavemanReady,
     cavemanMessage,
     cavemanChecking,
@@ -130,7 +128,23 @@ function App() {
     setSessionConfig,
     deleteSession: deleteChatSessionState,
     setCavemanStatus
-  } = chatState;
+  } = useChatStore(
+    useShallow((state) => ({
+      sessions: state.sessions,
+      activeSessionId: state.activeSessionId,
+      cavemanReady: state.cavemanReady,
+      cavemanMessage: state.cavemanMessage,
+      cavemanChecking: state.cavemanChecking,
+      setSessions: state.setSessions,
+      setActiveSessionId: state.setActiveSessionId,
+      upsertSession: state.upsertSession,
+      setDraft: state.setDraft,
+      setContextItems: state.setContextItems,
+      setSessionConfig: state.setSessionConfig,
+      deleteSession: state.deleteSession,
+      setCavemanStatus: state.setCavemanStatus
+    }))
+  );
 
   const [commandSearch, setCommandSearch] = useState("");
   const [isImporting, setIsImporting] = useState(false);
@@ -166,12 +180,25 @@ function App() {
   const hasScannedEnvironmentRef = useRef(false);
   const projectSaveTimerRef = useRef<number | null>(null);
   const pendingProjectReloadRef = useRef(false);
+  const latestPathnameRef = useRef(location.pathname);
 
-  const activeChatSession = useMemo(
-    () => (activeSessionId ? loadedSessions[activeSessionId] ?? null : null),
-    [activeSessionId, loadedSessions]
+  useEffect(() => {
+    latestPathnameRef.current = location.pathname;
+  }, [location.pathname]);
+
+  const activeChatSession = useChatStore(
+    useCallback(
+      (state) =>
+        state.activeSessionId ? state.loadedSessions[state.activeSessionId] ?? null : null,
+      []
+    )
   );
-  const activeChatDraft = activeSessionId ? chatDrafts[activeSessionId] ?? "" : "";
+  const activeChatDraft = useChatStore(
+    useCallback(
+      (state) => (state.activeSessionId ? state.drafts[state.activeSessionId] ?? "" : ""),
+      []
+    )
+  );
   const reviewVisibleDiff = activeChatSession
     ? activeChatSession.runtime.pendingDiff ?? "No diff captured for the active chat topic yet."
     : agentState.pendingDiff ?? latestDiff;
@@ -242,6 +269,29 @@ function App() {
 
   const applyProjectContext = useCallback(
     (context: ProjectContext, options?: { navigateToChat?: boolean }) => {
+      const normalizedCurrentProjectPath = projectRootPath
+        .replace(/\\/g, "/")
+        .replace(/\/+$/, "")
+        .toLowerCase();
+      const normalizedNextProjectPath = context.rootPath
+        .replace(/\\/g, "/")
+        .replace(/\/+$/, "")
+        .toLowerCase();
+      const isSameProject =
+        normalizedCurrentProjectPath.length > 0 &&
+        normalizedCurrentProjectPath === normalizedNextProjectPath;
+      const nextPrdSourcePath =
+        context.prdDocument?.sourcePath ?? context.settings.prdPath;
+      const nextSpecSourcePath =
+        context.specDocument?.sourcePath ?? context.settings.specPath;
+      const preserveEditingPrd =
+        isSameProject &&
+        projectState.prdPaneMode === "edit" &&
+        projectState.prdPath === nextPrdSourcePath;
+      const preserveEditingSpec =
+        isSameProject &&
+        projectState.specPaneMode === "edit" &&
+        projectState.specPath === nextSpecSourcePath;
       const settingsPathDisplay = buildConfigPathDisplay(
         context.settingsPath,
         context.rootName
@@ -258,7 +308,9 @@ function App() {
           ])
       );
 
-      projectState.resetWorkspaceContext();
+      if (!isSameProject) {
+        projectState.resetWorkspaceContext();
+      }
       setProjectRootName(context.rootName);
       setProjectRootPath(context.rootPath);
       setProjectConfigPath(context.settingsPath);
@@ -275,8 +327,8 @@ function App() {
       setChatSessions(context.chatSessions);
       setActiveSessionId(context.lastActiveSessionId ?? context.chatSessions[0]?.id ?? null);
       setCavemanStatus({
-        ready: false,
-        message: "Caveman has not been verified for this project yet."
+        ready: true,
+        message: "Caveman mode is built into every topic."
       });
       setProjectStatusMessage(
         context.hasSavedSettings
@@ -287,23 +339,35 @@ function App() {
       setWorkspaceNotice(buildWorkspaceNotice(context));
 
       startTransition(() => {
-        projectState.setPrdContent(
-          context.prdDocument?.content ?? "",
-          context.prdDocument?.sourcePath ?? context.settings.prdPath
-        );
-        projectState.setSpecContent(
-          context.specDocument?.content ?? "",
-          context.specDocument?.sourcePath ?? context.settings.specPath
-        );
-        projectState.setPrdPaneMode("preview");
-        projectState.setSpecPaneMode("preview");
+        if (!preserveEditingPrd) {
+          projectState.setPrdContent(
+            context.prdDocument?.content ?? "",
+            nextPrdSourcePath
+          );
+          projectState.setPrdPaneMode("preview");
+        }
+
+        if (!preserveEditingSpec) {
+          projectState.setSpecContent(
+            context.specDocument?.content ?? "",
+            nextSpecSourcePath
+          );
+          projectState.setSpecPaneMode("preview");
+        }
       });
 
-      if (options?.navigateToChat) {
+      if (options?.navigateToChat && latestPathnameRef.current === "/") {
         navigate("/chat");
       }
     },
-    [navigate, projectState, setActiveSessionId, setCavemanStatus, setChatSessions, settingsState]
+    [
+      navigate,
+      projectState,
+      setActiveSessionId,
+      setCavemanStatus,
+      setChatSessions,
+      settingsState
+    ]
   );
 
   const saveCurrentProjectSettings = useCallback(
@@ -329,9 +393,19 @@ function App() {
       setIsProjectSaving(true);
 
       try {
+        const latestProjectState = useProjectStore.getState();
+        const currentProjectSettings = buildCurrentProjectSettings({
+          configuredPrdPath: latestProjectState.configuredPrdPath,
+          configuredSpecPath: latestProjectState.configuredSpecPath,
+          prdPromptTemplate: latestProjectState.prdPromptTemplate,
+          selectedModel: latestProjectState.selectedModel,
+          selectedReasoning: latestProjectState.selectedReasoning,
+          specPromptTemplate: latestProjectState.specPromptTemplate,
+          supportingDocumentPaths: latestProjectState.supportingDocumentPaths
+        });
         const savedSettings = await saveProjectSettings({
           folderPath: projectRootPath,
-          settings: derivedState.currentProjectSettings
+          settings: currentProjectSettings
         });
 
         projectState.setProjectSettings(savedSettings);
@@ -357,7 +431,6 @@ function App() {
     [
       applyProjectContext,
       derivedState.configPathDisplay,
-      derivedState.currentProjectSettings,
       desktopRuntime,
       projectRootName,
       projectRootPath,
@@ -933,7 +1006,7 @@ function App() {
   );
 
   const handleSendChatMessage = useCallback(async () => {
-    if (!activeChatSession || !activeChatDraft.trim() || !cavemanReady) {
+    if (!activeChatSession || !activeChatDraft.trim()) {
       return;
     }
 
@@ -950,7 +1023,7 @@ function App() {
         error instanceof Error ? error.message : "Unable to send the current chat message."
       );
     }
-  }, [activeChatDraft, activeChatSession, cavemanReady, setChatDraft, settingsState]);
+  }, [activeChatDraft, activeChatSession, setChatDraft, settingsState]);
 
   const handleApproveChatSession = useCallback(async () => {
     if (!activeChatSession) {
@@ -1097,11 +1170,7 @@ function App() {
     setLastProjectPath: settingsState.setLastProjectPath
   });
   useEffect(() => {
-    if (
-      !desktopRuntime ||
-      !activeSessionId ||
-      loadedSessions[activeSessionId]
-    ) {
+    if (!desktopRuntime || !activeSessionId || activeChatSession) {
       return;
     }
 
@@ -1128,7 +1197,7 @@ function App() {
     return () => {
       isDisposed = true;
     };
-  }, [activeSessionId, desktopRuntime, loadedSessions, upsertSession]);
+  }, [activeChatSession, activeSessionId, desktopRuntime, upsertSession]);
 
   useEffect(() => {
     if (
@@ -1171,61 +1240,6 @@ function App() {
     isChatRoute,
     setActiveSessionId,
     upsertSession
-  ]);
-
-  useEffect(() => {
-    if (
-      !desktopRuntime ||
-      !hasSavedProjectSettings ||
-      !isChatRoute ||
-      cavemanReady ||
-      cavemanChecking
-    ) {
-      return;
-    }
-
-    let isDisposed = false;
-    setCavemanStatus({
-      ready: false,
-      message: "Verifying Caveman skill...",
-      checking: true
-    });
-
-    void ensureCavemanSkill()
-      .then((status) => {
-        if (isDisposed) {
-          return;
-        }
-
-        setCavemanStatus({
-          ready: status.ready,
-          message: status.detail
-        });
-      })
-      .catch((error) => {
-        if (isDisposed) {
-          return;
-        }
-
-        setCavemanStatus({
-          ready: false,
-          message:
-            error instanceof Error
-              ? error.message
-              : "Unable to verify the Caveman skill for this workspace."
-        });
-      });
-
-    return () => {
-      isDisposed = true;
-    };
-  }, [
-    cavemanChecking,
-    cavemanReady,
-    desktopRuntime,
-    hasSavedProjectSettings,
-    isChatRoute,
-    setCavemanStatus
   ]);
 
   useEffect(() => {

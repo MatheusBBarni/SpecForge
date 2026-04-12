@@ -3,7 +3,7 @@ import {
   ListBox,
   Select
 } from "@heroui/react";
-import { useCallback, type Key, type ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 
 import type { SelectOption } from "../lib/agentConfig";
 
@@ -34,9 +34,9 @@ export function SettingsSelectField<Value extends string>({
   onSelectionChange
 }: SettingsSelectFieldProps<Value>) {
   const handleSelectionChange = useCallback(
-    (key: Key | null) => {
-      if (key !== null) {
-        onSelectionChange(String(key) as Value);
+    (value: string | number | null) => {
+      if (value !== null) {
+        onSelectionChange(String(value) as Value);
       }
     },
     [onSelectionChange]
@@ -45,8 +45,8 @@ export function SettingsSelectField<Value extends string>({
   return (
     <Select
       className="flex w-full min-w-0 flex-col gap-2"
-      onSelectionChange={handleSelectionChange}
-      selectedKey={selectedKey}
+      onChange={handleSelectionChange}
+      value={selectedKey}
     >
       <Label className={FIELD_LABEL_CLASS}>{label}</Label>
       <Select.Trigger className={SELECT_TRIGGER_CLASS}>

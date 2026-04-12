@@ -7,10 +7,10 @@ use crate::{
     },
     git::git_get_diff_for_root,
     models::{
-        CavemanStatusPayload, ChatContextItem, ChatEventPayload, ChatMessage, ChatRuntimeState,
-        ChatSessionIndexPayload, ChatSessionSnapshot, ChatSessionSummary, ProjectSettings,
+        ChatContextItem, ChatEventPayload, ChatMessage, ChatRuntimeState, ChatSessionIndexPayload,
+        ChatSessionSnapshot, ChatSessionSummary, ProjectSettings,
     },
-    paths::{resolve_override_path, resolve_relative_path_under_root},
+    paths::resolve_relative_path_under_root,
     project::{build_default_project_settings, load_project_settings_from_workspace_root},
     state::{ChatExecutionRuntime, SharedState, WorkspaceContext},
 };
@@ -30,9 +30,8 @@ use tauri::{AppHandle, Emitter, State};
 
 const SESSION_DIRECTORY_RELATIVE_PATH: &str = ".specforge/sessions";
 const SESSION_INDEX_FILE_NAME: &str = "index.json";
-const CAVEMAN_REPO: &str = "JuliusBrussee/caveman";
 const CAVEMAN_PREAMBLE: &str =
-    "/caveman\nUse the Caveman skill. Be direct and minimal in prose while keeping code and diffs fully normal.";
+    "Default response style: caveman. Keep prose terse and direct while leaving code blocks, commands, and diffs fully normal.";
 
 static SESSION_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -198,29 +197,6 @@ pub(crate) fn stop_chat_session(
 }
 
 #[tauri::command]
-pub(crate) fn ensure_caveman_skill() -> Result<CavemanStatusPayload, String> {
-    if is_caveman_installed() {
-        return Ok(CavemanStatusPayload {
-            ready: true,
-            detail: String::from("Caveman is already installed for this machine."),
-        });
-    }
-
-    install_caveman_skill()?;
-
-    if !is_caveman_installed() {
-        return Err(String::from(
-            "Caveman installation completed, but the skill directory could not be verified.",
-        ));
-    }
-
-    Ok(CavemanStatusPayload {
-        ready: true,
-        detail: String::from("Caveman was installed and verified successfully."),
-    })
-}
-
-#[tauri::command]
 pub(crate) fn send_chat_message(
     app: AppHandle,
     state: State<SharedState>,
@@ -233,12 +209,6 @@ pub(crate) fn send_chat_message(
 
     if trimmed_message.is_empty() {
         return Err(String::from("A message is required before sending."));
-    }
-
-    if !is_caveman_installed() {
-        return Err(String::from(
-            "Caveman is not installed yet. Verify the skill before sending a chat turn.",
-        ));
     }
 
     let workspace = active_workspace_context(&state)?;
@@ -1239,68 +1209,6 @@ fn create_chat_entity_id(prefix: &str) -> String {
         .unwrap_or_default();
     let counter = SESSION_COUNTER.fetch_add(1, Ordering::Relaxed);
     format!("{prefix}-{millis:x}-{counter:x}")
-}
-
-fn is_caveman_installed() -> bool {
-    caveman_install_paths().iter().any(|path| path.exists())
-}
-
-fn caveman_install_paths() -> Vec<PathBuf> {
-    let Some(home_directory) = home_directory() else {
-        return Vec::new();
-    };
-
-    vec![
-        home_directory.join(".codex").join("skills").join("caveman"),
-        home_directory.join(".claude").join("skills").join("caveman"),
-        home_directory.join(".opencode").join("skill").join("caveman"),
-        home_directory.join(".opencode").join("skills").join("caveman"),
-    ]
-}
-
-fn install_caveman_skill() -> Result<(), String> {
-    let npm_binary = resolve_npx_binary()?;
-    let candidates = [
-        vec!["skills", "add", CAVEMAN_REPO, "-y"],
-        vec!["add-skill", CAVEMAN_REPO, "-g", "-a", "codex", "-a", "claude-code", "-y"],
-    ];
-
-    let mut last_error = None;
-
-    for arguments in candidates {
-        let output = Command::new(&npm_binary)
-            .args(&arguments)
-            .current_dir(resolve_override_path("."))
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output();
-
-        match output {
-            Ok(output) if output.status.success() => return Ok(()),
-            Ok(output) => {
-                last_error = Some(format_process_failure("npx", &output));
-            }
-            Err(error) => {
-                last_error = Some(format!("Unable to run npx for Caveman installation: {error}"));
-            }
-        }
-    }
-
-    Err(last_error.unwrap_or_else(|| {
-        String::from("Unable to install Caveman because the skills CLI returned no output.")
-    }))
-}
-
-fn resolve_npx_binary() -> Result<PathBuf, String> {
-    which::which("npx")
-        .or_else(|_| which::which("npx.cmd"))
-        .map_err(|_| String::from("npx was not found on PATH, so Caveman cannot be installed."))
-}
-
-fn home_directory() -> Option<PathBuf> {
-    std::env::var_os("USERPROFILE")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
 }
 
 #[derive(Clone, Copy)]

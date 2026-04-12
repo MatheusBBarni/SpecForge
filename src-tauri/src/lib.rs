@@ -13,9 +13,8 @@ mod workspace;
 
 use agent::{approve_action, kill_agent_process, spawn_cli_agent};
 use chat::{
-    approve_chat_session, create_chat_session, delete_chat_session, ensure_caveman_skill,
-    load_chat_session, rename_chat_session, save_chat_session, send_chat_message,
-    stop_chat_session,
+    approve_chat_session, create_chat_session, delete_chat_session, load_chat_session,
+    rename_chat_session, save_chat_session, send_chat_message, stop_chat_session,
 };
 use documents::{parse_document, pick_document};
 use environment::run_environment_scan;
@@ -51,8 +50,7 @@ pub fn run() {
             delete_chat_session,
             send_chat_message,
             approve_chat_session,
-            stop_chat_session,
-            ensure_caveman_skill
+            stop_chat_session
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
