@@ -39,6 +39,7 @@ import {
   DEFAULT_PROJECT_SPEC_PATH,
   SPECFORGE_SETTINGS_RELATIVE_PATH,
   formatSupportingDocumentPaths,
+  getWorkspaceDisplayPath,
   normalizeProjectRelativePath,
   normalizeProjectSettings,
   parseSupportingDocumentPaths
@@ -247,15 +248,11 @@ function App() {
   );
   const configPathDisplay = useMemo(() => {
     if (projectConfigPath.trim()) {
-      return projectConfigPath;
-    }
-
-    if (projectRootPath.trim()) {
-      return `${projectRootPath.replace(/\\/g, "/")}/${SPECFORGE_SETTINGS_RELATIVE_PATH}`;
+      return getWorkspaceDisplayPath(projectConfigPath, projectRootName);
     }
 
     return SPECFORGE_SETTINGS_RELATIVE_PATH;
-  }, [projectConfigPath, projectRootPath]);
+  }, [projectConfigPath, projectRootName]);
   const supportingDocumentsValue = useMemo(
     () => formatSupportingDocumentPaths(supportingDocumentPaths),
     [supportingDocumentPaths]
@@ -457,8 +454,8 @@ function App() {
       setSpecGenerationError("");
       setProjectStatusMessage(
         context.hasSavedSettings
-          ? `Loaded project settings from ${context.settingsPath}.`
-          : `Selected ${context.rootName}. Save the setup to create ${context.settingsPath}.`
+          ? `Loaded project settings from ${context.rootName}/${getWorkspaceDisplayPath(context.settingsPath, context.rootName)}.`
+          : `Selected ${context.rootName}. Save the setup to create ${context.rootName}/${getWorkspaceDisplayPath(context.settingsPath, context.rootName)}.`
       );
       setProjectErrorMessage("");
       setWorkspaceNotice(buildWorkspaceNotice(context));
@@ -517,7 +514,11 @@ function App() {
 
         setProjectSettings(savedSettings);
         setHasSavedProjectSettings(true);
-        setProjectStatusMessage(`Saved project settings to ${configPathDisplay}.`);
+        setProjectStatusMessage(
+          projectRootName
+            ? `Saved project settings to ${projectRootName}/${configPathDisplay}.`
+            : `Saved project settings to ${configPathDisplay}.`
+        );
 
         if (reloadProject || navigateToReview) {
           const reloadedContext = await loadProjectContext(projectRootPath);
@@ -536,6 +537,7 @@ function App() {
       configPathDisplay,
       currentProjectSettings,
       desktopRuntime,
+      projectRootName,
       projectRootPath,
       setProjectSettings
     ]
@@ -580,13 +582,8 @@ function App() {
         return;
       }
 
-      applyProjectContext(nextProjectContext, {
-        navigateToReview: nextProjectContext.hasSavedSettings
-      });
-
-      if (!nextProjectContext.hasSavedSettings) {
-        navigate("/");
-      }
+      applyProjectContext(nextProjectContext);
+      navigate("/");
     } catch (error) {
       setProjectErrorMessage(
         error instanceof Error ? error.message : "Unable to open the selected project folder."

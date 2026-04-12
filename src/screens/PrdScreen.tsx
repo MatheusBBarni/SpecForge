@@ -72,15 +72,15 @@ export function PrdScreen({
           </div>
         </div>
 
-        <div className="order-2 flex min-h-0 overflow-hidden xl:col-[1] xl:row-[1/3]">
+        <div className="order-2 flex min-h-0 min-w-0 overflow-hidden xl:col-[1] xl:row-[1/3]">
           <ControlColumn {...controlColumnProps} />
         </div>
 
-        <div className="order-3 flex min-h-0 overflow-hidden xl:col-[2] xl:row-[2]">
+        <div className="order-3 flex min-h-0 min-w-0 w-full overflow-hidden xl:col-[2] xl:row-[2]">
           <MainWorkspace {...mainWorkspaceProps} />
         </div>
 
-        <div className="order-4 flex min-h-0 overflow-hidden xl:col-[3] xl:row-[2]">
+        <div className="order-4 flex min-h-0 min-w-0 overflow-hidden xl:col-[3] xl:row-[2]">
           <InspectorColumn {...inspectorColumnProps} />
         </div>
       </div>

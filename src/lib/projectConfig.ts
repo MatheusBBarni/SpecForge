@@ -105,6 +105,27 @@ export function parseSupportingDocumentPaths(value: string) {
   return normalizeSupportingDocumentPaths(value.split(/\r?\n/));
 }
 
+export function getWorkspaceDisplayPath(path: string, workspaceRootName?: string) {
+  const normalizedPath = path
+    .replace(/\\/g, "/")
+    .replace(/^\/{2}\?\//, "");
+
+  if (!workspaceRootName) {
+    return normalizedPath;
+  }
+
+  const segments = normalizedPath.split("/").filter(Boolean);
+  const rootIndex = segments.findIndex(
+    (segment) => segment.toLowerCase() === workspaceRootName.toLowerCase()
+  );
+
+  if (rootIndex >= 0 && rootIndex < segments.length - 1) {
+    return segments.slice(rootIndex + 1).join("/");
+  }
+
+  return normalizedPath;
+}
+
 function isModelId(value?: string | null): value is ModelId {
   return Boolean(value && VALID_MODEL_IDS.has(value as ModelId));
 }
