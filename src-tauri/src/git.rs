@@ -1,10 +1,23 @@
 use git2::{DiffFormat, DiffOptions, Repository};
 
-use crate::{constants::SAMPLE_DIFF, paths::project_root};
+use crate::{constants::SAMPLE_DIFF, paths::project_root, state::SharedState};
+use std::path::Path;
+use tauri::State;
 
 #[tauri::command]
-pub(crate) fn git_get_diff() -> Result<String, String> {
-    let repository = Repository::discover(project_root())
+pub(crate) fn git_get_diff(state: State<SharedState>) -> Result<String, String> {
+    let workspace_root = state
+        .workspace
+        .lock()
+        .map_err(|_| String::from("Workspace lock was poisoned."))?
+        .as_ref()
+        .map(|workspace| workspace.root.clone())
+        .unwrap_or_else(project_root);
+    git_get_diff_for_root(&workspace_root)
+}
+
+pub(crate) fn git_get_diff_for_root(root: &Path) -> Result<String, String> {
+    let repository = Repository::discover(root)
         .map_err(|error| format!("Unable to discover git repository: {error}"))?;
     let head_tree = repository
         .head()

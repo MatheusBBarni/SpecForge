@@ -3,6 +3,11 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import type {
   AgentEventPayload,
+  CavemanStatus,
+  ChatContextItem,
+  ChatEventPayload,
+  ChatSession,
+  ChatSessionSummary,
   AutonomyMode,
   EnvironmentStatus,
   ModelId,
@@ -232,6 +237,109 @@ export async function emergencyStop(): Promise<void> {
   await invoke("kill_agent_process");
 }
 
+export async function createChatSession(title?: string): Promise<ChatSession> {
+  if (!isTauriRuntime()) {
+    throw new Error("Chat sessions require the desktop runtime.");
+  }
+
+  return invoke<ChatSession>("create_chat_session", { title: emptyToNull(title) });
+}
+
+export async function loadChatSession(sessionId: string): Promise<ChatSession> {
+  if (!isTauriRuntime()) {
+    throw new Error("Chat sessions require the desktop runtime.");
+  }
+
+  return invoke<ChatSession>("load_chat_session", { sessionId });
+}
+
+export async function saveChatSession(payload: {
+  sessionId: string;
+  selectedModel: ModelId;
+  selectedReasoning: ReasoningProfileId;
+  autonomyMode: AutonomyMode;
+  contextItems: ChatContextItem[];
+}): Promise<ChatSession> {
+  if (!isTauriRuntime()) {
+    throw new Error("Chat sessions require the desktop runtime.");
+  }
+
+  return invoke<ChatSession>("save_chat_session", {
+    sessionId: payload.sessionId,
+    selectedModel: payload.selectedModel,
+    selectedReasoning: payload.selectedReasoning,
+    autonomyMode: payload.autonomyMode,
+    contextItems: payload.contextItems
+  });
+}
+
+export async function renameChatSession(payload: {
+  sessionId: string;
+  title: string;
+}): Promise<ChatSessionSummary> {
+  if (!isTauriRuntime()) {
+    throw new Error("Chat sessions require the desktop runtime.");
+  }
+
+  return invoke<ChatSessionSummary>("rename_chat_session", {
+    sessionId: payload.sessionId,
+    title: payload.title
+  });
+}
+
+export async function deleteChatSession(sessionId: string) {
+  if (!isTauriRuntime()) {
+    throw new Error("Chat sessions require the desktop runtime.");
+  }
+
+  return invoke<{
+    sessions: ChatSessionSummary[];
+    lastActiveSessionId: string | null;
+  }>("delete_chat_session", { sessionId });
+}
+
+export async function sendChatMessage(payload: {
+  sessionId: string;
+  message: string;
+  claudePath?: string;
+  codexPath?: string;
+}): Promise<void> {
+  if (!isTauriRuntime()) {
+    throw new Error("Chat sessions require the desktop runtime.");
+  }
+
+  await invoke("send_chat_message", {
+    sessionId: payload.sessionId,
+    message: payload.message,
+    claudePath: emptyToNull(payload.claudePath),
+    codexPath: emptyToNull(payload.codexPath)
+  });
+}
+
+export async function approveChatSession(sessionId: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    throw new Error("Chat sessions require the desktop runtime.");
+  }
+
+  await invoke("approve_chat_session", { sessionId });
+}
+
+export async function stopChatSession(sessionId: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    throw new Error("Chat sessions require the desktop runtime.");
+  }
+
+  await invoke("stop_chat_session", { sessionId });
+}
+
+export async function ensureCavemanSkill(): Promise<CavemanStatus> {
+  if (!isTauriRuntime()) {
+    throw new Error("Chat sessions require the desktop runtime.");
+  }
+
+  return invoke<CavemanStatus>("ensure_caveman_skill");
+}
+
 export async function subscribeToAgentEvents(handlers: {
   onLine: (line: string) => void;
   onState: (payload: AgentEventPayload) => void;
@@ -248,6 +356,22 @@ export async function subscribeToAgentEvents(handlers: {
   return () => {
     callUnlisten(unlistenOutput);
     callUnlisten(unlistenState);
+  };
+}
+
+export async function subscribeToChatSessionEvents(
+  onEvent: (payload: ChatEventPayload) => void
+): Promise<() => void> {
+  if (!isTauriRuntime()) {
+    return () => undefined;
+  }
+
+  const unlisten = await listen<ChatEventPayload>("chat-session-event", (event) =>
+    onEvent(event.payload)
+  );
+
+  return () => {
+    callUnlisten(unlisten);
   };
 }
 

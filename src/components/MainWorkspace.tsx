@@ -47,6 +47,7 @@ interface MainWorkspaceProps {
   executionSummary: string | null;
   visibleDiff: string;
   agentStatus: AgentStatus;
+  executionControlsEnabled?: boolean;
   onActiveTabChange: (tab: WorkspaceTab) => void;
   onPrdPaneModeChange: (mode: PaneMode) => void;
   onSpecPaneModeChange: (mode: PaneMode) => void;
@@ -94,6 +95,7 @@ export const MainWorkspace = memo(function MainWorkspace({
   executionSummary,
   visibleDiff,
   agentStatus,
+  executionControlsEnabled = true,
   onActiveTabChange,
   onPrdPaneModeChange,
   onSpecPaneModeChange,
@@ -271,6 +273,7 @@ export const MainWorkspace = memo(function MainWorkspace({
             executionSummary={executionSummary}
             onApproveExecutionGate={onApproveExecutionGate}
             onEmergencyStop={onEmergencyStop}
+            showControls={executionControlsEnabled}
             terminalOutput={terminalOutput}
             visibleDiff={visibleDiff}
           />
