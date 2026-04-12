@@ -171,13 +171,6 @@ pub(crate) struct ChatSessionIndexPayload {
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct CavemanStatusPayload {
-    pub(crate) ready: bool,
-    pub(crate) detail: String,
-}
-
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub(crate) struct ChatEventPayload {
     pub(crate) session_id: String,
     pub(crate) event_type: String,

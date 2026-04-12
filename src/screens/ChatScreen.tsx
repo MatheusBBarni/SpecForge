@@ -27,7 +27,7 @@ import {
   WarningCircle,
   XmarkCircle
 } from "iconoir-react";
-import { useCallback, useMemo, useState, type Key } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { DiffPreview } from "../components/DiffPreview";
 import {
@@ -177,7 +177,6 @@ export function ChatScreen({
   const canSend = Boolean(
     activeSession &&
       activeDraft.trim() &&
-      cavemanReady &&
       !activeSession.runtime.isBusy
   );
 
@@ -594,9 +593,9 @@ function SelectField<Value extends string>({
   onChange: (value: Value) => void;
 }) {
   const handleSelectionChange = useCallback(
-    (key: Key | null) => {
-      if (key !== null) {
-        onChange(String(key) as Value);
+    (value: string | number | null) => {
+      if (value !== null) {
+        onChange(String(value) as Value);
       }
     },
     [onChange]
@@ -605,8 +604,8 @@ function SelectField<Value extends string>({
   return (
     <Select
       className="flex w-full min-w-0 flex-col gap-2"
-      onSelectionChange={handleSelectionChange}
-      selectedKey={value}
+      onChange={handleSelectionChange}
+      value={value}
     >
       <Label className={FIELD_LABEL_CLASS}>{label}</Label>
       <Select.Trigger className={SELECT_TRIGGER_CLASS}>

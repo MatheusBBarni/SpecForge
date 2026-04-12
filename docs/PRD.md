@@ -59,10 +59,10 @@ The product combines four responsibilities in one desktop shell:
 
 ### 4.4. Caveman Requirement
 
-* **Always-on skill:** Chat must always run with the Caveman skill active.
-* **Auto-verify on chat entry:** On first entry into `/chat`, SpecForge must verify the skill and install it if missing.
-* **Required install command:** The default install path must use `npx skills add JuliusBrussee/caveman`.
-* **Blocked sends on failure:** If Caveman installation or verification fails, message sending must remain disabled and the UI must show a recoverable banner.
+* **Always-on mode:** Chat must always apply Caveman-style response guidance automatically for every topic.
+* **No chat-entry verification:** Entering `/chat` must not trigger a blocking install or verification step.
+* **Built-in prompt behavior:** The Caveman behavior must be injected by SpecForge's own system prompt so users do not need to spend turn tokens enabling it.
+* **Never gate navigation or settings:** Caveman activation must not stop topic switching, route changes, or model/autonomy edits.
 
 ### 4.5. Review And Settings
 
