@@ -676,13 +676,15 @@ export function useAppScreenProps({
       onOpenFolder: handlePickProjectFolder,
       workspaceEntries: derivedState.filteredWorkspaceEntries,
       workspaceNotice,
-      workspaceRootName: projectRootName
+      workspaceRootName: projectRootName,
+      workspaceRootPath: projectRootPath
     }),
     [
       derivedState,
       folderInputRef,
       handlePickProjectFolder,
       projectRootName,
+      projectRootPath,
       settingsState.workspaceEntries.length,
       uiHandlers,
       workspaceNotice
