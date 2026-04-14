@@ -85,7 +85,7 @@ interface ChatScreenProps {
 const AUTONOMY_OPTIONS: AutonomyMode[] = ["stepped", "milestone", "god_mode"];
 
 const PANEL_CLASS = `${SETTINGS_PANEL_CLASS} rounded-[1.5rem]`;
-const PANEL_CONTENT_CLASS = "flex min-h-0 flex-1 flex-col gap-4 px-5 py-5";
+const PANEL_CONTENT_CLASS = "flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-5 py-5";
 const EYEBROW_CLASS =
   "m-0 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]";
 const PANEL_TITLE_CLASS = "m-0 text-lg font-semibold text-[var(--text-main)]";
@@ -117,7 +117,7 @@ const LIST_ITEM_BUTTON_CLASS =
 const CONTEXT_CHIP_CLASS =
   "inline-flex items-center gap-2 rounded-full border border-[var(--border-soft)] bg-white/[0.06] px-3 py-2 text-xs font-medium text-[var(--text-main)] transition hover:bg-white/[0.1]";
 const TERMINAL_CARD_CLASS =
-  "min-h-0 flex-1 border border-[var(--border-soft)] bg-black/20 shadow-none";
+  "min-h-[120px] flex-1 border border-[var(--border-soft)] bg-black/20 shadow-none";
 
 export const ChatScreen = memo(function ChatScreen({
   workspaceRootName,
@@ -193,8 +193,8 @@ export const ChatScreen = memo(function ChatScreen({
 
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-4 lg:px-5 lg:pb-5">
-      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_340px]">
-        <Card className={PANEL_CLASS}>
+      <div className="grid min-h-0 flex-1 gap-4 overflow-auto lg:grid-cols-[260px_minmax(0,1fr)_300px] lg:overflow-hidden xl:grid-cols-[300px_minmax(0,1fr)_340px]">
+        <Card className={`${PANEL_CLASS} max-h-[50vh] lg:max-h-none`}>
           <Card.Content className={PANEL_CONTENT_CLASS}>
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -300,7 +300,7 @@ export const ChatScreen = memo(function ChatScreen({
           </Card.Content>
         </Card>
 
-        <Card className={PANEL_CLASS}>
+        <Card className={`${PANEL_CLASS} min-h-[400px] lg:min-h-0`}>
           <Card.Content className={PANEL_CONTENT_CLASS}>
             <header className="flex items-center justify-between gap-4 border-b border-[var(--border-strong)] pb-4">
               <div className="min-w-0">
@@ -439,7 +439,7 @@ export const ChatScreen = memo(function ChatScreen({
           </Card.Content>
         </Card>
 
-        <Card className={PANEL_CLASS}>
+        <Card className={`${PANEL_CLASS} max-h-[60vh] lg:max-h-none`}>
           <Card.Content className={PANEL_CONTENT_CLASS}>
             <div className="flex items-center gap-3">
               <Settings className="size-5 text-[var(--accent-2)]" />
