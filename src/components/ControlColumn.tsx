@@ -9,13 +9,13 @@ import {
   Spark
 } from "iconoir-react";
 import {
+  type Key,
   memo,
+  type ReactNode, 
   useCallback,
   useEffect,
   useMemo,
-  useState,
-  type Key,
-  type ReactNode
+  useState
 } from "react";
 
 import {
@@ -201,6 +201,7 @@ function ModelSelectField({
 
   return (
     <Select
+      aria-label={label}
       className="flex w-full min-w-0 flex-col gap-2"
       onSelectionChange={handleSelectionChange}
       selectedKey={selectedKey}
@@ -306,6 +307,7 @@ function ControlSelectField<Value extends string>({
 
   return (
     <Select
+      aria-label={label}
       className="flex w-full min-w-0 flex-col gap-2"
       onSelectionChange={handleSelectionChange}
       selectedKey={selectedKey}

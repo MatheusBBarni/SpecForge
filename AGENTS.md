@@ -3,6 +3,9 @@
 ## Commands
 - `bun run dev` starts the Vite web shell on port 5173 for local UI work.
 - `bun run build` runs `tsc && vite build` for the frontend bundle.
+- `bun run test` runs the Vitest test suite (unit and component tests).
+- `bun run lint` runs the Biome linter/formatter check against `src/`.
+- `bun run lint:fix` auto-fixes lint and format issues in `src/`.
 - `bun run tauri dev` starts the desktop shell against the local Vite server.
 - `bun run tauri build` packages the desktop app.
 - `cargo check --manifest-path .\src-tauri\Cargo.toml` validates the Rust command layer.
@@ -19,7 +22,7 @@
 - MUST keep `docs/PRD.md` and `docs/SPEC.md` aligned with shipped behavior when you change the review flow, model options, import flow, or autonomy modes.
 - MUST run `cargo check --manifest-path .\src-tauri\Cargo.toml` after changing Rust commands or shared payload types.
 - MUST run `bun run build` after changing routes, stores, document loading, or shared UI contracts. If Bun reports broken shims first, repair them with `bun install --force`.
-- MUST extract new frontend behavior out of `src/App.tsx` when possible; it is already the main orchestration shell.
+- MUST extract new frontend behavior out of `src/App.tsx` when possible; it is being refactored from a monolithic file into smaller components and route shells.
 - MUST use context7 mcp server for all documentation lookups.
 
 ## Ask First
@@ -34,12 +37,12 @@
 - NEVER commit secrets, auth tokens, or machine-local binary paths.
 
 ## Landmines
-- `src/App.tsx` is 1,071 lines and `src/styles.css` is 1,047 lines. Prefer targeted extractions over widening either file.
+- `src/App.tsx` is being refactored from a large monolithic file. Prefer targeted extractions into `src/components` and `src/lib` over widening it further. `src/styles.css` is similarly large; prefer Tailwind utilities over adding more custom CSS.
 - `src-tauri/src/lib.rs` mixes environment scanning, workspace walking, diffing, document parsing, and simulated agent execution. Small changes are safer than broad rewrites.
 - `git_get_diff()` returns a sample diff when the working tree is clean, and `FALLBACK_WORKSPACE` advertises files that may not exist yet. Keep demo behavior separate from real execution logic.
 - `scan_workspace_folder()` and `filterWorkspaceFiles()` intentionally respect `.gitignore`; preserve that behavior when changing workspace discovery.
 - `docs/SPEC.md` is partially aspirational today and references tooling that is not in `package.json` (`react-markdown`, `react-syntax-highlighter`, `tauri-plugin-store`). Update the docs when you normalize or implement those gaps.
-- There is no committed frontend formatter, linter, or automated test suite yet. MUST ask before introducing one mid-task.
+- Biome is configured as the project linter/formatter (`bun run lint`). Vitest is configured for testing (`bun run test`). A CI workflow validates typecheck, lint, and tests on push/PR.
 
 ## Patterns
 - Put reusable frontend behavior in `src/lib`, long-lived client state in `src/store`, and view composition in `src/components` or route shells.

@@ -1,18 +1,18 @@
 import {
+  Folder,
   NavArrowDown,
   NavArrowRight,
-  Folder,
   Page
 } from "iconoir-react";
 import {
+  type ChangeEvent,
   memo,
+  type RefObject, 
   useCallback,
   useEffect,
   useMemo,
   useRef,
-  useState,
-  type ChangeEvent,
-  type RefObject
+  useState
 } from "react";
 
 import type { WorkspaceEntry } from "../types";
