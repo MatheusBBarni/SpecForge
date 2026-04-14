@@ -1,5 +1,5 @@
-import { DEFAULT_MODEL_ID, DEFAULT_REASONING_PROFILE, normalizeReasoningProfile } from "./agentConfig";
 import type { ModelId, ProjectSettings, ReasoningProfileId } from "../types";
+import { DEFAULT_MODEL_ID, DEFAULT_REASONING_PROFILE, normalizeReasoningProfile } from "./agentConfig";
 
 export const SPECFORGE_DIRECTORY_NAME = ".specforge";
 export const SPECFORGE_SETTINGS_FILE_NAME = "settings.json";

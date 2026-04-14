@@ -5,9 +5,8 @@ import {
   XmarkCircle
 } from "iconoir-react";
 import { memo } from "react";
-
-import { DiffPreview } from "./DiffPreview";
 import type { AgentStatus } from "../types";
+import { DiffPreview } from "./DiffPreview";
 
 interface ExecutionPanelProps {
   agentStatus: AgentStatus;
@@ -58,6 +57,7 @@ export const ExecutionPanel = memo(function ExecutionPanel({
           <div className="flex flex-wrap gap-3">
             {agentStatus === "awaiting_approval" ? (
               <button
+                aria-label="Approve execution gate"
                 className={PRIMARY_BUTTON_CLASS}
                 onClick={onApproveExecutionGate}
                 type="button"
@@ -67,7 +67,7 @@ export const ExecutionPanel = memo(function ExecutionPanel({
               </button>
             ) : null}
 
-            <button className={DANGER_BUTTON_CLASS} onClick={onEmergencyStop} type="button">
+            <button aria-label="Emergency stop" className={DANGER_BUTTON_CLASS} onClick={onEmergencyStop} type="button">
               <XmarkCircle className="size-5" />
               Emergency Stop
             </button>

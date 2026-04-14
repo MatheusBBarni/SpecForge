@@ -6,16 +6,16 @@ import { Brain, Spark } from "iconoir-react";
 import { memo } from "react";
 
 import { getModelOptions, getReasoningOptions } from "../lib/agentConfig";
+import type { ModelId, ReasoningProfileId } from "../types";
 import {
+  FIELD_LABEL_CLASS,
   ScopedPathReference,
   SETTINGS_PANEL_CLASS,
   SETTINGS_SURFACE_CLASS,
   SettingsSectionHeader,
   SettingsSelectField,
-  FIELD_LABEL_CLASS,
   TEXTAREA_CLASS
 } from "./SettingsPrimitives";
-import type { ModelId, ReasoningProfileId } from "../types";
 
 interface ProjectAiSettingsCardProps {
   configPath: string;

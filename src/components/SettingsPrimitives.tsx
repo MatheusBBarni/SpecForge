@@ -3,7 +3,7 @@ import {
   ListBox,
   Select
 } from "@heroui/react";
-import { useCallback, type Key, type ReactNode } from "react";
+import { type Key, type ReactNode, useCallback } from "react";
 
 import type { SelectOption } from "../lib/agentConfig";
 

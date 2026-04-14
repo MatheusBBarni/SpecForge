@@ -100,49 +100,30 @@ function persistSettings(settings: PersistedSettings) {
 
 const persistedSettings = readPersistedSettings();
 
-export const useSettingsStore = create<SettingsState>((set, get) => ({
-  theme: persistedSettings.theme,
-  claudePath: persistedSettings.claudePath,
-  codexPath: persistedSettings.codexPath,
-  lastProjectPath: persistedSettings.lastProjectPath,
-  environment: createEnvironmentPlaceholder(),
-  workspaceEntries: [],
-  setTheme: (theme) => {
-    set({ theme });
+export const useSettingsStore = create<SettingsState>((set, get) => {
+  function setAndPersist(patch: Partial<PersistedSettings>) {
+    set(patch);
+    const state = get();
     persistSettings({
-      theme,
-      claudePath: get().claudePath,
-      codexPath: get().codexPath,
-      lastProjectPath: get().lastProjectPath
+      theme: state.theme,
+      claudePath: state.claudePath,
+      codexPath: state.codexPath,
+      lastProjectPath: state.lastProjectPath
     });
-  },
-  setClaudePath: (claudePath) => {
-    set({ claudePath });
-    persistSettings({
-      theme: get().theme,
-      claudePath,
-      codexPath: get().codexPath,
-      lastProjectPath: get().lastProjectPath
-    });
-  },
-  setCodexPath: (codexPath) => {
-    set({ codexPath });
-    persistSettings({
-      theme: get().theme,
-      claudePath: get().claudePath,
-      codexPath,
-      lastProjectPath: get().lastProjectPath
-    });
-  },
-  setLastProjectPath: (lastProjectPath) => {
-    set({ lastProjectPath });
-    persistSettings({
-      theme: get().theme,
-      claudePath: get().claudePath,
-      codexPath: get().codexPath,
-      lastProjectPath
-    });
-  },
-  setEnvironment: (environment) => set({ environment }),
-  setWorkspaceEntries: (workspaceEntries) => set({ workspaceEntries })
-}));
+  }
+
+  return {
+    theme: persistedSettings.theme,
+    claudePath: persistedSettings.claudePath,
+    codexPath: persistedSettings.codexPath,
+    lastProjectPath: persistedSettings.lastProjectPath,
+    environment: createEnvironmentPlaceholder(),
+    workspaceEntries: [],
+    setTheme: (theme) => setAndPersist({ theme }),
+    setClaudePath: (claudePath) => setAndPersist({ claudePath }),
+    setCodexPath: (codexPath) => setAndPersist({ codexPath }),
+    setLastProjectPath: (lastProjectPath) => setAndPersist({ lastProjectPath }),
+    setEnvironment: (environment) => set({ environment }),
+    setWorkspaceEntries: (workspaceEntries) => set({ workspaceEntries })
+  };
+});

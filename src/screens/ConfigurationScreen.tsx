@@ -4,6 +4,7 @@ import {
   Input
 } from "@heroui/react";
 import { Folder, Refresh, Terminal } from "iconoir-react";
+import { memo } from "react";
 
 import { CliHealthCard } from "../components/CliHealthCard";
 import { ProjectAiSettingsCard } from "../components/ProjectAiSettingsCard";
@@ -50,7 +51,7 @@ interface ConfigurationScreenProps {
   onSupportingDocumentsChange: (value: string) => void;
 }
 
-export function ConfigurationScreen({
+export const ConfigurationScreen = memo(function ConfigurationScreen({
   desktopRuntime,
   environment,
   claudePath,
@@ -258,7 +259,7 @@ export function ConfigurationScreen({
       </div>
     </section>
   );
-}
+});
 
 function StepHeading({
   number,
