@@ -3,11 +3,11 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import type {
   AgentEventPayload,
+  AutonomyMode,
   ChatContextItem,
   ChatEventPayload,
   ChatSession,
   ChatSessionSummary,
-  AutonomyMode,
   EnvironmentStatus,
   ModelId,
   ModelProvider,
@@ -15,8 +15,8 @@ import type {
   ProjectSettings,
   ReasoningProfileId,
   WorkspaceDocument,
-  WorkspaceScanResult,
-  WorkspaceEntry
+  WorkspaceEntry, 
+  WorkspaceScanResult
 } from "../types";
 
 export const DEFAULT_PENDING_DIFF = `diff --git a/src/App.tsx b/src/App.tsx

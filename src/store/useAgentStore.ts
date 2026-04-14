@@ -33,9 +33,14 @@ export const useAgentStore = create<AgentState>((set) => ({
       executionSummary: null
     }),
   appendTerminalOutput: (line) =>
-    set((state) => ({
-      terminalOutput: [...state.terminalOutput, line].slice(-240)
-    })),
+    set((state) => {
+      if (state.terminalOutput.length < 240) {
+        return { terminalOutput: [...state.terminalOutput, line] };
+      }
+      const next = state.terminalOutput.slice(-239);
+      next.push(line);
+      return { terminalOutput: next };
+    }),
   setStatus: (status) => set({ status }),
   setCurrentMilestone: (currentMilestone) => set({ currentMilestone }),
   setPendingDiff: (pendingDiff) => set({ pendingDiff }),

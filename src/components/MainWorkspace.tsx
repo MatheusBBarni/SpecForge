@@ -2,9 +2,15 @@ import {
   CheckCircle,
   FileNotFound
 } from "iconoir-react";
-import { memo, useEffect, useMemo, type ChangeEvent } from "react";
+import { type ChangeEvent, memo, useEffect, useMemo } from "react";
 
 import { getWorkspaceDisplayPath } from "../lib/projectConfig";
+import type {
+  AgentStatus,
+  EditorTab,
+  PaneMode,
+  WorkspaceTab
+} from "../types";
 import { DocumentActionBar } from "./DocumentActionBar";
 import { DocumentEmptyState } from "./DocumentEmptyState";
 import { DocumentPane } from "./DocumentPane";
@@ -12,12 +18,6 @@ import { ExecutionPanel } from "./ExecutionPanel";
 import { PrdEmptyState } from "./PrdEmptyState";
 import { SpecEmptyState } from "./SpecEmptyState";
 import { WorkspaceTabBar } from "./WorkspaceTabBar";
-import type {
-  AgentStatus,
-  EditorTab,
-  PaneMode,
-  WorkspaceTab
-} from "../types";
 
 interface MainWorkspaceProps {
   activeTab: WorkspaceTab;

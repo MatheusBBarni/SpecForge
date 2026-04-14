@@ -1,5 +1,5 @@
 import { PlaySolid } from "iconoir-react";
-import type { ChangeEvent, ComponentProps, RefObject } from "react";
+import { type ChangeEvent, type ComponentProps, memo, type RefObject } from "react";
 
 import { ControlColumn } from "../components/ControlColumn";
 import { FloatingSearch } from "../components/FloatingSearch";
@@ -23,7 +23,7 @@ interface PrdScreenProps {
   inspectorColumnProps: ComponentProps<typeof InspectorColumn>;
 }
 
-export function PrdScreen({
+export const PrdScreen = memo(function PrdScreen({
   agentStatus,
   commandSearch,
   isSearchOpen,
@@ -81,7 +81,7 @@ export function PrdScreen({
       </div>
     </section>
   );
-}
+});
 
 const SECONDARY_BUTTON_CLASS =
   "inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[var(--border-soft)] bg-white/5 px-4 py-3 font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/8";

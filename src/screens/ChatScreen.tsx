@@ -27,7 +27,7 @@ import {
   WarningCircle,
   XmarkCircle
 } from "iconoir-react";
-import { useCallback, useMemo, useState, type Key } from "react";
+import { type Key, memo, useCallback, useMemo, useState } from "react";
 
 import { DiffPreview } from "../components/DiffPreview";
 import {
@@ -119,7 +119,7 @@ const CONTEXT_CHIP_CLASS =
 const TERMINAL_CARD_CLASS =
   "min-h-0 flex-1 border border-[var(--border-soft)] bg-black/20 shadow-none";
 
-export function ChatScreen({
+export const ChatScreen = memo(function ChatScreen({
   workspaceRootName,
   sessions,
   activeSession,
@@ -201,13 +201,14 @@ export function ChatScreen({
                 <p className={EYEBROW_CLASS}>Topics</p>
                 <h1 className={PANEL_TITLE_CLASS}>{workspaceRootName}</h1>
               </div>
-              <Button className={PRIMARY_BUTTON_CLASS} onPress={onCreateSession}>
+              <Button aria-label="Create new topic" className={PRIMARY_BUTTON_CLASS} onPress={onCreateSession}>
                 <ChatBubble className="size-4" />
                 New
               </Button>
             </div>
 
             <Input
+              aria-label="Search topics"
               className={INPUT_CLASS}
               onChange={(event) => setTopicSearch(event.target.value)}
               placeholder="Search topics"
@@ -313,7 +314,7 @@ export function ChatScreen({
                   Review
                   <ArrowRight className="size-4" />
                 </Button>
-                <Button className={ICON_BUTTON_CLASS} onPress={onRefresh}>
+                <Button aria-label="Refresh diagnostics" className={ICON_BUTTON_CLASS} onPress={onRefresh}>
                   <Refresh className="size-4" />
                 </Button>
               </div>
@@ -371,6 +372,7 @@ export function ChatScreen({
 
             <footer className="border-t border-[var(--border-strong)] pt-4">
               <TextArea
+                aria-label="Chat message draft"
                 className={TEXTAREA_CLASS}
                 onChange={(event) => onDraftChange(event.target.value)}
                 placeholder="Ask the agent anything about this topic. Type @ to attach a workspace file."
@@ -407,13 +409,14 @@ export function ChatScreen({
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {activeSession?.runtime.awaitingApproval ? (
-                    <Button className={PRIMARY_BUTTON_CLASS} onPress={onApprove}>
+                    <Button aria-label="Approve current execution" className={PRIMARY_BUTTON_CLASS} onPress={onApprove}>
                       <CheckCircle className="size-4" />
                       Approve
                     </Button>
                   ) : null}
                   {activeSession?.runtime.isBusy ? (
                     <Button
+                      aria-label="Stop current execution"
                       className="inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[rgba(255,85,85,0.32)] bg-[rgba(255,85,85,0.16)] px-4 py-3 font-medium text-[var(--danger)] transition hover:-translate-y-0.5"
                       onPress={onStop}
                     >
@@ -422,6 +425,7 @@ export function ChatScreen({
                     </Button>
                   ) : null}
                   <Button
+                    aria-label="Send message"
                     className={PRIMARY_BUTTON_CLASS}
                     isDisabled={!canSend}
                     onPress={onSend}
@@ -519,6 +523,7 @@ export function ChatScreen({
                     Attach Files
                   </div>
                   <Input
+                    aria-label="Search workspace files"
                     className={INPUT_CLASS}
                     onChange={(event) => setContextSearch(event.target.value)}
                     placeholder="Attach workspace files"
@@ -579,7 +584,7 @@ export function ChatScreen({
       </div>
     </section>
   );
-}
+});
 
 function SelectField<Value extends string>({
   label,

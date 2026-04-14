@@ -147,9 +147,9 @@ pub(crate) fn build_generation_prompt(
 ) -> String {
     let mut prompt = String::new();
     prompt.push_str(prompt_template.trim());
-    prompt.push_str("\n\n");
-    prompt.push_str("Additional operator context:\n");
+    prompt.push_str("\n\nAdditional operator context:\n--- BEGIN OPERATOR CONTEXT ---\n");
     prompt.push_str(user_prompt.trim());
+    prompt.push_str("\n--- END OPERATOR CONTEXT ---");
 
     for (label, content) in attachments {
         let trimmed_content = content.trim();

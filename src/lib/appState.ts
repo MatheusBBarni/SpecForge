@@ -1,11 +1,3 @@
-import { getModelLabel } from "./agentConfig";
-import {
-  DEFAULT_PROJECT_PRD_PATH,
-  DEFAULT_PROJECT_SPEC_PATH,
-  SPECFORGE_SETTINGS_RELATIVE_PATH,
-  getWorkspaceDisplayPath,
-  normalizeProjectSettings
-} from "./projectConfig";
 import type {
   EnvironmentStatus,
   ModelId,
@@ -13,6 +5,14 @@ import type {
   ProjectContext,
   ReasoningProfileId
 } from "../types";
+import { getModelLabel } from "./agentConfig";
+import {
+  DEFAULT_PROJECT_PRD_PATH,
+  DEFAULT_PROJECT_SPEC_PATH,
+  getWorkspaceDisplayPath,
+  normalizeProjectSettings, 
+  SPECFORGE_SETTINGS_RELATIVE_PATH
+} from "./projectConfig";
 
 interface BuildCurrentProjectSettingsOptions {
   configuredPrdPath: string;

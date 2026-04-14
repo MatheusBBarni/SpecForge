@@ -1,8 +1,7 @@
 import { Button } from "@heroui/react";
-import type { ComponentProps } from "react";
-
-import { SettingsView } from "../components/SettingsView";
+import { type ComponentProps, memo } from "react";
 import { SECONDARY_BUTTON_CLASS } from "../components/SettingsPrimitives";
+import { SettingsView } from "../components/SettingsView";
 import { StatusPill } from "../components/StatusPill";
 import type { AgentStatus } from "../types";
 
@@ -12,7 +11,7 @@ interface SettingsScreenProps {
   settingsViewProps: ComponentProps<typeof SettingsView>;
 }
 
-export function SettingsScreen({
+export const SettingsScreen = memo(function SettingsScreen({
   agentStatus,
   onRefresh,
   settingsViewProps
@@ -37,4 +36,4 @@ export function SettingsScreen({
       </div>
     </section>
   );
-}
+});
