@@ -1,5 +1,52 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum SessionStatus {
+    Idle,
+    Executing,
+    AwaitingApproval,
+    Completed,
+    Halted,
+    Error,
+}
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) enum AutonomyMode {
+    #[serde(rename = "stepped")]
+    Stepped,
+    #[serde(rename = "milestone")]
+    Milestone,
+    #[serde(rename = "god_mode")]
+    GodMode,
+}
+
+impl std::fmt::Display for AutonomyMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Stepped => write!(f, "stepped"),
+            Self::Milestone => write!(f, "milestone"),
+            Self::GodMode => write!(f, "god_mode"),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum MessageRole {
+    User,
+    Assistant,
+}
+
+impl MessageRole {
+    pub(crate) fn display_label(&self) -> &'static str {
+        match self {
+            Self::User => "USER",
+            Self::Assistant => "ASSISTANT",
+        }
+    }
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CliStatus {
@@ -96,7 +143,7 @@ pub(crate) struct ChatContextItem {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ChatMessage {
     pub(crate) id: String,
-    pub(crate) role: String,
+    pub(crate) role: MessageRole,
     pub(crate) content: String,
     pub(crate) created_at: String,
 }
@@ -104,7 +151,7 @@ pub(crate) struct ChatMessage {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ChatRuntimeState {
-    pub(crate) status: String,
+    pub(crate) status: SessionStatus,
     pub(crate) terminal_output: Vec<String>,
     pub(crate) current_milestone: Option<String>,
     pub(crate) pending_diff: Option<String>,
@@ -118,7 +165,7 @@ pub(crate) struct ChatRuntimeState {
 impl Default for ChatRuntimeState {
     fn default() -> Self {
         Self {
-            status: String::from("idle"),
+            status: SessionStatus::Idle,
             terminal_output: Vec::new(),
             current_milestone: None,
             pending_diff: None,
@@ -138,11 +185,11 @@ pub(crate) struct ChatSessionSummary {
     pub(crate) title: String,
     pub(crate) created_at: String,
     pub(crate) updated_at: String,
-    pub(crate) status: String,
+    pub(crate) status: SessionStatus,
     pub(crate) last_message_preview: String,
     pub(crate) selected_model: String,
     pub(crate) selected_reasoning: String,
-    pub(crate) autonomy_mode: String,
+    pub(crate) autonomy_mode: AutonomyMode,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -152,11 +199,11 @@ pub(crate) struct ChatSessionSnapshot {
     pub(crate) title: String,
     pub(crate) created_at: String,
     pub(crate) updated_at: String,
-    pub(crate) status: String,
+    pub(crate) status: SessionStatus,
     pub(crate) last_message_preview: String,
     pub(crate) selected_model: String,
     pub(crate) selected_reasoning: String,
-    pub(crate) autonomy_mode: String,
+    pub(crate) autonomy_mode: AutonomyMode,
     pub(crate) context_items: Vec<ChatContextItem>,
     pub(crate) messages: Vec<ChatMessage>,
     pub(crate) runtime: ChatRuntimeState,

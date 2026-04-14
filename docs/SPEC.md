@@ -143,3 +143,4 @@ This prevents review from launching a second execution engine that could diverge
 * Opened workspace file tabs remain in-memory only; there is still no save-to-disk flow.
 * The desktop runtime is required for real project persistence, chat sessions, and CLI-backed turns.
 * The provider set remains limited to Codex CLI and Claude Code for this version.
+* **Planned dependencies not yet installed:** `react-markdown`, `react-syntax-highlighter`, and `tauri-plugin-store` are referenced in design documents but are not currently in `package.json` or `Cargo.toml`. Features that depend on them (rich markdown rendering, syntax-highlighted code blocks, native key-value persistence) are aspirational and should not be assumed functional until the dependencies are added.

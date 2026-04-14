@@ -1,7 +1,6 @@
-import { memo, useEffect, useState, type ChangeEvent, type ReactNode } from "react";
-
-import { MarkdownDocument } from "./MarkdownDocument";
+import { type ChangeEvent, memo, type ReactNode, useEffect, useState } from "react";
 import type { PaneMode } from "../types";
+import { MarkdownDocument } from "./MarkdownDocument";
 
 interface DocumentPaneProps {
   content: string;

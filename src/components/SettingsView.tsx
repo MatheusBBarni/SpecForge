@@ -9,7 +9,13 @@ import {
   Terminal
 } from "iconoir-react";
 import { memo } from "react";
-
+import type {
+  EnvironmentStatus,
+  ModelId,
+  ReasoningProfileId,
+  SpecAnnotation,
+  ThemeMode
+} from "../types";
 import { CliHealthCard } from "./CliHealthCard";
 import { ProjectAiSettingsCard } from "./ProjectAiSettingsCard";
 import { ProjectDocumentsCard } from "./ProjectDocumentsCard";
@@ -21,13 +27,6 @@ import {
   SETTINGS_SURFACE_CLASS,
   SettingsSectionHeader
 } from "./SettingsPrimitives";
-import type {
-  EnvironmentStatus,
-  ModelId,
-  ReasoningProfileId,
-  SpecAnnotation,
-  ThemeMode
-} from "../types";
 
 interface SettingsViewProps {
   annotations: SpecAnnotation[];
