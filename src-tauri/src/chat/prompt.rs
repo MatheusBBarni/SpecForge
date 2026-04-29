@@ -1,14 +1,11 @@
 use crate::{
-    documents::parse_workspace_document,
-    models::ChatSessionSnapshot,
-    paths::resolve_relative_path_under_root,
-    state::WorkspaceContext,
+    documents::parse_workspace_document, models::ChatSessionSnapshot,
+    paths::resolve_relative_path_under_root, state::WorkspaceContext,
 };
 
 use super::execution::ChatExecutionPhase;
 
-pub(super) const CAVEMAN_PREAMBLE: &str =
-    "Default response style: caveman. Keep prose terse and direct while leaving code blocks, commands, and diffs fully normal.";
+pub(super) const CAVEMAN_PREAMBLE: &str = "Default response style: caveman. Keep prose terse and direct while leaving code blocks, commands, and diffs fully normal.";
 
 pub(super) fn build_context_blocks(
     workspace: &WorkspaceContext,

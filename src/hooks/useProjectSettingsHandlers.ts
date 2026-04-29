@@ -18,6 +18,7 @@ interface UseProjectSettingsHandlersOptions {
   setConfiguredPrdPath: ProjectStoreSlice["setConfiguredPrdPath"];
   setConfiguredSpecPath: ProjectStoreSlice["setConfiguredSpecPath"];
   setPrdPromptTemplate: ProjectStoreSlice["setPrdPromptTemplate"];
+  setExecutionAgentDescription: ProjectStoreSlice["setExecutionAgentDescription"];
   setReasoningProfile: ProjectStoreSlice["setReasoningProfile"];
   setSelectedModel: ProjectStoreSlice["setSelectedModel"];
   setSpecPromptTemplate: ProjectStoreSlice["setSpecPromptTemplate"];
@@ -30,6 +31,7 @@ export function useProjectSettingsHandlers({
   setConfiguredPrdPath,
   setConfiguredSpecPath,
   setPrdPromptTemplate,
+  setExecutionAgentDescription,
   setReasoningProfile,
   setSelectedModel,
   setSpecPromptTemplate,
@@ -67,6 +69,14 @@ export function useProjectSettingsHandlers({
     [scheduleProjectSettingsSave, setSpecPromptTemplate]
   );
 
+  const handleExecutionAgentDescriptionChange = useCallback(
+    (value: string) => {
+      setExecutionAgentDescription(value);
+      scheduleProjectSettingsSave(false);
+    },
+    [scheduleProjectSettingsSave, setExecutionAgentDescription]
+  );
+
   const handleConfiguredPrdPathChange = useCallback(
     (value: string) => {
       setConfiguredPrdPath(normalizeProjectRelativePath(value));
@@ -100,6 +110,7 @@ export function useProjectSettingsHandlers({
     handleProjectReasoningChange,
     handlePrdPromptTemplateChange,
     handleSpecPromptTemplateChange,
+    handleExecutionAgentDescriptionChange,
     handleConfiguredPrdPathChange,
     handleConfiguredSpecPathChange,
     handleSupportingDocumentsChange,

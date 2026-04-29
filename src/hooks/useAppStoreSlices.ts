@@ -46,6 +46,7 @@ export function useProjectStoreSlice() {
       specPaneMode: state.specPaneMode,
       specPath: state.specPath,
       specPromptTemplate: state.specPromptTemplate,
+      executionAgentDescription: state.executionAgentDescription,
       supportingDocumentPaths: state.supportingDocumentPaths,
       approveSpec: state.approveSpec,
       closeEditorTab: state.closeEditorTab,
@@ -65,6 +66,7 @@ export function useProjectStoreSlice() {
       setSpecContent: state.setSpecContent,
       setSpecPaneMode: state.setSpecPaneMode,
       setSpecPromptTemplate: state.setSpecPromptTemplate,
+      setExecutionAgentDescription: state.setExecutionAgentDescription,
       setSupportingDocumentPaths: state.setSupportingDocumentPaths,
       updateEditorTabContent: state.updateEditorTabContent
     }))
@@ -100,14 +102,12 @@ export type ChatStoreSlice = ReturnType<typeof useChatStoreSlice>;
 export function useSettingsStoreSlice() {
   return useSettingsStore(
     useShallow((state) => ({
-      claudePath: state.claudePath,
-      codexPath: state.codexPath,
+      cursorApiKeyInput: state.cursorApiKeyInput,
       environment: state.environment,
       lastProjectPath: state.lastProjectPath,
       theme: state.theme,
       workspaceEntries: state.workspaceEntries,
-      setClaudePath: state.setClaudePath,
-      setCodexPath: state.setCodexPath,
+      setCursorApiKeyInput: state.setCursorApiKeyInput,
       setEnvironment: state.setEnvironment,
       setLastProjectPath: state.setLastProjectPath,
       setTheme: state.setTheme,

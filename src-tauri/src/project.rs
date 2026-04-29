@@ -1,8 +1,9 @@
 use crate::{
     chat::load_chat_session_index,
     constants::{
-        DEFAULT_PRD_PROMPT, DEFAULT_PROJECT_PRD_PATH, DEFAULT_PROJECT_SPEC_PATH,
-        DEFAULT_SPEC_PROMPT, SPECFORGE_SETTINGS_RELATIVE_PATH,
+        DEFAULT_EXECUTION_AGENT_DESCRIPTION, DEFAULT_PRD_AGENT_DESCRIPTION,
+        DEFAULT_PROJECT_PRD_PATH, DEFAULT_PROJECT_SPEC_PATH, DEFAULT_SPEC_AGENT_DESCRIPTION,
+        SPECFORGE_SETTINGS_RELATIVE_PATH,
     },
     documents::load_configured_workspace_document,
     models::{ProjectContextPayload, ProjectSettings},
@@ -133,10 +134,11 @@ pub(crate) fn build_default_project_settings(
     spec_document: Option<&crate::models::WorkspaceDocument>,
 ) -> ProjectSettings {
     ProjectSettings {
-        selected_model: String::from("gpt-5.4"),
+        selected_model: String::from("composer-2"),
         selected_reasoning: String::from("medium"),
-        prd_prompt: String::from(DEFAULT_PRD_PROMPT),
-        spec_prompt: String::from(DEFAULT_SPEC_PROMPT),
+        prd_agent_description: String::from(DEFAULT_PRD_AGENT_DESCRIPTION),
+        spec_agent_description: String::from(DEFAULT_SPEC_AGENT_DESCRIPTION),
+        execution_agent_description: String::from(DEFAULT_EXECUTION_AGENT_DESCRIPTION),
         prd_path: derive_default_document_path(
             workspace_root,
             prd_document,
@@ -180,15 +182,20 @@ pub(crate) fn normalize_project_settings(
     Ok(ProjectSettings {
         selected_model,
         selected_reasoning,
-        prd_prompt: if provided.prd_prompt.trim().is_empty() {
-            defaults.prd_prompt
+        prd_agent_description: if provided.prd_agent_description.trim().is_empty() {
+            defaults.prd_agent_description
         } else {
-            provided.prd_prompt.trim().to_string()
+            provided.prd_agent_description.trim().to_string()
         },
-        spec_prompt: if provided.spec_prompt.trim().is_empty() {
-            defaults.spec_prompt
+        spec_agent_description: if provided.spec_agent_description.trim().is_empty() {
+            defaults.spec_agent_description
         } else {
-            provided.spec_prompt.trim().to_string()
+            provided.spec_agent_description.trim().to_string()
+        },
+        execution_agent_description: if provided.execution_agent_description.trim().is_empty() {
+            defaults.execution_agent_description
+        } else {
+            provided.execution_agent_description.trim().to_string()
         },
         prd_path: normalized_prd_path,
         spec_path: normalized_spec_path,
@@ -266,20 +273,7 @@ pub(crate) fn load_project_settings_from_workspace_root(
 }
 
 pub(crate) fn normalize_project_model(value: &str, fallback: &str) -> Result<String, String> {
-    const VALID_MODELS: &[&str] = &[
-        "gpt-5.4",
-        "gpt-5.4-mini",
-        "gpt-5.3-codex",
-        "gpt-5.2",
-        "claude-opus-4-1-20250805",
-        "claude-opus-4-20250514",
-        "claude-sonnet-4-20250514",
-        "claude-3-7-sonnet-20250219",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-5-sonnet-20240620",
-        "claude-3-5-haiku-20241022",
-        "claude-3-haiku-20240307",
-    ];
+    const VALID_MODELS: &[&str] = &["composer-2", "auto"];
     let trimmed_value = value.trim();
 
     if trimmed_value.is_empty() {
@@ -290,7 +284,9 @@ pub(crate) fn normalize_project_model(value: &str, fallback: &str) -> Result<Str
         return Ok(trimmed_value.to_string());
     }
 
-    Err(format!("Unsupported model `{trimmed_value}` in project settings."))
+    Err(format!(
+        "Unsupported model `{trimmed_value}` in project settings."
+    ))
 }
 
 pub(crate) fn normalize_project_reasoning(value: &str, fallback: &str) -> Result<String, String> {

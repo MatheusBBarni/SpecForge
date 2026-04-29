@@ -20,8 +20,7 @@ import type { EnvironmentStatus, ModelId, ReasoningProfileId } from "../types";
 interface ConfigurationScreenProps {
   desktopRuntime: boolean;
   environment: EnvironmentStatus;
-  claudePath: string;
-  codexPath: string;
+  cursorApiKeyInput: string;
   workspaceRootName: string;
   workspaceRootPath: string;
   settingsPath: string;
@@ -34,18 +33,21 @@ interface ConfigurationScreenProps {
   selectedReasoning: ReasoningProfileId;
   prdPrompt: string;
   specPrompt: string;
+  executionAgentDescription: string;
   prdPath: string;
   specPath: string;
   supportingDocumentsValue: string;
   onPickFolder: () => void;
   onRefresh: () => void;
   onContinue: () => void;
-  onClaudePathChange: (value: string) => void;
-  onCodexPathChange: (value: string) => void;
+  onCursorApiKeyInputChange: (value: string) => void;
+  onSaveCursorApiKey: () => void;
+  onDeleteCursorApiKey: () => void;
   onModelChange: (model: ModelId) => void;
   onReasoningChange: (reasoning: ReasoningProfileId) => void;
   onPrdPromptChange: (value: string) => void;
   onSpecPromptChange: (value: string) => void;
+  onExecutionAgentDescriptionChange: (value: string) => void;
   onPrdPathChange: (value: string) => void;
   onSpecPathChange: (value: string) => void;
   onSupportingDocumentsChange: (value: string) => void;
@@ -54,8 +56,7 @@ interface ConfigurationScreenProps {
 export const ConfigurationScreen = memo(function ConfigurationScreen({
   desktopRuntime,
   environment,
-  claudePath,
-  codexPath,
+  cursorApiKeyInput,
   workspaceRootName,
   workspaceRootPath,
   settingsPath,
@@ -68,18 +69,21 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
   selectedReasoning,
   prdPrompt,
   specPrompt,
+  executionAgentDescription,
   prdPath,
   specPath,
   supportingDocumentsValue,
   onPickFolder,
   onRefresh,
   onContinue,
-  onClaudePathChange,
-  onCodexPathChange,
+  onCursorApiKeyInputChange,
+  onSaveCursorApiKey,
+  onDeleteCursorApiKey,
   onModelChange,
   onReasoningChange,
   onPrdPromptChange,
   onSpecPromptChange,
+  onExecutionAgentDescriptionChange,
   onPrdPathChange,
   onSpecPathChange,
   onSupportingDocumentsChange
@@ -105,7 +109,7 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
                   Configure SpecForge Before Review Starts
                 </h1>
                 <p className="mt-3 text-sm leading-7 text-[var(--text-subtle)]">
-                  Choose the project folder, verify the available CLIs, set the default AI prompts
+                  Choose the project folder, save the Cursor key, set the default agent descriptions
                   and model behavior, and point SpecForge at the PRD/spec files you want this
                   workspace to use.
                 </p>
@@ -153,36 +157,35 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
           <Card.Content className="grid gap-4 px-5 py-5">
             <StepHeading
               number="2"
-              title="Review CLI Availability"
-              description="SpecForge keeps CLI discovery machine-local. Manual path overrides remain local preferences."
+              title="Connect Cursor"
+              description="SpecForge keeps the Cursor API key in the OS credential store, not in project settings."
             />
 
-            <div className="grid gap-4 xl:grid-cols-3">
-              <CliHealthCard entry={environment.claude} />
-              <CliHealthCard entry={environment.codex} />
+            <div className="grid gap-4 xl:grid-cols-2">
+              <CliHealthCard entry={environment.cursor} />
               <CliHealthCard entry={environment.git} />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4">
               <label className="grid gap-2">
-                <span className={FIELD_LABEL_CLASS}>Claude CLI override</span>
+                <span className={FIELD_LABEL_CLASS}>Cursor API key</span>
                 <Input
                   className={INPUT_CLASS}
-                  onChange={(event) => onClaudePathChange(event.target.value)}
-                  placeholder="Optional manual path"
-                  value={claudePath}
+                  onChange={(event) => onCursorApiKeyInputChange(event.target.value)}
+                  placeholder="key_..."
+                  type="password"
+                  value={cursorApiKeyInput}
                 />
               </label>
 
-              <label className="grid gap-2">
-                <span className={FIELD_LABEL_CLASS}>Codex CLI override</span>
-                <Input
-                  className={INPUT_CLASS}
-                  onChange={(event) => onCodexPathChange(event.target.value)}
-                  placeholder="Optional manual path"
-                  value={codexPath}
-                />
-              </label>
+              <div className="flex flex-wrap gap-3">
+                <Button className={PRIMARY_BUTTON_CLASS} onPress={onSaveCursorApiKey}>
+                  Save Cursor Key
+                </Button>
+                <Button className={SECONDARY_BUTTON_CLASS} onPress={onDeleteCursorApiKey}>
+                  Clear Cursor Key
+                </Button>
+              </div>
             </div>
           </Card.Content>
         </Card>
@@ -197,6 +200,7 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
             <ProjectAiSettingsCard
               configPath={settingsPath}
               onModelChange={onModelChange}
+              onExecutionAgentDescriptionChange={onExecutionAgentDescriptionChange}
               onPrdPromptChange={onPrdPromptChange}
               onReasoningChange={onReasoningChange}
               onSpecPromptChange={onSpecPromptChange}
@@ -204,6 +208,7 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
               selectedModel={selectedModel}
               selectedReasoning={selectedReasoning}
               specPrompt={specPrompt}
+              executionAgentDescription={executionAgentDescription}
               workspaceRootName={workspaceRootName}
             />
           </div>

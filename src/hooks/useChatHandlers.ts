@@ -42,7 +42,7 @@ export function useChatHandlers({
   activeChatSession,
   activeChatDraft,
   activeSessionId,
-  settingsState,
+  settingsState: _settingsState,
   upsertSession,
   setActiveSessionId,
   setChatDraft,
@@ -145,9 +145,7 @@ export function useChatHandlers({
     try {
       await sendChatMessage({
         sessionId: activeChatSession.id,
-        message: activeChatDraft,
-        claudePath: settingsState.claudePath,
-        codexPath: settingsState.codexPath
+        message: activeChatDraft
       });
       setChatDraft(activeChatSession.id, "");
     } catch (error) {
@@ -155,7 +153,7 @@ export function useChatHandlers({
         error instanceof Error ? error.message : "Unable to send the current chat message."
       );
     }
-  }, [activeChatDraft, activeChatSession, setChatDraft, setProjectErrorMessage, settingsState]);
+  }, [activeChatDraft, activeChatSession, setChatDraft, setProjectErrorMessage]);
 
   const handleApproveChatSession = useCallback(async () => {
     if (!activeChatSession) {

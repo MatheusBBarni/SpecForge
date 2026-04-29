@@ -4,10 +4,11 @@
 
 SpecForge is a split desktop application:
 
-* **React webview:** Owns routing, topic/session management UI, PRD/spec editing, workspace browsing, settings, and passive rendering of runtime output.
-* **Tauri/Rust backend:** Owns filesystem access, workspace scanning, session persistence, git diffing, native dialogs, PDF parsing, CLI process execution, Caveman verification, and chat event streaming.
+* **React webview:** Owns routing, topic/session management UI, PRD/spec editing, workspace browsing, settings, passive rendering of runtime output, and PRD/spec prompt orchestration.
+* **Bun TypeScript runner:** Owns `@cursor/sdk` execution for PRD/spec generation because the SDK local runtime requires a Node-compatible process and cannot be bundled into the browser webview.
+* **Tauri/Rust backend:** Owns filesystem access, workspace scanning, session persistence, git diffing, native dialogs, PDF parsing, OS credential storage for the Cursor API key, generated document saving, Bun runner delegation, and chat event streaming.
 
-The webview never executes shell commands or writes workspace files directly. All desktop work continues to flow through `src/lib/runtime.ts` into Tauri commands exposed from `src-tauri/src/lib.rs`.
+The webview never writes workspace files directly. All desktop data access continues to flow through `src/lib/runtime.ts` into Tauri commands exposed from `src-tauri/src/lib.rs`. PRD/spec model calls run through `src/cursorAgentRunner.ts` using Bun and `@cursor/sdk`; Rust does not implement provider-specific prompt logic.
 
 ## 2. Routes
 
@@ -22,16 +23,18 @@ When a saved project is restored, the app routes to `/chat` by default.
 
 ### 3.1. Frontend stores
 
-* **`useProjectStore`:** PRD/spec content, document paths, prompt templates, selected project defaults, annotations, and open workspace file tabs.
+* **`useProjectStore`:** PRD/spec content, document paths, editable agent descriptions, selected project defaults, annotations, and open workspace file tabs.
 * **`useChatStore`:** Chat session summaries, `activeSessionId`, loaded per-topic snapshots, per-topic drafts, and Caveman readiness state.
 * **`useAgentStore`:** A lightweight runtime mirror used by review and shared execution UI. In chat-first flows it mirrors the active chat topic runtime rather than owning an independent executor.
-* **`useSettingsStore`:** Theme, CLI override paths, last opened project path, environment scan results, and workspace entries.
+* **`useSettingsStore`:** Theme, in-memory Cursor API key input, last opened project path, environment scan results, and workspace entries.
 
 ### 3.2. Persistence
 
 Project settings live in:
 
 * `.specforge/settings.json`
+
+The Cursor API key is not part of project settings. It is stored by Rust through the OS credential store and exposed to the frontend only when Cursor SDK generation needs it.
 
 Chat data lives in:
 
@@ -68,7 +71,7 @@ Additional workspace files are attached explicitly per topic from the chat UI. S
 
 ### 4.2. Runtime orchestration
 
-Chat turns are executed in Rust as headless CLI invocations:
+Chat turns are still executed in Rust as the legacy headless CLI path:
 
 * **Codex provider:** mapped to suggest, auto-edit, or full-auto style permissions depending on the selected autonomy mode
 * **Claude provider:** mapped to default, accept-edits, or bypass-permissions style permissions
@@ -89,11 +92,29 @@ Rust keeps a session-keyed runtime map so the following remain isolated by `sess
 
 Review mode does not expose these controls directly; it only mirrors the active topic state.
 
-## 5. Tauri Command Surface
+## 5. PRD/Spec Generation
+
+PRD/spec generation now runs in the TypeScript layer with `@cursor/sdk`, isolated in a Bun runner so Vite does not bundle Node-only SDK dependencies into the webview.
+
+* `src/lib/cursorAgentRuntime.ts` composes Cursor prompts and invokes the desktop Cursor runner command.
+* `src/cursorAgentRunner.ts` creates the local Cursor SDK agent, streams run events, waits for completion, and extracts final Markdown.
+* `src/hooks/useDocumentHandlers.ts` keeps the existing PRD/spec button and prompt flow, but fetches the Cursor API key from Rust before invoking the Cursor generation path.
+* Rust does not call Codex or Claude ACP for PRD/spec generation.
+* Rust launches the Bun runner, validates the workspace root, and parses the runner's structured JSON-line output.
+* Rust validates the workspace root and Markdown output path through `save_workspace_document`, strips wrapping Markdown code fences, creates parent directories, and writes the generated document.
+* The PRD agent receives the editable PRD agent description plus the user's PRD prompt.
+* The spec agent receives the editable spec agent description, the user's spec prompt, and the selected PRD content.
+* The execution agent description is persisted in project settings for the upcoming execution migration.
+
+## 6. Tauri Command Surface
 
 The desktop runtime currently exposes:
 
 * `run_environment_scan`
+* `run_cursor_agent_prompt`
+* `get_cursor_api_key`
+* `save_cursor_api_key`
+* `delete_cursor_api_key`
 * `pick_document`
 * `pick_project_folder`
 * `load_project_context`
@@ -101,8 +122,7 @@ The desktop runtime currently exposes:
 * `read_workspace_file`
 * `get_workspace_snapshot`
 * `git_get_diff`
-* `generate_prd_document`
-* `generate_spec_document`
+* `save_workspace_document`
 * `create_chat_session`
 * `load_chat_session`
 * `save_chat_session`
@@ -114,7 +134,7 @@ The desktop runtime currently exposes:
 
 Chat runtime updates are streamed through a typed `chat-session-event` payload carrying the session id plus the current session snapshot or summary update.
 
-## 6. Caveman Integration
+## 7. Caveman Integration
 
 SpecForge now treats Caveman as a built-in chat response mode instead of a runtime-installed dependency.
 
@@ -122,7 +142,7 @@ Each outgoing chat turn prepends a compact Caveman-style instruction before the 
 
 There is no chat-entry verification or installation path tied to navigation, and Caveman state must never block topic changes, route changes, or session configuration edits.
 
-## 7. Review Workspace
+## 8. Review Workspace
 
 The review screen still provides:
 
@@ -138,9 +158,9 @@ Its execute panel is now a read-only mirror of the active chat topic:
 
 This prevents review from launching a second execution engine that could diverge from chat state.
 
-## 8. Known Limits
+## 9. Known Limits
 
 * Opened workspace file tabs remain in-memory only; there is still no save-to-disk flow.
 * The desktop runtime is required for real project persistence, chat sessions, and CLI-backed turns.
-* The provider set remains limited to Codex CLI and Claude Code for this version.
+* Chat execution still uses the legacy Codex CLI and Claude Code path; the current Cursor SDK refactor is limited to PRD/spec generation.
 * **Planned dependencies not yet installed:** `react-markdown`, `react-syntax-highlighter`, and `tauri-plugin-store` are referenced in design documents but are not currently in `package.json` or `Cargo.toml`. Features that depend on them (rich markdown rendering, syntax-highlighted code blocks, native key-value persistence) are aspirational and should not be assumed functional until the dependencies are added.

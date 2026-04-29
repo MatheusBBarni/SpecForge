@@ -219,10 +219,11 @@ export function useProjectHandlers({
         const currentProjectSettings = buildCurrentProjectSettings({
           configuredPrdPath: latestProjectState.configuredPrdPath,
           configuredSpecPath: latestProjectState.configuredSpecPath,
-          prdPromptTemplate: latestProjectState.prdPromptTemplate,
+          prdAgentDescription: latestProjectState.prdPromptTemplate,
           selectedModel: latestProjectState.selectedModel,
           selectedReasoning: latestProjectState.selectedReasoning,
-          specPromptTemplate: latestProjectState.specPromptTemplate,
+          specAgentDescription: latestProjectState.specPromptTemplate,
+          executionAgentDescription: latestProjectState.executionAgentDescription,
           supportingDocumentPaths: latestProjectState.supportingDocumentPaths
         });
         const savedSettings = await saveProjectSettings({

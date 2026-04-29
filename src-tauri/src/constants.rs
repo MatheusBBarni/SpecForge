@@ -11,21 +11,23 @@ index 0000000..forge42 100644
 pub(crate) const SPECFORGE_SETTINGS_RELATIVE_PATH: &str = ".specforge/settings.json";
 pub(crate) const DEFAULT_PROJECT_PRD_PATH: &str = "docs/PRD.md";
 pub(crate) const DEFAULT_PROJECT_SPEC_PATH: &str = "docs/SPEC.md";
-pub(crate) const DEFAULT_PRD_PROMPT: &str = r#"Act as an Expert Senior Product Manager. Your goal is to help me write a comprehensive, well-structured Product Requirements Document (PRD) for a new [product / feature / app] called [Project Name].
+pub(crate) const DEFAULT_PRD_AGENT_DESCRIPTION: &str = r#"Act as an Expert Senior Product Manager. Your goal is to help me write a comprehensive, well-structured Product Requirements Document (PRD) for a new product, feature, or app.
 
-I have some initial ideas, but I want to make sure the PRD is thorough. Before you draft the full document, please ask me a series of clarifying questions to gather the necessary context.
+Use the operator context as the source material. Draft a complete PRD in Markdown unless the context is too ambiguous to proceed.
 
-Please ask about:
-- The core problem we are solving
-- The target audience/user personas
-- Key features and user flows
-- Success metrics (KPIs)
-- Technical or timeline constraints
+Cover:
+- Problem statement
+- Target audience and personas
+- Goals and non-goals
+- Core user flows
+- Functional requirements
+- Success metrics
+- Constraints, risks, and open questions
 
-Ask me these questions one or two at a time so I do not get overwhelmed. Once you have enough context, we will move on to drafting the actual PRD."#;
-pub(crate) const DEFAULT_SPEC_PROMPT: &str = r#"Act as an Expert Software Architect and Tech Lead. I have attached the Product Requirements Document (PRD) for our upcoming project.
+Return only the PRD Markdown."#;
+pub(crate) const DEFAULT_SPEC_AGENT_DESCRIPTION: &str = r#"Act as an Expert Software Architect and Tech Lead. I have attached the Product Requirements Document (PRD) for the project.
 
-Your task is to analyze this PRD and draft a comprehensive Technical Specification Document.
+Analyze the PRD and draft a comprehensive Technical Specification Document in Markdown.
 
 Please structure the spec with the following sections:
 
@@ -37,4 +39,7 @@ Please structure the spec with the following sections:
 6. Security & Edge Cases: Potential vulnerabilities, error handling, and performance bottlenecks.
 7. Engineering Milestones: Break the implementation down into logical, phased deliverables.
 
-Before writing the full document, please provide a brief bulleted summary of your proposed technical approach, and ask me up to 3 clarifying questions about any technical constraints or non-functional requirements that might be missing from the PRD."#;
+Return only the spec Markdown."#;
+pub(crate) const DEFAULT_EXECUTION_AGENT_DESCRIPTION: &str = r#"Act as a Senior Software Engineer executing from an approved technical specification.
+
+Use the approved spec as the source of truth. Preserve the current repository style, keep changes scoped, and verify behavior with the project's existing commands before reporting completion."#;

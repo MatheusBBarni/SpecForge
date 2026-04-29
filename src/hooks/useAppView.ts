@@ -81,24 +81,23 @@ export function useAppDerivedState({
     () => buildMcpItems(settingsState.environment),
     [settingsState.environment]
   );
-  const selectedProviderStatus =
-    selectedModelProvider === "claude"
-      ? settingsState.environment.claude
-      : settingsState.environment.codex;
+  const selectedProviderStatus = settingsState.environment.cursor;
   const currentProjectSettings = useMemo(
     () =>
       buildCurrentProjectSettings({
         configuredPrdPath: projectState.configuredPrdPath,
         configuredSpecPath: projectState.configuredSpecPath,
-        prdPromptTemplate: projectState.prdPromptTemplate,
+        prdAgentDescription: projectState.prdPromptTemplate,
         selectedModel: projectState.selectedModel,
         selectedReasoning: projectState.selectedReasoning,
-        specPromptTemplate: projectState.specPromptTemplate,
+        specAgentDescription: projectState.specPromptTemplate,
+        executionAgentDescription: projectState.executionAgentDescription,
         supportingDocumentPaths: projectState.supportingDocumentPaths
       }),
     [
       projectState.configuredPrdPath,
       projectState.configuredSpecPath,
+      projectState.executionAgentDescription,
       projectState.prdPromptTemplate,
       projectState.selectedModel,
       projectState.selectedReasoning,
@@ -118,6 +117,7 @@ export function useAppDerivedState({
     () =>
       desktopRuntime &&
       !isGeneratingPrd &&
+      settingsState.environment.cursor.status === "found" &&
       projectRootPath.trim().length > 0 &&
       projectState.configuredPrdPath.trim().length > 0 &&
       prdGenerationPrompt.trim().length > 0,
@@ -126,13 +126,15 @@ export function useAppDerivedState({
       isGeneratingPrd,
       prdGenerationPrompt,
       projectRootPath,
-      projectState.configuredPrdPath
+      projectState.configuredPrdPath,
+      settingsState.environment.cursor.status
     ]
   );
   const canGenerateSpec = useMemo(
     () =>
       desktopRuntime &&
       !isGeneratingSpec &&
+      settingsState.environment.cursor.status === "found" &&
       projectRootPath.trim().length > 0 &&
       projectState.prdContent.trim().length > 0 &&
       projectState.configuredSpecPath.trim().length > 0 &&
@@ -143,6 +145,7 @@ export function useAppDerivedState({
       projectRootPath,
       projectState.configuredSpecPath,
       projectState.prdContent,
+      settingsState.environment.cursor.status,
       specGenerationPrompt
     ]
   );

@@ -20,12 +20,8 @@ use std::{
 use tauri::{AppHandle, Emitter};
 
 use super::{
-    helpers::{
-        build_message_preview, create_chat_entity_id, summarize_session,
-    },
-    persistence::{
-        read_chat_session_snapshot, refresh_index_summary, write_chat_session_snapshot,
-    },
+    helpers::{build_message_preview, create_chat_entity_id, summarize_session},
+    persistence::{read_chat_session_snapshot, refresh_index_summary, write_chat_session_snapshot},
     prompt::{build_chat_prompt, build_context_blocks},
 };
 
@@ -211,8 +207,9 @@ pub(super) fn run_chat_turn(
         snapshot.runtime.awaiting_approval = false;
         snapshot.runtime.last_error = None;
         snapshot.runtime.pending_request = None;
-        snapshot.runtime.execution_summary =
-            Some(String::from("Preparing context and launching the selected CLI."));
+        snapshot.runtime.execution_summary = Some(String::from(
+            "Preparing context and launching the selected CLI.",
+        ));
         snapshot.runtime.pending_diff = None;
         snapshot.runtime.current_milestone = Some(String::from("Queue Turn"));
         write_chat_session_snapshot(&workspace.root, &snapshot)?;
@@ -368,7 +365,10 @@ fn execute_chat_phase(
     codex_path: &Option<String>,
     phase: ChatExecutionPhase,
 ) -> Result<(), String> {
-    if !matches!(stop_state(runtime, session_id, run_id), ChatStopState::Continue) {
+    if !matches!(
+        stop_state(runtime, session_id, run_id),
+        ChatStopState::Continue
+    ) {
         halt_session(
             app,
             &workspace.root,
@@ -699,11 +699,7 @@ fn wait_for_approval(
     }
 }
 
-fn stop_state(
-    runtime: &Arc<ChatExecutionRuntime>,
-    session_id: &str,
-    run_id: u64,
-) -> ChatStopState {
+fn stop_state(runtime: &Arc<ChatExecutionRuntime>, session_id: &str, run_id: u64) -> ChatStopState {
     runtime
         .control
         .lock()

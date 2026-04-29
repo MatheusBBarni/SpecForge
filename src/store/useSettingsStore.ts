@@ -4,14 +4,12 @@ import type { EnvironmentStatus, ThemeMode, WorkspaceEntry } from "../types";
 
 interface SettingsState {
   theme: ThemeMode;
-  claudePath: string;
-  codexPath: string;
+  cursorApiKeyInput: string;
   lastProjectPath: string;
   environment: EnvironmentStatus;
   workspaceEntries: WorkspaceEntry[];
   setTheme: (theme: ThemeMode) => void;
-  setClaudePath: (path: string) => void;
-  setCodexPath: (path: string) => void;
+  setCursorApiKeyInput: (value: string) => void;
   setLastProjectPath: (path: string) => void;
   setEnvironment: (environment: EnvironmentStatus) => void;
   setWorkspaceEntries: (entries: WorkspaceEntry[]) => void;
@@ -19,8 +17,6 @@ interface SettingsState {
 
 interface PersistedSettings {
   theme: ThemeMode;
-  claudePath: string;
-  codexPath: string;
   lastProjectPath: string;
 }
 
@@ -29,17 +25,11 @@ const SETTINGS_STORAGE_KEY = "specforge.settings";
 function createEnvironmentPlaceholder(): EnvironmentStatus {
   return {
     scannedAt: "",
-    claude: {
-      name: "Claude CLI",
+    cursor: {
+      name: "Cursor SDK",
       status: "missing",
       path: null,
-      detail: "Run an environment scan to resolve CLI availability."
-    },
-    codex: {
-      name: "Codex CLI",
-      status: "missing",
-      path: null,
-      detail: "Run an environment scan to resolve CLI availability."
+      detail: "Save a Cursor API key to enable PRD and spec generation."
     },
     git: {
       name: "Git",
@@ -51,42 +41,30 @@ function createEnvironmentPlaceholder(): EnvironmentStatus {
 }
 
 function readPersistedSettings(): PersistedSettings {
+  const defaults: PersistedSettings = {
+    theme: "dracula",
+    lastProjectPath: ""
+  };
+
   if (typeof window === "undefined") {
-    return {
-      theme: "dracula",
-      claudePath: "",
-      codexPath: "",
-      lastProjectPath: ""
-    };
+    return defaults;
   }
 
   try {
     const rawValue = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
 
     if (!rawValue) {
-      return {
-        theme: "dracula",
-        claudePath: "",
-        codexPath: "",
-        lastProjectPath: ""
-      };
+      return defaults;
     }
 
     const parsedValue = JSON.parse(rawValue) as Partial<PersistedSettings>;
 
     return {
-      theme: parsedValue.theme ?? "dracula",
-      claudePath: parsedValue.claudePath ?? "",
-      codexPath: parsedValue.codexPath ?? "",
-      lastProjectPath: parsedValue.lastProjectPath ?? ""
+      theme: parsedValue.theme ?? defaults.theme,
+      lastProjectPath: parsedValue.lastProjectPath ?? defaults.lastProjectPath
     };
   } catch {
-    return {
-      theme: "dracula",
-      claudePath: "",
-      codexPath: "",
-      lastProjectPath: ""
-    };
+    return defaults;
   }
 }
 
@@ -106,22 +84,18 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     const state = get();
     persistSettings({
       theme: state.theme,
-      claudePath: state.claudePath,
-      codexPath: state.codexPath,
       lastProjectPath: state.lastProjectPath
     });
   }
 
   return {
     theme: persistedSettings.theme,
-    claudePath: persistedSettings.claudePath,
-    codexPath: persistedSettings.codexPath,
+    cursorApiKeyInput: "",
     lastProjectPath: persistedSettings.lastProjectPath,
     environment: createEnvironmentPlaceholder(),
     workspaceEntries: [],
     setTheme: (theme) => setAndPersist({ theme }),
-    setClaudePath: (claudePath) => setAndPersist({ claudePath }),
-    setCodexPath: (codexPath) => setAndPersist({ codexPath }),
+    setCursorApiKeyInput: (cursorApiKeyInput) => set({ cursorApiKeyInput }),
     setLastProjectPath: (lastProjectPath) => setAndPersist({ lastProjectPath }),
     setEnvironment: (environment) => set({ environment }),
     setWorkspaceEntries: (workspaceEntries) => set({ workspaceEntries })

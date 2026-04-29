@@ -6,8 +6,12 @@ import {
 } from "react";
 
 import type { DocumentTarget } from "../lib/appShell";
+import {
+  deleteCursorApiKey,
+  saveCursorApiKey
+} from "../lib/runtime";
 import type { EnvironmentStatus } from "../types";
-import type { AgentStoreSlice, ProjectStoreSlice } from "./useAppStoreSlices";
+import type { AgentStoreSlice, ProjectStoreSlice, SettingsStoreSlice } from "./useAppStoreSlices";
 
 interface UseAppUiHandlersOptions {
   agentState: AgentStoreSlice;
@@ -27,6 +31,7 @@ interface UseAppUiHandlersOptions {
   setPrdGenerationPrompt: Dispatch<SetStateAction<string>>;
   setSpecGenerationError: Dispatch<SetStateAction<string>>;
   setSpecGenerationPrompt: Dispatch<SetStateAction<string>>;
+  settingsState: SettingsStoreSlice;
   specGenerationError: string;
 }
 
@@ -48,6 +53,7 @@ export function useAppUiHandlers({
   setPrdGenerationPrompt,
   setSpecGenerationError,
   setSpecGenerationPrompt,
+  settingsState,
   specGenerationError
 }: UseAppUiHandlersOptions) {
   const handlePrdContentChange = useCallback(
@@ -141,6 +147,36 @@ export function useAppUiHandlers({
     void refreshDiagnostics();
   }, [refreshDiagnostics]);
 
+  const handleSaveCursorApiKeyClick = useCallback(async () => {
+    const apiKey = settingsState.cursorApiKeyInput.trim();
+
+    if (!apiKey) {
+      return;
+    }
+
+    try {
+      await saveCursorApiKey(apiKey);
+      settingsState.setCursorApiKeyInput("");
+      await refreshDiagnostics();
+    } catch (error) {
+      setPrdGenerationError(
+        error instanceof Error ? error.message : "Unable to save the Cursor API key."
+      );
+    }
+  }, [refreshDiagnostics, setPrdGenerationError, settingsState]);
+
+  const handleDeleteCursorApiKeyClick = useCallback(async () => {
+    try {
+      await deleteCursorApiKey();
+      settingsState.setCursorApiKeyInput("");
+      await refreshDiagnostics();
+    } catch (error) {
+      setPrdGenerationError(
+        error instanceof Error ? error.message : "Unable to delete the Cursor API key."
+      );
+    }
+  }, [refreshDiagnostics, setPrdGenerationError, settingsState]);
+
   const handleOpenPrdImportClick = useCallback(() => {
     void handleOpenImportFile("prd");
   }, [handleOpenImportFile]);
@@ -190,6 +226,8 @@ export function useAppUiHandlers({
     handleCommandSearchChange,
     closeWorkspaceSearch,
     handleRefresh,
+    handleSaveCursorApiKeyClick,
+    handleDeleteCursorApiKeyClick,
     handleOpenPrdImportClick,
     handleOpenSpecImportClick,
     handleStartBuildClick,

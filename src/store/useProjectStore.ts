@@ -30,6 +30,7 @@ interface ProjectState {
   supportingDocumentPaths: string[];
   prdPromptTemplate: string;
   specPromptTemplate: string;
+  executionAgentDescription: string;
   selectedModel: ModelId;
   selectedReasoning: ReasoningProfileId;
   autonomyMode: AutonomyMode;
@@ -47,6 +48,7 @@ interface ProjectState {
   setSupportingDocumentPaths: (paths: string[]) => void;
   setPrdPromptTemplate: (prompt: string) => void;
   setSpecPromptTemplate: (prompt: string) => void;
+  setExecutionAgentDescription: (description: string) => void;
   setPrdContent: (content: string, path?: string) => void;
   setSpecContent: (content: string, path?: string) => void;
   setSelectedModel: (model: ModelId) => void;
@@ -140,8 +142,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const nextSettings = normalizeProjectSettings({
         selectedModel: state.selectedModel,
         selectedReasoning: state.selectedReasoning,
-        prdPrompt: state.prdPromptTemplate,
-        specPrompt: state.specPromptTemplate,
+        prdAgentDescription: state.prdPromptTemplate,
+        specAgentDescription: state.specPromptTemplate,
+        executionAgentDescription: state.executionAgentDescription,
         prdPath: state.configuredPrdPath,
         specPath: state.configuredSpecPath,
         supportingDocumentPaths: state.supportingDocumentPaths,
@@ -151,8 +154,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       return {
         configuredPrdPath: nextSettings.prdPath,
         configuredSpecPath: nextSettings.specPath,
-        prdPromptTemplate: nextSettings.prdPrompt,
-        specPromptTemplate: nextSettings.specPrompt,
+        prdPromptTemplate: nextSettings.prdAgentDescription,
+        specPromptTemplate: nextSettings.specAgentDescription,
+        executionAgentDescription: nextSettings.executionAgentDescription,
         selectedModel: nextSettings.selectedModel,
         selectedReasoning: nextSettings.selectedReasoning,
         supportingDocumentPaths: nextSettings.supportingDocumentPaths
@@ -163,6 +167,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setSupportingDocumentPaths: (supportingDocumentPaths) => set({ supportingDocumentPaths }),
   setPrdPromptTemplate: (prdPromptTemplate) => set({ prdPromptTemplate }),
   setSpecPromptTemplate: (specPromptTemplate) => set({ specPromptTemplate }),
+  setExecutionAgentDescription: (executionAgentDescription) => set({ executionAgentDescription }),
   setPrdContent: (prdContent, path) =>
     set({
       prdContent,
@@ -283,8 +288,9 @@ function buildInitialProjectState() {
     configuredSpecPath: defaults.specPath,
     prdPath: defaults.prdPath,
     specPath: defaults.specPath,
-    prdPromptTemplate: defaults.prdPrompt,
-    specPromptTemplate: defaults.specPrompt,
+    prdPromptTemplate: defaults.prdAgentDescription,
+    specPromptTemplate: defaults.specAgentDescription,
+    executionAgentDescription: defaults.executionAgentDescription,
     selectedModel: DEFAULT_MODEL_ID,
     selectedReasoning: DEFAULT_REASONING_PROFILE,
     supportingDocumentPaths: defaults.supportingDocumentPaths

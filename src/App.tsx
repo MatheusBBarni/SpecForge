@@ -199,10 +199,7 @@ function App() {
   const refreshDiagnostics = useCallback(
     async (previousEnvironment?: EnvironmentStatus) => {
       const [nextEnvironment, snapshotEntries, diff] = await Promise.all([
-        runEnvironmentScan({
-          claudePath: settingsState.claudePath,
-          codexPath: settingsState.codexPath
-        }).catch(() => previousEnvironment ?? settingsState.environment),
+        runEnvironmentScan().catch(() => previousEnvironment ?? settingsState.environment),
         hasSelectedProject
           ? Promise.resolve(settingsState.workspaceEntries)
           : getWorkspaceSnapshot().catch(() => settingsState.workspaceEntries),
@@ -291,6 +288,7 @@ function App() {
     scheduleProjectSettingsSave,
     setConfiguredPrdPath: projectState.setConfiguredPrdPath,
     setConfiguredSpecPath: projectState.setConfiguredSpecPath,
+    setExecutionAgentDescription: projectState.setExecutionAgentDescription,
     setPrdPromptTemplate: projectState.setPrdPromptTemplate,
     setReasoningProfile: projectState.setReasoningProfile,
     setSelectedModel: projectState.setSelectedModel,
@@ -531,6 +529,7 @@ function App() {
     setPrdGenerationPrompt,
     setSpecGenerationError,
     setSpecGenerationPrompt,
+    settingsState,
     specGenerationError
   });
 

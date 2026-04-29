@@ -41,6 +41,16 @@ pub(crate) fn pick_document() -> Result<Option<WorkspaceDocument>, String> {
     }))
 }
 
+#[tauri::command]
+pub(crate) fn save_workspace_document(
+    workspace_root: String,
+    output_path: String,
+    content: String,
+    field_name: String,
+) -> Result<WorkspaceDocument, String> {
+    write_generated_workspace_document(&workspace_root, &output_path, content, &field_name)
+}
+
 pub(crate) fn load_configured_workspace_document(
     workspace_root: &Path,
     relative_path: &str,

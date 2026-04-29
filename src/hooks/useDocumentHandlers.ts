@@ -8,8 +8,14 @@ import { getModelLabel, getReasoningLabel } from "../lib/agentConfig";
 import { type DocumentTarget, stampLog } from "../lib/appShell";
 import { waitForNextPaint } from "../lib/appState";
 import {
+  buildCursorPrdPrompt,
+  buildCursorSpecPrompt,
+  runCursorAgentPrompt
+} from "../lib/cursorAgentRuntime";
+import {
   generatePrdDocument,
   generateSpecDocument,
+  getCursorApiKey,
   pickDocument
 } from "../lib/runtime";
 import {
@@ -144,7 +150,7 @@ export function useDocumentHandlers({
     const trimmedPrompt = prdGenerationPrompt.trim();
 
     if (!desktopRuntime) {
-      setPrdGenerationError("AI PRD generation requires the desktop runtime.");
+      setPrdGenerationError("Cursor key access and document saving require the desktop runtime.");
       return;
     }
 
@@ -163,6 +169,11 @@ export function useDocumentHandlers({
       return;
     }
 
+    if (settingsState.environment.cursor.status !== "found") {
+      setPrdGenerationError("Save a Cursor API key in Settings before generating a PRD.");
+      return;
+    }
+
     setPrdGenerationError("");
     agentState.setStatus("generating_prd");
     agentState.appendTerminalOutput(
@@ -174,17 +185,28 @@ export function useDocumentHandlers({
 
     try {
       await waitForNextPaint();
+      const apiKey = await getCursorApiKey();
+
+      if (!apiKey) {
+        throw new Error("Save a Cursor API key in Settings before generating a PRD.");
+      }
+
+      const generatedContent = await runCursorAgentPrompt({
+        apiKey,
+        workspaceRoot: projectRootPath,
+        model: projectState.selectedModel,
+        reasoning: projectState.selectedReasoning,
+        prompt: buildCursorPrdPrompt({
+          agentDescription: derivedState.currentProjectSettings.prdAgentDescription,
+          userPrompt: trimmedPrompt
+        }),
+        onEvent: (line) => agentState.appendTerminalOutput(stampLog("cursor", line))
+      });
 
       const generatedPrd = await generatePrdDocument({
         workspaceRoot: projectRootPath,
         outputPath: derivedState.currentProjectSettings.prdPath,
-        promptTemplate: derivedState.currentProjectSettings.prdPrompt,
-        userPrompt: trimmedPrompt,
-        provider: derivedState.selectedModelProvider,
-        model: projectState.selectedModel,
-        reasoning: projectState.selectedReasoning,
-        claudePath: settingsState.claudePath,
-        codexPath: settingsState.codexPath
+        content: generatedContent
       });
 
       startTransition(() => {
@@ -208,7 +230,6 @@ export function useDocumentHandlers({
   }, [
     agentState,
     derivedState.currentProjectSettings,
-    derivedState.selectedModelProvider,
     desktopRuntime,
     prdGenerationPrompt,
     projectRootPath,
@@ -222,7 +243,7 @@ export function useDocumentHandlers({
     const trimmedPrompt = specGenerationPrompt.trim();
 
     if (!desktopRuntime) {
-      setSpecGenerationError("AI spec generation requires the desktop runtime.");
+      setSpecGenerationError("Cursor key access and document saving require the desktop runtime.");
       return;
     }
 
@@ -246,6 +267,11 @@ export function useDocumentHandlers({
       return;
     }
 
+    if (settingsState.environment.cursor.status !== "found") {
+      setSpecGenerationError("Save a Cursor API key in Settings before generating a spec.");
+      return;
+    }
+
     setSpecGenerationError("");
     agentState.setStatus("generating_spec");
     agentState.appendTerminalOutput(
@@ -257,18 +283,29 @@ export function useDocumentHandlers({
 
     try {
       await waitForNextPaint();
+      const apiKey = await getCursorApiKey();
+
+      if (!apiKey) {
+        throw new Error("Save a Cursor API key in Settings before generating a spec.");
+      }
+
+      const generatedContent = await runCursorAgentPrompt({
+        apiKey,
+        workspaceRoot: projectRootPath,
+        model: projectState.selectedModel,
+        reasoning: projectState.selectedReasoning,
+        prompt: buildCursorSpecPrompt({
+          agentDescription: derivedState.currentProjectSettings.specAgentDescription,
+          userPrompt: trimmedPrompt,
+          prdContent: projectState.prdContent
+        }),
+        onEvent: (line) => agentState.appendTerminalOutput(stampLog("cursor", line))
+      });
 
       const generatedSpec = await generateSpecDocument({
         workspaceRoot: projectRootPath,
         outputPath: derivedState.currentProjectSettings.specPath,
-        prdContent: projectState.prdContent,
-        promptTemplate: derivedState.currentProjectSettings.specPrompt,
-        userPrompt: trimmedPrompt,
-        provider: derivedState.selectedModelProvider,
-        model: projectState.selectedModel,
-        reasoning: projectState.selectedReasoning,
-        claudePath: settingsState.claudePath,
-        codexPath: settingsState.codexPath
+        content: generatedContent
       });
 
       startTransition(() => {
@@ -293,7 +330,6 @@ export function useDocumentHandlers({
   }, [
     agentState,
     derivedState.currentProjectSettings,
-    derivedState.selectedModelProvider,
     desktopRuntime,
     projectRootPath,
     projectState,

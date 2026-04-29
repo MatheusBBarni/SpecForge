@@ -92,6 +92,8 @@ export const MarkdownDocument = memo(function MarkdownDocument({ content }: Mark
               </pre>
             );
         }
+
+        return null;
       })}
     </div>
   );

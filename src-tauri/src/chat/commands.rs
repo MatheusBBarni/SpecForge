@@ -13,10 +13,9 @@ use tauri::{AppHandle, State};
 use super::{
     execution::run_chat_turn,
     helpers::{
-        active_workspace_context, build_default_context_items, build_message_preview,
-        create_chat_entity_id, load_workspace_project_settings, normalize_autonomy_mode,
-        normalize_context_items, normalized_title, summarize_session,
-        upsert_chat_session_summary,
+        active_workspace_context, build_default_context_items, create_chat_entity_id,
+        load_workspace_project_settings, normalize_autonomy_mode, normalize_context_items,
+        normalized_title, summarize_session, upsert_chat_session_summary,
     },
     persistence::{
         load_chat_session_index, read_chat_session_snapshot, session_snapshot_path,
@@ -85,8 +84,7 @@ pub(crate) fn save_chat_session(
 ) -> Result<ChatSessionSnapshot, String> {
     let workspace = active_workspace_context(&state)?;
     let mut snapshot = read_chat_session_snapshot(&workspace.root, &session_id)?;
-    snapshot.selected_model =
-        normalize_project_model(&selected_model, &snapshot.selected_model)?;
+    snapshot.selected_model = normalize_project_model(&selected_model, &snapshot.selected_model)?;
     snapshot.selected_reasoning =
         normalize_project_reasoning(&selected_reasoning, &snapshot.selected_reasoning)?;
     snapshot.autonomy_mode = normalize_autonomy_mode(&autonomy_mode);

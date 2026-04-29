@@ -40,95 +40,24 @@ const REASONING_COPY: Record<
 };
 
 const FULL_REASONING_RANGE: ReasoningProfileId[] = ["low", "medium", "high", "max"];
-const BASIC_REASONING_RANGE: ReasoningProfileId[] = ["low"];
 
-export const DEFAULT_MODEL_ID: ModelId = "gpt-5.4";
+export const DEFAULT_MODEL_ID: ModelId = "composer-2";
 export const DEFAULT_REASONING_PROFILE: ReasoningProfileId = "medium";
 
 const AGENT_MODELS: AgentModelOption[] = [
   {
-    id: "gpt-5.4",
-    label: "GPT-5.4",
-    provider: "codex",
-    description: "Latest frontier Codex model for agentic coding.",
+    id: "composer-2",
+    label: "Composer 2",
+    provider: "cursor",
+    description: "Cursor's agent model for product, spec, and implementation workflows.",
     reasoningProfiles: FULL_REASONING_RANGE
   },
   {
-    id: "gpt-5.4-mini",
-    label: "GPT-5.4 Mini",
-    provider: "codex",
-    description: "Smaller Codex model with the same reasoning controls at lower cost.",
+    id: "auto",
+    label: "Auto",
+    provider: "cursor",
+    description: "Let Cursor choose the best available model for the request.",
     reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "gpt-5.3-codex",
-    label: "GPT-5.3 Codex",
-    provider: "codex",
-    description: "Codex-optimized model for production coding flows.",
-    reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "gpt-5.2",
-    label: "GPT-5.2",
-    provider: "codex",
-    description: "Long-running Codex-compatible model for heavier professional workflows.",
-    reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "claude-opus-4-1-20250805",
-    label: "Claude Opus 4.1",
-    provider: "claude",
-    description: "Anthropic's most capable Claude model with extended thinking.",
-    reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "claude-opus-4-20250514",
-    label: "Claude Opus 4",
-    provider: "claude",
-    description: "High-end Claude model for advanced reasoning and coding.",
-    reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "claude-sonnet-4-20250514",
-    label: "Claude Sonnet 4",
-    provider: "claude",
-    description: "Balanced Claude 4 model with strong reasoning and efficiency.",
-    reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "claude-3-7-sonnet-20250219",
-    label: "Claude Sonnet 3.7",
-    provider: "claude",
-    description: "Claude model with toggleable extended thinking.",
-    reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "claude-3-5-sonnet-20241022",
-    label: "Claude Sonnet 3.5 v2",
-    provider: "claude",
-    description: "Updated Claude 3.5 Sonnet snapshot without extended thinking.",
-    reasoningProfiles: BASIC_REASONING_RANGE
-  },
-  {
-    id: "claude-3-5-sonnet-20240620",
-    label: "Claude Sonnet 3.5",
-    provider: "claude",
-    description: "Earlier Claude 3.5 Sonnet snapshot without extended thinking.",
-    reasoningProfiles: BASIC_REASONING_RANGE
-  },
-  {
-    id: "claude-3-5-haiku-20241022",
-    label: "Claude Haiku 3.5",
-    provider: "claude",
-    description: "Fast Claude model for lightweight tasks without extended thinking.",
-    reasoningProfiles: BASIC_REASONING_RANGE
-  },
-  {
-    id: "claude-3-haiku-20240307",
-    label: "Claude Haiku 3",
-    provider: "claude",
-    description: "Legacy Claude Haiku snapshot for compact, low-latency work.",
-    reasoningProfiles: BASIC_REASONING_RANGE
   }
 ];
 
@@ -166,27 +95,16 @@ export function getModelProvider(modelId: ModelId) {
   return getModelOption(modelId).provider;
 }
 
-export function getReasoningLabel(modelId: ModelId, profile: ReasoningProfileId) {
-  if (getModelOption(modelId).provider === "codex" && profile === "max") {
-    return "Max (xhigh)";
-  }
-
-  return REASONING_COPY[profile].label;
+export function getReasoningLabel(_modelId: ModelId, profile: ReasoningProfileId) {
+  return REASONING_COPY[profile]?.label ?? REASONING_COPY[DEFAULT_REASONING_PROFILE].label;
 }
 
 export function getReasoningHint(modelId: ModelId, profile: ReasoningProfileId) {
   const model = getModelOption(modelId);
   const providerLabel = formatProvider(model.provider);
+  const copy = REASONING_COPY[profile] ?? REASONING_COPY[DEFAULT_REASONING_PROFILE];
 
-  if (model.provider === "codex" && profile === "max") {
-    return `${providerLabel} | Maps to the deepest Codex reasoning tier.`;
-  }
-
-  if (model.provider === "claude" && model.reasoningProfiles.length === 1) {
-    return `${providerLabel} | This model runs in its standard reasoning mode only.`;
-  }
-
-  return `${providerLabel} | ${REASONING_COPY[profile].description}`;
+  return `${providerLabel} | ${copy.description}`;
 }
 
 export function normalizeReasoningProfile(
@@ -194,11 +112,11 @@ export function normalizeReasoningProfile(
   profile: ReasoningProfileId
 ): ReasoningProfileId {
   const model = getModelOption(modelId);
-  return model.reasoningProfiles.includes(profile) ? profile : model.reasoningProfiles[0];
+  return model.reasoningProfiles.includes(profile) ? profile : DEFAULT_REASONING_PROFILE;
 }
 
-function formatProvider(provider: ModelProvider) {
-  return provider === "codex" ? "Codex" : "Claude";
+function formatProvider(_provider: ModelProvider) {
+  return "Cursor";
 }
 
 export function getProviderLabel(provider: ModelProvider) {

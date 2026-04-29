@@ -10,7 +10,6 @@ import type {
   ChatSessionSummary,
   EnvironmentStatus,
   ModelId,
-  ModelProvider,
   ProjectContext,
   ProjectSettings,
   ReasoningProfileId,
@@ -55,23 +54,16 @@ export function isTauriRuntime(): boolean {
   return typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 }
 
-export async function runEnvironmentScan(paths?: {
-  claudePath?: string;
-  codexPath?: string;
-}): Promise<EnvironmentStatus> {
+export async function runEnvironmentScan(): Promise<EnvironmentStatus> {
   if (!isTauriRuntime()) {
     return {
       scannedAt: new Date().toISOString(),
-      claude: fallbackStatus("Claude CLI", "Desktop runtime not detected. Start Tauri to scan local binaries."),
-      codex: fallbackStatus("Codex CLI", "Desktop runtime not detected. Start Tauri to scan local binaries."),
+      cursor: fallbackStatus("Cursor SDK", "Desktop runtime not detected. Start Tauri to read the saved Cursor key."),
       git: fallbackStatus("Git", "Desktop runtime not detected. Diff output falls back to the sample review.")
     };
   }
 
-  return invoke<EnvironmentStatus>("run_environment_scan", {
-    claudePath: emptyToNull(paths?.claudePath),
-    codexPath: emptyToNull(paths?.codexPath)
-  });
+  return invoke<EnvironmentStatus>("run_environment_scan");
 }
 
 export async function parseDocument(filePath: string): Promise<string> {
@@ -173,59 +165,73 @@ export async function startAgentRun(
 export async function generatePrdDocument(payload: {
   workspaceRoot: string;
   outputPath: string;
-  promptTemplate: string;
-  userPrompt: string;
-  provider: ModelProvider;
-  model: ModelId;
-  reasoning: ReasoningProfileId;
-  claudePath?: string;
-  codexPath?: string;
+  content: string;
 }): Promise<WorkspaceDocument> {
   if (!isTauriRuntime()) {
-    throw new Error("AI PRD generation requires the desktop runtime.");
+    throw new Error("Saving generated PRDs requires the desktop runtime.");
   }
 
-  return invoke<WorkspaceDocument>("generate_prd_document", {
+  return invoke<WorkspaceDocument>("save_workspace_document", {
     workspaceRoot: payload.workspaceRoot,
     outputPath: payload.outputPath,
-    promptTemplate: payload.promptTemplate,
-    userPrompt: payload.userPrompt,
-    provider: payload.provider,
-    model: payload.model,
-    reasoning: payload.reasoning,
-    claudePath: emptyToNull(payload.claudePath),
-    codexPath: emptyToNull(payload.codexPath)
+    content: payload.content,
+    fieldName: "PRD output path"
   });
 }
 
 export async function generateSpecDocument(payload: {
   workspaceRoot: string;
   outputPath: string;
-  prdContent: string;
-  promptTemplate: string;
-  userPrompt: string;
-  provider: ModelProvider;
-  model: ModelId;
-  reasoning: ReasoningProfileId;
-  claudePath?: string;
-  codexPath?: string;
+  content: string;
 }): Promise<WorkspaceDocument> {
   if (!isTauriRuntime()) {
-    throw new Error("AI spec generation requires the desktop runtime.");
+    throw new Error("Saving generated specs requires the desktop runtime.");
   }
 
-  return invoke<WorkspaceDocument>("generate_spec_document", {
+  return invoke<WorkspaceDocument>("save_workspace_document", {
     workspaceRoot: payload.workspaceRoot,
     outputPath: payload.outputPath,
-    prdContent: payload.prdContent,
-    promptTemplate: payload.promptTemplate,
-    userPrompt: payload.userPrompt,
-    provider: payload.provider,
-    model: payload.model,
-    reasoning: payload.reasoning,
-    claudePath: emptyToNull(payload.claudePath),
-    codexPath: emptyToNull(payload.codexPath)
+    content: payload.content,
+    fieldName: "SPEC output path"
   });
+}
+
+export async function executeCursorAgentPrompt(payload: {
+  apiKey: string;
+  workspaceRoot: string;
+  model: ModelId;
+  reasoning: ReasoningProfileId;
+  prompt: string;
+}): Promise<{ content: string; events: string[] }> {
+  if (!isTauriRuntime()) {
+    throw new Error("Cursor SDK generation requires the desktop runtime.");
+  }
+
+  return invoke<{ content: string; events: string[] }>("run_cursor_agent_prompt", { payload });
+}
+
+export async function getCursorApiKey(): Promise<string | null> {
+  if (!isTauriRuntime()) {
+    throw new Error("Cursor API key access requires the desktop runtime.");
+  }
+
+  return invoke<string | null>("get_cursor_api_key");
+}
+
+export async function saveCursorApiKey(apiKey: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    throw new Error("Cursor API key storage requires the desktop runtime.");
+  }
+
+  await invoke("save_cursor_api_key", { apiKey });
+}
+
+export async function deleteCursorApiKey(): Promise<void> {
+  if (!isTauriRuntime()) {
+    throw new Error("Cursor API key storage requires the desktop runtime.");
+  }
+
+  await invoke("delete_cursor_api_key");
 }
 
 export async function approveAgentAction(): Promise<void> {

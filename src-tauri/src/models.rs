@@ -60,8 +60,7 @@ pub(crate) struct CliStatus {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct EnvironmentStatus {
     pub(crate) scanned_at: String,
-    pub(crate) claude: CliStatus,
-    pub(crate) codex: CliStatus,
+    pub(crate) cursor: CliStatus,
     pub(crate) git: CliStatus,
 }
 
@@ -87,8 +86,12 @@ pub(crate) struct WorkspaceDocument {
 pub(crate) struct ProjectSettings {
     pub(crate) selected_model: String,
     pub(crate) selected_reasoning: String,
-    pub(crate) prd_prompt: String,
-    pub(crate) spec_prompt: String,
+    #[serde(default, alias = "prdPrompt")]
+    pub(crate) prd_agent_description: String,
+    #[serde(default, alias = "specPrompt")]
+    pub(crate) spec_agent_description: String,
+    #[serde(default)]
+    pub(crate) execution_agent_description: String,
     pub(crate) prd_path: String,
     pub(crate) spec_path: String,
     pub(crate) supporting_document_paths: Vec<String>,

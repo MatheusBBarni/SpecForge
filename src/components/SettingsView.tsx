@@ -32,26 +32,28 @@ interface SettingsViewProps {
   annotations: SpecAnnotation[];
   environment: EnvironmentStatus;
   theme: ThemeMode;
-  claudePath: string;
-  codexPath: string;
+  cursorApiKeyInput: string;
   configPath: string;
   workspaceRootName: string;
   selectedModel: ModelId;
   selectedReasoning: ReasoningProfileId;
   prdPrompt: string;
   specPrompt: string;
+  executionAgentDescription: string;
   prdPath: string;
   specPath: string;
   supportingDocumentsValue: string;
   projectStatusMessage: string;
   projectErrorMessage: string;
   onThemeChange: (theme: ThemeMode) => void;
-  onClaudePathChange: (value: string) => void;
-  onCodexPathChange: (value: string) => void;
+  onCursorApiKeyInputChange: (value: string) => void;
+  onSaveCursorApiKey: () => void;
+  onDeleteCursorApiKey: () => void;
   onModelChange: (model: ModelId) => void;
   onReasoningChange: (reasoning: ReasoningProfileId) => void;
   onPrdPromptChange: (value: string) => void;
   onSpecPromptChange: (value: string) => void;
+  onExecutionAgentDescriptionChange: (value: string) => void;
   onPrdPathChange: (value: string) => void;
   onSpecPathChange: (value: string) => void;
   onSupportingDocumentsChange: (value: string) => void;
@@ -61,26 +63,28 @@ export const SettingsView = memo(function SettingsView({
   annotations,
   environment,
   theme,
-  claudePath,
-  codexPath,
+  cursorApiKeyInput,
   configPath,
   workspaceRootName,
   selectedModel,
   selectedReasoning,
   prdPrompt,
   specPrompt,
+  executionAgentDescription,
   prdPath,
   specPath,
   supportingDocumentsValue,
   projectStatusMessage,
   projectErrorMessage,
   onThemeChange,
-  onClaudePathChange,
-  onCodexPathChange,
+  onCursorApiKeyInputChange,
+  onSaveCursorApiKey,
+  onDeleteCursorApiKey,
   onModelChange,
   onReasoningChange,
   onPrdPromptChange,
   onSpecPromptChange,
+  onExecutionAgentDescriptionChange,
   onPrdPathChange,
   onSpecPathChange,
   onSupportingDocumentsChange
@@ -97,7 +101,7 @@ export const SettingsView = memo(function SettingsView({
               Machine and Project Preferences
             </h2>
             <p className="mt-3 text-sm leading-7 text-[var(--text-subtle)]">
-              CLI overrides and theme stay local to this machine. Prompt templates, AI defaults,
+              Cursor credentials and theme stay local to this machine. Agent descriptions, AI defaults,
               and document paths are saved inside the selected project.
             </p>
             <ScopedPathReference path={configPath} workspaceRootName={workspaceRootName} />
@@ -118,35 +122,34 @@ export const SettingsView = memo(function SettingsView({
       <div className="grid gap-4 xl:grid-cols-2">
         <Card className={`${SETTINGS_PANEL_CLASS} h-full rounded-[1.5rem]`}>
           <Card.Content className="grid h-full content-start gap-5 px-5 py-5">
-            <SettingsSectionHeader icon={<Terminal className="size-5" />} title="Claude CLI" />
-            <CliHealthCard entry={environment.claude} />
+            <SettingsSectionHeader icon={<Terminal className="size-5" />} title="Cursor SDK" />
+            <CliHealthCard entry={environment.cursor} />
             <label className="grid gap-2">
-              <span className={FIELD_LABEL_CLASS}>Binary path override</span>
+              <span className={FIELD_LABEL_CLASS}>Cursor API key</span>
               <Input
                 className={INPUT_CLASS}
-                id="settings-claude-path"
-                onChange={(event) => onClaudePathChange(event.target.value)}
-                placeholder="Optional manual path"
-                value={claudePath}
+                id="settings-cursor-key"
+                onChange={(event) => onCursorApiKeyInputChange(event.target.value)}
+                placeholder="key_..."
+                type="password"
+                value={cursorApiKeyInput}
               />
             </label>
+            <div className="flex flex-wrap gap-3">
+              <Button className={ACTIVE_OPTION_CARD_CLASS} onPress={onSaveCursorApiKey}>
+                Save Key
+              </Button>
+              <Button className={OPTION_CARD_CLASS} onPress={onDeleteCursorApiKey}>
+                Clear Key
+              </Button>
+            </div>
           </Card.Content>
         </Card>
 
         <Card className={`${SETTINGS_PANEL_CLASS} h-full rounded-[1.5rem]`}>
           <Card.Content className="grid h-full content-start gap-5 px-5 py-5">
-            <SettingsSectionHeader icon={<Terminal className="size-5" />} title="Codex CLI" />
-            <CliHealthCard entry={environment.codex} />
-            <label className="grid gap-2">
-              <span className={FIELD_LABEL_CLASS}>Binary path override</span>
-              <Input
-                className={INPUT_CLASS}
-                id="settings-codex-path"
-                onChange={(event) => onCodexPathChange(event.target.value)}
-                placeholder="Optional manual path"
-                value={codexPath}
-              />
-            </label>
+            <SettingsSectionHeader icon={<Terminal className="size-5" />} title="Git" />
+            <CliHealthCard entry={environment.git} />
           </Card.Content>
         </Card>
 
@@ -178,7 +181,9 @@ export const SettingsView = memo(function SettingsView({
             onModelChange={onModelChange}
             onPrdPromptChange={onPrdPromptChange}
             onReasoningChange={onReasoningChange}
+            onExecutionAgentDescriptionChange={onExecutionAgentDescriptionChange}
             onSpecPromptChange={onSpecPromptChange}
+            executionAgentDescription={executionAgentDescription}
             prdPrompt={prdPrompt}
             selectedModel={selectedModel}
             selectedReasoning={selectedReasoning}
@@ -207,7 +212,7 @@ export const SettingsView = memo(function SettingsView({
             <div className={`${SETTINGS_SURFACE_CLASS} grid gap-2 px-4 py-4 font-[var(--font-mono)] text-sm text-[var(--text-main)]`}>
               <div>Project-specific AI settings live inside the selected workspace.</div>
               <div>Manual PRD/spec edits still remain in-memory until a generate action writes a file.</div>
-              <div>CLI overrides and theme remain machine-local and do not touch `.specforge/settings.json`.</div>
+              <div>Cursor API keys and theme remain machine-local and do not touch `.specforge/settings.json`.</div>
             </div>
 
             {annotations.length > 0 ? (
