@@ -5,6 +5,7 @@ import {
 } from "@heroui/react";
 import { Folder, GitSolid, NavArrowRight, Refresh, Terminal } from "iconoir-react";
 import { memo } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 import { CliHealthCard } from "../components/CliHealthCard";
 import { ProjectAiSettingsCard } from "../components/ProjectAiSettingsCard";
@@ -17,31 +18,15 @@ import {
   SETTINGS_PANEL_CLASS,
   SETTINGS_SURFACE_CLASS
 } from "../components/SettingsPrimitives";
-import type { RecentProject } from "../store/useSettingsStore";
-import type { CursorModel, EnvironmentStatus, ModelId, ReasoningProfileId } from "../types";
+import { buildConfigPathDisplay } from "../lib/appState";
+import { formatSupportingDocumentPaths } from "../lib/projectConfig";
+import { useProjectStore } from "../store/useProjectStore";
+import { useSettingsStore } from "../store/useSettingsStore";
+import { useWorkspaceUiStore } from "../store/useWorkspaceUiStore";
+import type { ModelId, ReasoningProfileId } from "../types";
 
 interface ConfigurationScreenProps {
   desktopRuntime: boolean;
-  environment: EnvironmentStatus;
-  cursorModels: CursorModel[];
-  cursorApiKeyInput: string;
-  workspaceRootName: string;
-  workspaceRootPath: string;
-  settingsPath: string;
-  hasSavedSettings: boolean;
-  isProjectLoading: boolean;
-  isSaving: boolean;
-  statusMessage: string;
-  errorMessage: string;
-  selectedModel: ModelId;
-  selectedReasoning: ReasoningProfileId;
-  prdPrompt: string;
-  specPrompt: string;
-  executionAgentDescription: string;
-  prdPath: string;
-  specPath: string;
-  supportingDocumentsValue: string;
-  recentProjects: RecentProject[];
   onPickFolder: () => void;
   onOpenRecentProject: (path: string) => void;
   onRefresh: () => void;
@@ -61,25 +46,6 @@ interface ConfigurationScreenProps {
 
 export const ConfigurationScreen = memo(function ConfigurationScreen({
   desktopRuntime,
-  environment,
-  cursorModels,
-  cursorApiKeyInput,
-  workspaceRootName,
-  workspaceRootPath,
-  settingsPath,
-  hasSavedSettings,
-  isProjectLoading,
-  isSaving,
-  errorMessage,
-  selectedModel,
-  selectedReasoning,
-  prdPrompt,
-  specPrompt,
-  executionAgentDescription,
-  prdPath,
-  specPath,
-  supportingDocumentsValue,
-  recentProjects,
   onPickFolder,
   onOpenRecentProject,
   onRefresh,
@@ -96,6 +62,59 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
   onSpecPathChange,
   onSupportingDocumentsChange
 }: ConfigurationScreenProps) {
+  const {
+    cursorApiKeyInput,
+    environment,
+    recentProjects
+  } = useSettingsStore(
+    useShallow((state) => ({
+      cursorApiKeyInput: state.cursorApiKeyInput,
+      environment: state.environment,
+      recentProjects: state.recentProjects
+    }))
+  );
+  const {
+    executionAgentDescription,
+    prdPath,
+    prdPrompt,
+    selectedModel,
+    selectedReasoning,
+    specPath,
+    specPrompt,
+    supportingDocumentsValue
+  } = useProjectStore(
+    useShallow((state) => ({
+      executionAgentDescription: state.executionAgentDescription,
+      prdPath: state.configuredPrdPath,
+      prdPrompt: state.prdPromptTemplate,
+      selectedModel: state.selectedModel,
+      selectedReasoning: state.selectedReasoning,
+      specPath: state.configuredSpecPath,
+      specPrompt: state.specPromptTemplate,
+      supportingDocumentsValue: formatSupportingDocumentPaths(state.supportingDocumentPaths)
+    }))
+  );
+  const {
+    cursorModels,
+    errorMessage,
+    hasSavedSettings,
+    isProjectLoading,
+    isSaving,
+    settingsPath,
+    workspaceRootName,
+    workspaceRootPath
+  } = useWorkspaceUiStore(
+    useShallow((state) => ({
+      cursorModels: state.cursorModels,
+      errorMessage: state.projectErrorMessage,
+      hasSavedSettings: state.hasSavedProjectSettings,
+      isProjectLoading: state.isProjectLoading || state.isImporting,
+      isSaving: state.isProjectSaving,
+      settingsPath: buildConfigPathDisplay(state.projectConfigPath, state.projectRootName),
+      workspaceRootName: state.projectRootName,
+      workspaceRootPath: state.projectRootPath
+    }))
+  );
   const canContinue = desktopRuntime && workspaceRootPath.length > 0 && !isSaving;
   const folderActionLabel = isProjectLoading
     ? "Opening..."
