@@ -103,12 +103,6 @@ export function useChatHandlers({
 
   const handleDeleteChatSession = useCallback(
     async (sessionId: string) => {
-      const confirmed = window.confirm("Delete this topic and its saved context?");
-
-      if (!confirmed) {
-        return;
-      }
-
       try {
         const nextIndex = await deleteChatSession(sessionId);
         deleteChatSessionState(sessionId, nextIndex.lastActiveSessionId);

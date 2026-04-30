@@ -29,7 +29,7 @@ export const PrdEmptyState = memo(function PrdEmptyState({
   return (
     <DocumentEmptyState
       bodyClassName="w-full"
-      className="h-[60%] w-[60%]"
+      className="h-full w-full"
       description="Load an existing PRD or generate a first-pass PRD from the saved project prompt plus your note."
       heading="No PRD file detected"
       icon={<Page className="size-6" />}

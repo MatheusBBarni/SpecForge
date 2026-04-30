@@ -9,7 +9,7 @@ import {
   SunLight,
   Terminal
 } from "iconoir-react";
-import { memo } from "react";
+import { memo, type ReactNode, useState } from "react";
 import type {
   CursorModel,
   EnvironmentStatus,
@@ -64,6 +64,19 @@ interface SettingsViewProps {
   onSupportingDocumentsChange: (value: string) => void;
 }
 
+type SettingsTabId = "general" | "ai" | "documents" | "theme";
+
+const SETTINGS_TABS: Array<{
+  id: SettingsTabId;
+  icon: ReactNode;
+  label: string;
+}> = [
+  { icon: <Terminal className="size-4" />, id: "general", label: "General" },
+  { icon: <Brain className="size-4" />, id: "ai", label: "AI Engine" },
+  { icon: <Database className="size-4" />, id: "documents", label: "Document Context" },
+  { icon: <SunLight className="size-4" />, id: "theme", label: "Theme" }
+];
+
 export const SettingsView = memo(function SettingsView({
   environment,
   theme,
@@ -93,6 +106,8 @@ export const SettingsView = memo(function SettingsView({
   onSpecPathChange,
   onSupportingDocumentsChange
 }: SettingsViewProps) {
+  const [activeTab, setActiveTab] = useState<SettingsTabId>("general");
+
   return (
     <section className="mx-auto grid w-full max-w-[1200px] gap-8 px-5 py-8">
       <div className="flex flex-wrap items-end justify-between gap-5 border-b border-[var(--border-strong)] pb-6">
@@ -119,118 +134,124 @@ export const SettingsView = memo(function SettingsView({
       ) : null}
 
       <div className="grid items-start gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <nav className="grid gap-2">
-          {[
-            { icon: <Terminal className="size-4" />, label: "General" },
-            { icon: <Brain className="size-4" />, label: "AI Engine" },
-            { icon: <Database className="size-4" />, label: "Document Context" },
-            { icon: <SunLight className="size-4" />, label: "Theme" }
-          ].map((item, index) => (
-            <div
+        <nav aria-label="Settings sections" className="grid gap-2">
+          {SETTINGS_TABS.map((item) => (
+            <button
+              aria-current={activeTab === item.id ? "page" : undefined}
               className={
-                index === 0
-                  ? "flex items-center gap-3 rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3 font-semibold text-[var(--accent)]"
-                  : "flex items-center gap-3 rounded border border-transparent px-4 py-3 text-[var(--text-subtle)]"
+                activeTab === item.id
+                  ? "flex items-center gap-3 rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3 text-left font-semibold text-[var(--accent)]"
+                  : "flex items-center gap-3 rounded border border-transparent px-4 py-3 text-left text-[var(--text-subtle)] transition hover:border-[var(--border-soft)] hover:text-[var(--text-main)]"
               }
               key={item.label}
+              onClick={() => setActiveTab(item.id)}
+              type="button"
             >
               {item.icon}
               <span>{item.label}</span>
-            </div>
+            </button>
           ))}
         </nav>
 
         <div className="grid gap-8">
-          <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
-            <div className={SETTINGS_CARD_HEADER_CLASS}>
-              <SettingsSectionHeader icon={<Terminal className="size-5" />} title="General" />
-            </div>
-            <Card.Content className={SETTINGS_CARD_BODY_CLASS}>
-              <div className="grid gap-5 xl:grid-cols-2">
-                <section className="grid content-start gap-4">
-                  <h3 className="m-0 text-base font-semibold text-[var(--text-main)]">
-                    Cursor SDK
-                  </h3>
-                  <CliHealthCard entry={environment.cursor} />
-                  <label className="grid gap-2" htmlFor="settings-cursor-key">
-                    <span className={FIELD_LABEL_CLASS}>Cursor API key</span>
-                    <Input
-                      className={INPUT_CLASS}
-                      id="settings-cursor-key"
-                      onChange={(event) => onCursorApiKeyInputChange(event.target.value)}
-                      placeholder="key_..."
-                      type="password"
-                      value={cursorApiKeyInput}
-                    />
-                  </label>
-                  <div className="flex flex-wrap gap-3">
-                    <Button className={PRIMARY_BUTTON_CLASS} onPress={onSaveCursorApiKey}>
-                      Save Key
-                    </Button>
-                    <Button className={SECONDARY_BUTTON_CLASS} onPress={onDeleteCursorApiKey}>
-                      Clear Key
-                    </Button>
-                  </div>
-                </section>
-
-                <section className="grid content-start gap-4">
-                  <h3 className="m-0 text-base font-semibold text-[var(--text-main)]">Git</h3>
-                  <CliHealthCard entry={environment.git} />
-                </section>
+          {activeTab === "general" ? (
+            <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
+              <div className={SETTINGS_CARD_HEADER_CLASS}>
+                <SettingsSectionHeader icon={<Terminal className="size-5" />} title="General" />
               </div>
-            </Card.Content>
-          </Card>
+              <Card.Content className={SETTINGS_CARD_BODY_CLASS}>
+                <div className="grid gap-5 xl:grid-cols-2">
+                  <section className="grid content-start gap-4">
+                    <h3 className="m-0 text-base font-semibold text-[var(--text-main)]">
+                      Cursor SDK
+                    </h3>
+                    <CliHealthCard entry={environment.cursor} />
+                    <label className="grid gap-2" htmlFor="settings-cursor-key">
+                      <span className={FIELD_LABEL_CLASS}>Cursor API key</span>
+                      <Input
+                        className={INPUT_CLASS}
+                        id="settings-cursor-key"
+                        onChange={(event) => onCursorApiKeyInputChange(event.target.value)}
+                        placeholder="key_..."
+                        type="password"
+                        value={cursorApiKeyInput}
+                      />
+                    </label>
+                    <div className="flex flex-wrap gap-3">
+                      <Button className={PRIMARY_BUTTON_CLASS} onPress={onSaveCursorApiKey}>
+                        Save Key
+                      </Button>
+                      <Button className={SECONDARY_BUTTON_CLASS} onPress={onDeleteCursorApiKey}>
+                        Clear Key
+                      </Button>
+                    </div>
+                  </section>
 
-          <ProjectAiSettingsCard
-            configPath={configPath}
-            cursorModels={cursorModels}
-            onModelChange={onModelChange}
-            onPrdPromptChange={onPrdPromptChange}
-            onReasoningChange={onReasoningChange}
-            onExecutionAgentDescriptionChange={onExecutionAgentDescriptionChange}
-            onSpecPromptChange={onSpecPromptChange}
-            executionAgentDescription={executionAgentDescription}
-            prdPrompt={prdPrompt}
-            selectedModel={selectedModel}
-            selectedReasoning={selectedReasoning}
-            specPrompt={specPrompt}
-            workspaceRootName={workspaceRootName}
-          />
+                  <section className="grid content-start gap-4">
+                    <h3 className="m-0 text-base font-semibold text-[var(--text-main)]">Git</h3>
+                    <CliHealthCard entry={environment.git} />
+                  </section>
+                </div>
+              </Card.Content>
+            </Card>
+          ) : null}
 
-          <ProjectDocumentsCard
-            configPath={configPath}
-            onPrdPathChange={onPrdPathChange}
-            onSpecPathChange={onSpecPathChange}
-            onSupportingDocumentsChange={onSupportingDocumentsChange}
-            prdPath={prdPath}
-            specPath={specPath}
-            supportingDocumentsValue={supportingDocumentsValue}
-            workspaceRootName={workspaceRootName}
-          />
+          {activeTab === "ai" ? (
+            <ProjectAiSettingsCard
+              configPath={configPath}
+              cursorModels={cursorModels}
+              onModelChange={onModelChange}
+              onPrdPromptChange={onPrdPromptChange}
+              onReasoningChange={onReasoningChange}
+              onExecutionAgentDescriptionChange={onExecutionAgentDescriptionChange}
+              onSpecPromptChange={onSpecPromptChange}
+              executionAgentDescription={executionAgentDescription}
+              prdPrompt={prdPrompt}
+              selectedModel={selectedModel}
+              selectedReasoning={selectedReasoning}
+              specPrompt={specPrompt}
+              workspaceRootName={workspaceRootName}
+            />
+          ) : null}
 
-          <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
-            <div className={SETTINGS_CARD_HEADER_CLASS}>
-              <SettingsSectionHeader icon={<SunLight className="size-5" />} title="Theme" />
-            </div>
-            <Card.Content className={SETTINGS_CARD_BODY_CLASS}>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {[
-                  { id: "dracula", label: "Dracula", meta: "Primary dark IDE theme" },
-                  { id: "light", label: "Light", meta: "High-contrast daylight palette" },
-                  { id: "system", label: "System", meta: "Follow the OS appearance" }
-                ].map((entry) => (
-                  <Button
-                    className={theme === entry.id ? ACTIVE_OPTION_CARD_CLASS : OPTION_CARD_CLASS}
-                    key={entry.id}
-                    onPress={() => onThemeChange(entry.id as ThemeMode)}
-                  >
-                    <span className="text-left">{entry.label}</span>
-                    <small className="text-left">{entry.meta}</small>
-                  </Button>
-                ))}
+          {activeTab === "documents" ? (
+            <ProjectDocumentsCard
+              configPath={configPath}
+              onPrdPathChange={onPrdPathChange}
+              onSpecPathChange={onSpecPathChange}
+              onSupportingDocumentsChange={onSupportingDocumentsChange}
+              prdPath={prdPath}
+              specPath={specPath}
+              supportingDocumentsValue={supportingDocumentsValue}
+              workspaceRootName={workspaceRootName}
+            />
+          ) : null}
+
+          {activeTab === "theme" ? (
+            <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
+              <div className={SETTINGS_CARD_HEADER_CLASS}>
+                <SettingsSectionHeader icon={<SunLight className="size-5" />} title="Theme" />
               </div>
-            </Card.Content>
-          </Card>
+              <Card.Content className={SETTINGS_CARD_BODY_CLASS}>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {[
+                    { id: "dracula", label: "Dracula", meta: "Primary dark IDE theme" },
+                    { id: "light", label: "Light", meta: "High-contrast daylight palette" },
+                    { id: "system", label: "System", meta: "Follow the OS appearance" }
+                  ].map((entry) => (
+                    <Button
+                      className={theme === entry.id ? ACTIVE_OPTION_CARD_CLASS : OPTION_CARD_CLASS}
+                      key={entry.id}
+                      onPress={() => onThemeChange(entry.id as ThemeMode)}
+                    >
+                      <span className="text-left">{entry.label}</span>
+                      <small className="text-left">{entry.meta}</small>
+                    </Button>
+                  ))}
+                </div>
+              </Card.Content>
+            </Card>
+          ) : null}
         </div>
       </div>
     </section>
