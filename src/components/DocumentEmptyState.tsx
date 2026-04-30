@@ -4,6 +4,7 @@ interface DocumentEmptyStateProps {
   heading: string;
   description: string;
   icon: ReactNode;
+  className?: string;
   children?: ReactNode;
 }
 
@@ -11,10 +12,13 @@ export const DocumentEmptyState = memo(function DocumentEmptyState({
   heading,
   description,
   icon,
+  className = "",
   children
 }: DocumentEmptyStateProps) {
   return (
-    <article className="flex min-h-0 flex-col gap-4 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4">
+    <article
+      className={`flex min-h-0 flex-col gap-4 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4 ${className}`}
+    >
       <div className="flex min-h-0 flex-1 flex-col justify-start gap-4 overflow-auto rounded-[1rem] border border-dashed border-[var(--border-soft)] bg-black/10 p-5">
         <div className="flex items-start gap-2.5">
           <span className="mt-1 shrink-0 text-[var(--accent-2)]">{icon}</span>
