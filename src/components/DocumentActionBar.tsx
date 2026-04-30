@@ -18,7 +18,7 @@ export const DocumentActionBar = memo(function DocumentActionBar({
   onModeChange
 }: DocumentActionBarProps) {
   return (
-    <div className="inline-flex flex-wrap items-center rounded-full border border-[var(--border-soft)] bg-white/4 p-1">
+    <div className="inline-flex flex-wrap items-center rounded-lg border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1">
       {showModeButtons ? (
         <ModeButton
           active={mode === "preview"}
@@ -34,7 +34,7 @@ export const DocumentActionBar = memo(function DocumentActionBar({
         />
       ) : null}
       <button
-        className="rounded-full bg-white/7 px-4 py-2 text-sm font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/10"
+        className="rounded px-4 py-2 text-sm font-medium text-[var(--text-main)] transition hover:bg-[var(--bg-nav-active)] hover:text-[var(--accent)]"
         onClick={onLoad}
         type="button"
       >
@@ -54,10 +54,10 @@ function ModeButton({ active, label, onClick }: ModeButtonProps) {
   return (
     <button
       aria-pressed={active}
-      className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+      className={`rounded px-4 py-2 text-sm font-medium transition ${
         active
-          ? "bg-[linear-gradient(135deg,rgba(189,147,249,0.34),rgba(139,233,253,0.24))] text-[var(--text-main)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08),0_10px_24px_-18px_rgba(139,233,253,0.45)]"
-          : "text-[var(--text-muted)] hover:-translate-y-0.5"
+          ? "bg-[var(--border-soft)] text-[var(--text-main)]"
+          : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
       }`}
       onClick={onClick}
       type="button"

@@ -1,7 +1,5 @@
 import {
   ChatBubble,
-  CodeBracketsSquare,
-  Flask,
   Folder,
   Page,
   Settings
@@ -14,69 +12,73 @@ interface AppRailProps {
 
 export function AppRail({ hasProjectConfigured }: AppRailProps) {
   return (
-    <aside className="sticky top-0 z-30 flex items-center justify-center gap-3 border-b border-[var(--border-strong)] bg-[var(--bg-panel-strong)]/95 px-4 py-4 backdrop-blur-xl lg:fixed lg:inset-y-0 lg:left-0 lg:w-[72px] lg:flex-col lg:justify-start lg:gap-3 lg:border-r lg:border-b-0 lg:px-3">
-      <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,var(--accent),#ff79c6)] text-sm font-extrabold tracking-[0.18em] text-[#11111b] shadow-[0_12px_26px_-18px_rgba(189,147,249,0.65)]">
-        SF
+    <aside className="sticky top-0 z-30 flex items-center gap-3 border-b border-[var(--border-strong)] bg-[var(--bg-nav)] px-4 py-3 lg:fixed lg:inset-y-0 lg:left-0 lg:w-60 lg:flex-col lg:items-stretch lg:border-r lg:border-b-0 lg:px-3 lg:py-6">
+      <div className="flex min-w-0 items-center gap-3 lg:mb-5 lg:px-3">
+        <div className="grid size-8 shrink-0 place-items-center rounded bg-[var(--accent)] text-sm font-bold text-[var(--bg-app)]">
+          S
+        </div>
+        <div className="hidden min-w-0 lg:block">
+          <div className="truncate text-lg font-bold text-[var(--accent)]">
+            SpecForge
+          </div>
+          <div className="text-xs text-[var(--text-muted)]">Agent Workspace</div>
+        </div>
       </div>
 
-      {!hasProjectConfigured ? (
-        <NavLink className={getRailLinkClassName} end to="/" title="Project setup">
-          <Folder className="size-5" />
+      <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto lg:flex-col lg:items-stretch lg:overflow-visible">
+        <NavLink className={getRailLinkClassName} end to="/" title="Projects">
+          <Folder className="size-5 shrink-0" />
+          <span className="hidden truncate lg:inline">Projects</span>
         </NavLink>
-      ) : null}
 
-      {hasProjectConfigured ? (
-        <NavLink className={getRailLinkClassName} to="/chat" title="Chat workspace">
-          <ChatBubble className="size-5" />
+        {hasProjectConfigured ? (
+          <NavLink className={getRailLinkClassName} to="/review" title="Review workspace">
+            <Page className="size-5 shrink-0" />
+            <span className="hidden truncate lg:inline">Review</span>
+          </NavLink>
+        ) : (
+          <span
+            aria-hidden="true"
+            className={`${RAIL_LINK_CLASS} cursor-not-allowed opacity-40`}
+            title="Finish project setup first"
+          >
+            <Page className="size-5 shrink-0" />
+            <span className="hidden truncate lg:inline">Review</span>
+          </span>
+        )}
+
+        {hasProjectConfigured ? (
+          <NavLink className={getRailLinkClassName} to="/chat" title="Chat workspace">
+            <ChatBubble className="size-5 shrink-0" />
+            <span className="hidden truncate lg:inline">Chat</span>
+          </NavLink>
+        ) : (
+          <span
+            aria-hidden="true"
+            className={`${RAIL_LINK_CLASS} cursor-not-allowed opacity-40`}
+            title="Finish project setup first"
+          >
+            <ChatBubble className="size-5 shrink-0" />
+            <span className="hidden truncate lg:inline">Chat</span>
+          </span>
+        )}
+
+        <NavLink className={getRailLinkClassName} to="/settings" title="Settings">
+          <Settings className="size-5 shrink-0" />
+          <span className="hidden truncate lg:inline">Settings</span>
         </NavLink>
-      ) : (
-        <span
-          aria-hidden="true"
-          className={`${RAIL_BUTTON_CLASS} cursor-not-allowed opacity-40`}
-          title="Finish project setup first"
-        >
-          <ChatBubble className="size-5" />
-        </span>
-      )}
-
-      {hasProjectConfigured ? (
-        <NavLink className={getRailLinkClassName} to="/review" title="Review workspace">
-          <Page className="size-5" />
-        </NavLink>
-      ) : (
-        <span
-          aria-hidden="true"
-          className={`${RAIL_BUTTON_CLASS} cursor-not-allowed opacity-40`}
-          title="Finish project setup first"
-        >
-          <Page className="size-5" />
-        </span>
-      )}
-
-      <button className={RAIL_BUTTON_CLASS} title="Code surfaces" type="button">
-        <CodeBracketsSquare className="size-5" />
-      </button>
-
-      <button className={RAIL_BUTTON_CLASS} title="Experiments" type="button">
-        <Flask className="size-5" />
-      </button>
-
-      <button className={RAIL_BUTTON_CLASS} title="Workspace" type="button">
-        <Folder className="size-5" />
-      </button>
-
-      <div className="hidden flex-1 lg:block" />
-
-      <NavLink className={getRailLinkClassName} to="/settings" title="Settings">
-        <Settings className="size-5" />
-      </NavLink>
+      </nav>
     </aside>
   );
 }
 
-const RAIL_BUTTON_CLASS =
-  "grid size-10 place-items-center rounded-2xl border border-transparent bg-transparent text-[var(--text-subtle)] transition hover:-translate-y-0.5 hover:border-[var(--border-soft)] hover:bg-white/5 hover:text-[var(--text-main)]";
+const RAIL_LINK_CLASS =
+  "flex min-h-10 items-center justify-center gap-3 rounded-lg border-r-2 border-transparent px-3 py-2 text-sm font-medium text-[var(--text-muted)] transition hover:bg-[var(--bg-nav-hover)] hover:text-[var(--text-main)] lg:justify-start";
 
 function getRailLinkClassName({ isActive }: { isActive: boolean }) {
-  return `${RAIL_BUTTON_CLASS} ${isActive ? "border-[var(--border-soft)] bg-white/5 text-[var(--text-main)]" : ""}`;
+  return `${RAIL_LINK_CLASS} ${
+    isActive
+      ? "border-[var(--accent)] bg-[var(--bg-nav-active)] font-semibold text-[var(--accent)]"
+      : ""
+  }`;
 }

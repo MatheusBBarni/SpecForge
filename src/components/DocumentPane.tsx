@@ -36,7 +36,7 @@ export const DocumentPane = memo(function DocumentPane({
 
   return (
     <article
-      className={`flex min-h-0 flex-col gap-4 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4 ${
+      className={`flex min-h-0 flex-col gap-4 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4 ${
         className ?? ""
       }`}
     >
@@ -52,7 +52,7 @@ export const DocumentPane = memo(function DocumentPane({
         </div>
       ) : (
         <textarea
-          className="min-h-0 flex-1 resize-none rounded-[1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-7 text-[var(--text-main)]"
+          className="min-h-0 flex-1 resize-none rounded-lg border border-[var(--border-soft)] bg-[var(--bg-surface)] px-4 py-4 font-[var(--font-mono)] text-[15px] leading-7 text-[var(--text-main)]"
           onChange={(event) => onChange(event.target.value)}
           onSelect={onSelect}
           value={content}
@@ -79,7 +79,7 @@ function schedulePreviewRender(callback: () => void) {
 
 function PreviewPlaceholder() {
   return (
-    <div className="flex min-h-[12rem] items-center justify-center rounded-[1rem] border border-[var(--border-soft)] bg-black/10 px-4 py-6">
+    <div className="flex min-h-[12rem] items-center justify-center rounded-lg border border-[var(--border-soft)] bg-[var(--bg-panel)] px-4 py-6">
       <p className="m-0 text-sm leading-6 text-[var(--text-subtle)]">Preparing preview...</p>
     </div>
   );

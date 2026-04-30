@@ -173,7 +173,7 @@ export const MainWorkspace = memo(function MainWorkspace({
   }, [activeEditorTab, onEditorTabClose]);
 
   return (
-    <section className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] shadow-[var(--shadow)] backdrop-blur-[30px]">
+    <section className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] shadow-none">
       <WorkspaceTabBar
         activeTab={activeTab}
         onActiveTabChange={onActiveTabChange}
@@ -280,7 +280,7 @@ export const MainWorkspace = memo(function MainWorkspace({
         </div>
       ) : activeEditorTab ? (
         <div className="grid h-full min-h-0 min-w-0 w-full gap-4 p-4">
-          <article className="flex min-h-0 min-w-0 w-full flex-col gap-4 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4">
+          <article className="flex min-h-0 min-w-0 w-full flex-col gap-4 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4">
             <div>
               <p className="mb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
                 Workspace File
@@ -291,7 +291,7 @@ export const MainWorkspace = memo(function MainWorkspace({
             </div>
 
             <textarea
-              className="min-h-0 min-w-0 w-full flex-1 resize-none rounded-[1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-7 text-[var(--text-main)]"
+              className="min-h-0 min-w-0 w-full flex-1 resize-none rounded-lg border border-[var(--border-soft)] bg-[var(--bg-surface)] px-4 py-4 font-[var(--font-mono)] text-[15px] leading-7 text-[var(--text-main)]"
               onChange={(event) => onEditorTabChange(activeEditorTab.path, event.target.value)}
               value={activeEditorTab.content}
             />
@@ -299,7 +299,7 @@ export const MainWorkspace = memo(function MainWorkspace({
         </div>
       ) : (
         <div className="grid h-full min-h-0 gap-4 p-4">
-          <article className="flex min-h-0 flex-col items-center justify-center gap-3 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-8 text-center">
+          <article className="flex min-h-0 flex-col items-center justify-center gap-3 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-surface)] p-8 text-center">
             <FileNotFound className="size-8 text-[var(--text-subtle)]" />
             <div>
               <p className="mb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
@@ -320,7 +320,7 @@ export const MainWorkspace = memo(function MainWorkspace({
 });
 
 const HEADER_ACTION_BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[var(--border-soft)] bg-white/5 px-4 py-3 font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/8";
+  "inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3 font-medium text-[var(--text-main)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";
 
 const APPROVED_ACTION_BUTTON_CLASS =
   "border-emerald-400/30 bg-emerald-400/12 text-[var(--text-main)]";

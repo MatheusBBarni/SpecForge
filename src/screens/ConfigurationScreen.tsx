@@ -3,7 +3,7 @@ import {
   Card,
   Input
 } from "@heroui/react";
-import { Folder, Refresh, Terminal } from "iconoir-react";
+import { Folder, GitSolid, Refresh, Terminal } from "iconoir-react";
 import { memo } from "react";
 
 import { CliHealthCard } from "../components/CliHealthCard";
@@ -98,7 +98,7 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-auto px-5 pb-5 pt-5">
       <div className="grid gap-4">
-        <Card className={`${SETTINGS_PANEL_CLASS} rounded-[1.6rem]`}>
+        <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
           <Card.Content className="grid gap-4 px-6 py-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-3xl">
@@ -130,30 +130,61 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
           </Card.Content>
         </Card>
 
-        <Card className={`${SETTINGS_PANEL_CLASS} rounded-[1.5rem]`}>
-          <Card.Content className="grid gap-4 px-5 py-5">
-            <StepHeading
-              number="1"
-              title="Open The Project Folder"
-              description="This becomes the active workspace and the place where `.specforge/settings.json` is created."
-            />
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+          <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
+            <Card.Content className="grid min-h-[280px] gap-4 px-5 py-5">
+              <StepHeading
+                number="1"
+                title="Open The Project Folder"
+                description="This becomes the active workspace and the place where `.specforge/settings.json` is created."
+              />
 
-            <div className="flex flex-wrap items-center gap-3">
-              <Button className={PRIMARY_BUTTON_CLASS} onPress={onPickFolder}>
-                <Folder className="size-5" />
-                {folderActionLabel}
-              </Button>
-            </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button className={PRIMARY_BUTTON_CLASS} onPress={onPickFolder}>
+                  <Folder className="size-5" />
+                  {folderActionLabel}
+                </Button>
+              </div>
 
-            <div className={`${SETTINGS_SURFACE_CLASS} grid gap-2 px-4 py-4 font-[var(--font-mono)] text-sm text-[var(--text-main)]`}>
-              <div>Workspace: {workspaceRootName || "No folder selected yet"}</div>
-              <div>Path: {workspaceRootPath || "Pick a folder to begin"}</div>
-              <div>Settings file: {settingsPath || ".specforge/settings.json"}</div>
-            </div>
-          </Card.Content>
-        </Card>
+              <div className={`${SETTINGS_SURFACE_CLASS} grid gap-2 px-4 py-4 font-[var(--font-mono)] text-sm text-[var(--text-main)]`}>
+                <div>Workspace: {workspaceRootName || "No folder selected yet"}</div>
+                <div>Path: {workspaceRootPath || "Pick a folder to begin"}</div>
+                <div>Settings file: {settingsPath || ".specforge/settings.json"}</div>
+              </div>
+            </Card.Content>
+          </Card>
 
-        <Card className={`${SETTINGS_PANEL_CLASS} rounded-[1.5rem]`}>
+          <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
+            <Card.Content className="flex min-h-[280px] flex-col gap-4 px-5 py-5">
+              <div className="flex items-center gap-3">
+                <GitSolid className="size-5 text-[var(--success)]" />
+                <h2 className="m-0 text-lg font-semibold text-[var(--text-main)]">
+                  Git Clone
+                </h2>
+              </div>
+              <p className="m-0 text-sm leading-6 text-[var(--text-subtle)]">
+                Clone a remote repository into a new workspace. The control is presentational for
+                now; cloning will be wired into the desktop runtime in the next pass.
+              </p>
+              <label className="mt-auto grid gap-2">
+                <span className={FIELD_LABEL_CLASS}>Repository URL</span>
+                <div className="flex gap-2">
+                  <Input
+                    className={INPUT_CLASS}
+                    disabled
+                    placeholder="git@github.com:org/repo.git"
+                    type="text"
+                  />
+                  <Button className={SECONDARY_BUTTON_CLASS} isDisabled>
+                    Clone
+                  </Button>
+                </div>
+              </label>
+            </Card.Content>
+          </Card>
+        </div>
+
+        <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
           <Card.Content className="grid gap-4 px-5 py-5">
             <StepHeading
               number="2"
@@ -232,7 +263,7 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
           </div>
         </div>
 
-        <Card className={`${SETTINGS_PANEL_CLASS} rounded-[1.5rem]`}>
+        <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
           <Card.Content className="flex flex-wrap items-center justify-between gap-4 px-5 py-5">
             <div className="max-w-2xl">
               <div className="flex items-center gap-3 text-[var(--text-main)]">

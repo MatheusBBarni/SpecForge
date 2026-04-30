@@ -48,7 +48,7 @@ export const PrdScreen = memo(function PrdScreen({
       ) : null}
 
       <div className="grid min-h-0 flex-1 gap-4 overflow-hidden px-4 pb-4 pt-4 grid-rows-[auto_minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)] lg:px-5 lg:pb-5 xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)_minmax(260px,320px)] xl:grid-rows-[auto_minmax(0,1fr)]">
-        <div className="order-1 flex items-center justify-between gap-4 rounded-[1.2rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] px-4 py-4 shadow-[var(--shadow)] backdrop-blur-xl xl:col-[2/4] xl:row-[1] xl:justify-end">
+        <div className="order-1 flex items-center justify-between gap-4 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] px-4 py-3 shadow-none xl:col-[2/4] xl:row-[1] xl:justify-end">
           <div className="min-w-0 xl:mr-auto">
             <h1 className="m-0 text-lg font-semibold text-[var(--text-main)]">
               {workspaceRootName}
@@ -84,7 +84,7 @@ export const PrdScreen = memo(function PrdScreen({
 });
 
 const SECONDARY_BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[var(--border-soft)] bg-white/5 px-4 py-3 font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/8";
+  "inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3 font-medium text-[var(--text-main)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";
 
 const PRIMARY_BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-[1rem] border-0 bg-[linear-gradient(135deg,var(--accent),#ff79c6)] px-4 py-3 font-semibold text-[#15131c] transition hover:-translate-y-0.5 hover:opacity-95";
+  "inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 py-3 font-semibold text-[var(--bg-app)] transition hover:bg-[#d7baff]";

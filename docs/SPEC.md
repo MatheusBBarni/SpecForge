@@ -13,11 +13,11 @@ The webview never writes workspace files directly. All desktop data access conti
 ## 2. Routes
 
 * `/` is the project configuration flow.
-* `/chat` is the primary post-setup workspace.
-* `/review` is the document and file editing workspace.
+* `/review` is the primary post-setup document and file editing workspace.
+* `/chat` is the secondary agent conversation workspace.
 * `/settings` holds project-scoped and local runtime configuration.
 
-When a saved project is restored, the app routes to `/chat` by default.
+After setup completion, the app routes to `/review` by default. Chat remains available from the sidebar below Review.
 
 ## 3. State Model
 
@@ -144,7 +144,7 @@ There is no chat-entry verification or installation path tied to navigation, and
 
 ## 8. Review Workspace
 
-The review screen still provides:
+The main sidebar follows the full-height review-screen pattern from the Stitch design: fixed-width desktop navigation, Projects, Review, Chat, and Settings ordering, Dracula Enterprise colors, and Review above Chat. The review screen still provides:
 
 * PRD/spec editing
 * workspace file browsing
@@ -158,7 +158,11 @@ Its execute panel is now a read-only mirror of the active chat topic:
 
 This prevents review from launching a second execution engine that could diverge from chat state.
 
-## 9. Known Limits
+## 9. Setup Clone Placeholder
+
+The setup screen includes a presentational Git clone card beside the local folder picker. The repository URL input and Clone button are disabled and must not call Git, Tauri commands, filesystem writes, or network operations until a dedicated clone implementation is added.
+
+## 10. Known Limits
 
 * Opened workspace file tabs remain in-memory only; there is still no save-to-disk flow.
 * The desktop runtime is required for real project persistence, chat sessions, and CLI-backed turns.

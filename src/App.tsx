@@ -789,7 +789,7 @@ function App() {
     <main className="flex h-screen min-h-0 w-full flex-col overflow-hidden">
       <AppRail hasProjectConfigured={hasSavedProjectSettings} />
 
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:ml-[72px]">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:ml-60">
         <input
           accept={desktopRuntime ? ".md,.pdf" : ".md"}
           className="hidden"
@@ -808,7 +808,7 @@ function App() {
             <Route element={reviewScreen} path="/review" />
             <Route element={settingsScreen} path="/settings" />
             <Route
-              element={<Navigate replace to={hasSavedProjectSettings ? "/chat" : "/"} />}
+              element={<Navigate replace to={hasSavedProjectSettings ? "/review" : "/"} />}
               path="*"
             />
           </Routes>

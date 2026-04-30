@@ -95,7 +95,7 @@ export const InspectorColumn = memo(function InspectorColumn({
   }, []);
 
   return (
-    <aside className="flex h-full min-h-0 flex-col gap-4 rounded-[1.5rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-5 shadow-[var(--shadow)] backdrop-blur-[30px]">
+    <aside className="flex h-full min-h-0 flex-col gap-4 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] p-5 shadow-none">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="mb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
@@ -157,7 +157,7 @@ function renderTreeNode(
       {isDirectory ? (
         <button
           aria-expanded={!isCollapsed}
-          className="flex w-full items-center gap-3 rounded-[0.8rem] py-2 pr-3 text-left text-[var(--text-subtle)] transition hover:bg-white/5 hover:text-[var(--text-main)]"
+          className="flex w-full items-center gap-3 rounded py-2 pr-3 text-left text-[var(--text-muted)] transition hover:bg-[var(--bg-nav-active)] hover:text-[var(--text-main)]"
           onClick={() => onToggleFolder(entry.path)}
           style={{ paddingLeft: `${entry.depth * 18 + 12}px` }}
           type="button"
@@ -170,7 +170,7 @@ function renderTreeNode(
         </button>
       ) : (
         <button
-          className="flex w-full items-center gap-3 rounded-[0.8rem] py-2 pr-3 text-left text-[var(--text-subtle)] transition hover:bg-white/5 hover:text-[var(--text-main)]"
+          className="flex w-full items-center gap-3 rounded py-2 pr-3 text-left text-[var(--text-muted)] transition hover:bg-[var(--bg-nav-active)] hover:text-[var(--text-main)]"
           onClick={() => onFileOpen(entry.path)}
           style={{ paddingLeft: `${entry.depth * 18 + 12}px` }}
           type="button"
@@ -186,7 +186,7 @@ function renderTreeNode(
 }
 
 const BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[var(--border-soft)] bg-white/5 px-4 py-3 font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/8";
+  "inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3 font-medium text-[var(--text-main)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";
 
 function buildWorkspaceTree(entries: WorkspaceEntry[]) {
   const nodes = new Map<string, WorkspaceTreeNode>();

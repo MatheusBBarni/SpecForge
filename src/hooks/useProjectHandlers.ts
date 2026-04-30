@@ -186,7 +186,7 @@ export function useProjectHandlers({
       });
 
       if (options?.navigateToChat && latestPathnameRef.current === "/") {
-        navigate("/chat");
+        navigate("/review");
       }
     },
     [applyProjectContextDeps, navigate]

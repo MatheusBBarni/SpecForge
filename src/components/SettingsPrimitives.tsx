@@ -122,28 +122,28 @@ export function SettingsSectionHeader({
 }
 
 export const SETTINGS_PANEL_CLASS =
-  "border border-[var(--border-strong)] bg-[var(--bg-panel)] shadow-[var(--shadow)] backdrop-blur-[30px]";
+  "border border-[var(--border-strong)] bg-[var(--bg-panel)] shadow-none";
 
 export const SETTINGS_SURFACE_CLASS =
-  "rounded-[1rem] border border-[var(--border-soft)] bg-[var(--bg-surface)]/85";
+  "rounded-lg border border-[var(--border-soft)] bg-[var(--bg-surface)]";
 
 export const FIELD_LABEL_CLASS =
   "text-sm font-medium leading-6 text-[var(--text-subtle)]";
 
 export const INPUT_CLASS =
-  "w-full rounded-[1rem] border border-[var(--border-soft)] bg-black/15 px-4 py-3 text-[15px] text-[var(--text-main)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]";
+  "w-full rounded-lg border border-[var(--border-soft)] bg-[var(--bg-surface)] px-4 py-3 text-[15px] text-[var(--text-main)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:shadow-[var(--focus-ring)]";
 
 export const TEXTAREA_CLASS =
-  "min-h-[10rem] w-full resize-y rounded-[1rem] border border-[var(--border-soft)] bg-black/15 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-6 text-[var(--text-main)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]";
+  "min-h-[10rem] w-full resize-y rounded-lg border border-[var(--border-soft)] bg-[var(--bg-surface)] px-4 py-4 font-[var(--font-mono)] text-[15px] leading-6 text-[var(--text-main)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:shadow-[var(--focus-ring)]";
 
 export const SELECT_TRIGGER_CLASS =
-  "min-h-[3rem] rounded-[1rem] border border-[var(--border-soft)] bg-black/15 px-4 text-[var(--text-main)] transition focus:border-[var(--accent)]";
+  "min-h-[3rem] rounded-lg border border-[var(--border-soft)] bg-[var(--bg-surface)] px-4 text-[var(--text-main)] transition focus:border-[var(--accent)] focus:shadow-[var(--focus-ring)]";
 
 export const LISTBOX_ITEM_CLASS =
-  "cursor-pointer rounded-[0.95rem] px-3 py-3 text-[var(--text-main)] outline-none transition data-[focused=true]:bg-white/8";
+  "cursor-pointer rounded px-3 py-3 text-[var(--text-main)] outline-none transition data-[focused=true]:bg-[var(--bg-nav-active)]";
 
 export const SECONDARY_BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[var(--border-soft)] bg-white/5 px-4 py-3 font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/8";
+  "inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3 font-medium text-[var(--text-main)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";
 
 export const PRIMARY_BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-[1rem] border-0 bg-[linear-gradient(135deg,var(--accent),#ff79c6)] px-4 py-3 font-semibold text-[#15131c] transition hover:-translate-y-0.5 hover:opacity-95";
+  "inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 py-3 font-semibold text-[var(--bg-app)] transition hover:bg-[#d7baff]";
