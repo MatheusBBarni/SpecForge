@@ -7,7 +7,7 @@ import {
   getReasoningLabel,
   normalizeReasoningProfile
 } from "../lib/agentConfig";
-import { buildDefaultProjectSettings, normalizeProjectSettings } from "../lib/projectConfig";
+import { normalizeProjectSettings } from "../lib/projectConfig";
 import type {
   AutonomyMode,
   EditorTab,

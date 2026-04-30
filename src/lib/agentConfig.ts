@@ -201,13 +201,7 @@ export function getModelLabel(modelId: ModelId) {
 export function normalizeModelId(modelId?: string | null): ModelId {
   const trimmedModelId = modelId?.trim();
 
-  if (!trimmedModelId) {
-    return DEFAULT_MODEL_ID;
-  }
-
-  return AGENT_MODELS.some((model) => model.id === trimmedModelId)
-    ? trimmedModelId
-    : DEFAULT_MODEL_ID;
+  return trimmedModelId || DEFAULT_MODEL_ID;
 }
 
 export function getModelProvider(modelId: ModelId) {
@@ -230,8 +224,16 @@ export function normalizeReasoningProfile(
   modelId: ModelId,
   profile: ReasoningProfileId
 ): ReasoningProfileId {
+  if (!hasStaticModelOption(modelId)) {
+    return profile.trim() || DEFAULT_REASONING_PROFILE;
+  }
+
   const model = getModelOption(modelId);
   return model.reasoningProfiles.includes(profile) ? profile : DEFAULT_REASONING_PROFILE;
+}
+
+function hasStaticModelOption(modelId: ModelId) {
+  return AGENT_MODELS.some((model) => model.id === modelId);
 }
 
 function cursorModelToAgentModelOption(model: CursorModel): AgentModelOption {

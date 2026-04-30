@@ -147,10 +147,18 @@ describe("normalizeProjectSettings", () => {
     expect(result.specPath).toBe("custom/SPEC.md");
   });
 
-  it("normalizes invalid model to default", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = normalizeProjectSettings({ selectedModel: "bad-model" as any });
-    expect(result.selectedModel).toBe("composer-2");
+  it("preserves account-specific Cursor model ids", () => {
+    const result = normalizeProjectSettings({ selectedModel: "account-model" });
+    expect(result.selectedModel).toBe("account-model");
+  });
+
+  it("preserves account-specific reasoning values for dynamic Cursor models", () => {
+    const result = normalizeProjectSettings({
+      selectedModel: "account-model",
+      selectedReasoning: "thinking"
+    });
+    expect(result.selectedModel).toBe("account-model");
+    expect(result.selectedReasoning).toBe("thinking");
   });
 
   it("migrates legacy prompt fields into agent descriptions", () => {

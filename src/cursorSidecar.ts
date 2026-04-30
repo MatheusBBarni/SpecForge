@@ -1,13 +1,13 @@
 import { Agent, Cursor } from "@cursor/sdk";
 import {
-  extractCursorRunText,
-  formatCursorStreamEvent,
-  normalizeCursorModels,
-  stripWrappingCodeFence,
   type CursorSidecarOutputLine,
   type CursorSidecarRequest,
   type CursorStreamEvent,
-  type SdkModel
+  extractCursorRunText,
+  formatCursorStreamEvent,
+  normalizeCursorModels,
+  type SdkModel,
+  stripWrappingCodeFence
 } from "./lib/cursorSidecarProtocol";
 
 async function main() {

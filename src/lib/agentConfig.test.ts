@@ -10,6 +10,7 @@ import {
   getReasoningHint,
   getReasoningLabel,
   getReasoningOptions,
+  normalizeModelId,
   normalizeReasoningProfile
 } from "./agentConfig";
 
@@ -23,8 +24,7 @@ describe("getModelLabel", () => {
   });
 
   it("falls back to the first model for an unknown model id", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const label = getModelLabel("nonexistent-model" as any);
+    const label = getModelLabel("nonexistent-model");
     expect(label).toBe("Composer 2");
   });
 });
@@ -35,8 +35,7 @@ describe("getModelProvider", () => {
   });
 
   it("falls back to the first model's provider for unknown id", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(getModelProvider("unknown" as any)).toBe("cursor");
+    expect(getModelProvider("unknown")).toBe("cursor");
   });
 });
 
@@ -49,8 +48,7 @@ describe("getModelOption", () => {
   });
 
   it("returns the first model as fallback for unknown id", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const option = getModelOption("fake" as any);
+    const option = getModelOption("fake");
     expect(option.id).toBe("composer-2");
   });
 });
@@ -125,8 +123,30 @@ describe("normalizeReasoningProfile", () => {
   });
 
   it("returns the default profile for invalid profile values", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(normalizeReasoningProfile("composer-2", "invalid" as any)).toBe("medium");
+    expect(normalizeReasoningProfile("composer-2", "invalid")).toBe("medium");
+  });
+
+  it("preserves account-specific profile values for dynamic model ids", () => {
+    expect(normalizeReasoningProfile("account-model", "thinking")).toBe("thinking");
+  });
+
+  it("uses the default profile for blank dynamic profile values", () => {
+    expect(normalizeReasoningProfile("account-model", " ")).toBe("medium");
+  });
+});
+
+describe("normalizeModelId", () => {
+  it("preserves account-specific Cursor model ids", () => {
+    expect(normalizeModelId("account-model")).toBe("account-model");
+  });
+
+  it("trims model ids before persisting settings", () => {
+    expect(normalizeModelId("  account-model  ")).toBe("account-model");
+  });
+
+  it("uses the default model for empty values", () => {
+    expect(normalizeModelId(" ")).toBe("composer-2");
+    expect(normalizeModelId(null)).toBe("composer-2");
   });
 });
 

@@ -1,9 +1,9 @@
 import { Agent } from "@cursor/sdk";
 import {
+  type CursorStreamEvent,
   extractCursorRunText,
   formatCursorStreamEvent,
-  stripWrappingCodeFence,
-  type CursorStreamEvent
+  stripWrappingCodeFence
 } from "./lib/cursorSidecarProtocol";
 import type { ModelId, ReasoningProfileId } from "./types";
 
