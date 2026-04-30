@@ -18,56 +18,35 @@ import {
 } from "../lib/runtime";
 import { useProjectStore } from "../store/useProjectStore";
 import type { ChatSessionSummary, ProjectContext } from "../types";
-import type { ProjectStoreSlice, SettingsStoreSlice } from "./useAppStoreSlices";
+import type {
+  ProjectStoreSlice,
+  SettingsStoreSlice,
+  WorkspaceUiStoreSlice
+} from "./useAppStoreSlices";
 import type { AppDerivedState } from "./useAppView";
 
 interface UseProjectHandlersOptions {
   applyProjectContextDeps: {
-    projectRootPath: string;
     projectState: ProjectStoreSlice;
     settingsState: SettingsStoreSlice;
-    setProjectRootName: (value: string) => void;
-    setProjectRootPath: (value: string) => void;
-    setProjectConfigPath: (value: string) => void;
-    setHasSelectedProject: (value: boolean) => void;
-    setHasSavedProjectSettings: (value: boolean) => void;
-    setWorkspaceFiles: (files: Record<string, WorkspaceFileSource>) => void;
-    setPrdGenerationPrompt: (value: string) => void;
-    setPrdGenerationError: (value: string) => void;
-    setSpecGenerationPrompt: (value: string) => void;
-    setSpecGenerationError: (value: string) => void;
+    workspaceUiState: WorkspaceUiStoreSlice;
     setChatSessions: (sessions: ChatSessionSummary[]) => void;
     setActiveSessionId: (id: string | null) => void;
     setCavemanStatus: (status: { ready: boolean; message: string }) => void;
-    setProjectStatusMessage: (message: string) => void;
-    setProjectErrorMessage: (message: string) => void;
-    setWorkspaceNotice: (notice: string) => void;
     latestPathnameRef: MutableRefObject<string>;
   };
   derivedState: AppDerivedState;
   desktopRuntime: boolean;
-  hasSavedProjectSettings: boolean;
-  projectRootName: string;
-  projectRootPath: string;
   projectState: ProjectStoreSlice;
-  setIsProjectLoading: (value: boolean) => void;
-  setIsProjectSaving: (value: boolean) => void;
-  setProjectErrorMessage: (message: string) => void;
-  setProjectStatusMessage: (message: string) => void;
+  workspaceUiState: WorkspaceUiStoreSlice;
 }
 
 export function useProjectHandlers({
   applyProjectContextDeps,
   derivedState,
   desktopRuntime,
-  hasSavedProjectSettings,
-  projectRootName,
-  projectRootPath,
   projectState,
-  setIsProjectLoading,
-  setIsProjectSaving,
-  setProjectErrorMessage,
-  setProjectStatusMessage
+  workspaceUiState
 }: UseProjectHandlersOptions) {
   const navigate = useNavigate();
   const pendingProjectReloadRef = useRef(false);
@@ -76,29 +55,16 @@ export function useProjectHandlers({
   const applyProjectContext = useCallback(
     (context: ProjectContext, options?: { navigateToChat?: boolean }) => {
       const {
-        projectRootPath: currentProjectRootPath,
         projectState: ps,
         settingsState: ss,
-        setProjectRootName,
-        setProjectRootPath,
-        setProjectConfigPath,
-        setHasSelectedProject,
-        setHasSavedProjectSettings: setHasSaved,
-        setWorkspaceFiles,
-        setPrdGenerationPrompt,
-        setPrdGenerationError,
-        setSpecGenerationPrompt,
-        setSpecGenerationError,
+        workspaceUiState: uiState,
         setChatSessions,
         setActiveSessionId,
         setCavemanStatus,
-        setProjectStatusMessage: setStatusMsg,
-        setProjectErrorMessage: setErrorMsg,
-        setWorkspaceNotice,
         latestPathnameRef
       } = applyProjectContextDeps;
 
-      const normalizedCurrentProjectPath = currentProjectRootPath
+      const normalizedCurrentProjectPath = uiState.projectRootPath
         .replace(/\\/g, "/")
         .replace(/\/+$/, "")
         .toLowerCase();
@@ -140,36 +106,35 @@ export function useProjectHandlers({
       if (!isSameProject) {
         ps.resetWorkspaceContext();
       }
-      setProjectRootName(context.rootName);
-      setProjectRootPath(context.rootPath);
-      setProjectConfigPath(context.settingsPath);
-      setHasSelectedProject(true);
-      setHasSaved(context.hasSavedSettings);
+      uiState.setProjectShell({
+        rootName: context.rootName,
+        rootPath: context.rootPath,
+        configPath: context.settingsPath,
+        hasSelectedProject: true,
+        hasSavedProjectSettings: context.hasSavedSettings
+      });
       ss.setWorkspaceEntries(context.entries);
-      setWorkspaceFiles(nextWorkspaceFiles);
+      uiState.setWorkspaceFiles(nextWorkspaceFiles);
       ss.setLastProjectPath(context.rootPath);
       ss.rememberRecentProject({
         name: context.rootName,
         path: context.rootPath
       });
       ps.setProjectSettings(context.settings);
-      setPrdGenerationPrompt("");
-      setPrdGenerationError("");
-      setSpecGenerationPrompt("");
-      setSpecGenerationError("");
+      uiState.clearGenerationState();
       setChatSessions(context.chatSessions);
       setActiveSessionId(context.lastActiveSessionId ?? context.chatSessions[0]?.id ?? null);
       setCavemanStatus({
         ready: true,
         message: "Caveman mode is built into every topic."
       });
-      setStatusMsg(
+      uiState.setProjectStatusMessage(
         context.hasSavedSettings
           ? `Loaded project settings from ${context.rootName}/${settingsPathDisplay}.`
           : `Selected ${context.rootName}. Save the setup to create ${context.rootName}/${settingsPathDisplay}.`
       );
-      setErrorMsg("");
-      setWorkspaceNotice(buildWorkspaceNotice(context));
+      uiState.setProjectErrorMessage("");
+      uiState.setWorkspaceNotice(buildWorkspaceNotice(context));
 
       startTransition(() => {
         if (!preserveEditingPrd) {
@@ -205,18 +170,18 @@ export function useProjectHandlers({
       navigateToChat?: boolean;
     } = {}) => {
       if (!desktopRuntime) {
-        setProjectErrorMessage("Project configuration requires the desktop runtime.");
+        workspaceUiState.setProjectErrorMessage("Project configuration requires the desktop runtime.");
         return;
       }
 
-      if (!projectRootPath.trim()) {
-        setProjectErrorMessage("Choose a project folder before saving.");
+      if (!workspaceUiState.projectRootPath.trim()) {
+        workspaceUiState.setProjectErrorMessage("Choose a project folder before saving.");
         return;
       }
 
-      setProjectErrorMessage("");
-      setProjectStatusMessage("");
-      setIsProjectSaving(true);
+      workspaceUiState.setProjectErrorMessage("");
+      workspaceUiState.setProjectStatusMessage("");
+      workspaceUiState.setIsProjectSaving(true);
 
       try {
         const latestProjectState = useProjectStore.getState();
@@ -231,47 +196,46 @@ export function useProjectHandlers({
           supportingDocumentPaths: latestProjectState.supportingDocumentPaths
         });
         const savedSettings = await saveProjectSettings({
-          folderPath: projectRootPath,
+          folderPath: workspaceUiState.projectRootPath,
           settings: currentProjectSettings
         });
 
         projectState.setProjectSettings(savedSettings);
-        applyProjectContextDeps.setHasSavedProjectSettings(true);
-        setProjectStatusMessage(
-          projectRootName
-            ? `Saved project settings to ${projectRootName}/${derivedState.configPathDisplay}.`
+        workspaceUiState.setHasSavedProjectSettings(true);
+        workspaceUiState.setProjectStatusMessage(
+          workspaceUiState.projectRootName
+            ? `Saved project settings to ${workspaceUiState.projectRootName}/${derivedState.configPathDisplay}.`
             : `Saved project settings to ${derivedState.configPathDisplay}.`
         );
 
         if (reloadProject || navigateToChat) {
-          const reloadedContext = await loadProjectContext(projectRootPath);
+          const reloadedContext = await loadProjectContext(workspaceUiState.projectRootPath);
           applyProjectContext(reloadedContext, { navigateToChat });
         }
       } catch (error) {
-        setProjectErrorMessage(
+        workspaceUiState.setProjectErrorMessage(
           error instanceof Error ? error.message : "Unable to save the current project settings."
         );
       } finally {
-        setIsProjectSaving(false);
+        workspaceUiState.setIsProjectSaving(false);
       }
     },
     [
       applyProjectContext,
-      applyProjectContextDeps,
       derivedState.configPathDisplay,
       desktopRuntime,
-      projectRootName,
-      projectRootPath,
       projectState,
-      setIsProjectSaving,
-      setProjectErrorMessage,
-      setProjectStatusMessage
+      workspaceUiState
     ]
   );
 
   const scheduleProjectSettingsSave = useCallback(
     (reloadProject = false) => {
-      if (!desktopRuntime || !hasSavedProjectSettings || !projectRootPath.trim()) {
+      if (
+        !desktopRuntime ||
+        !workspaceUiState.hasSavedProjectSettings ||
+        !workspaceUiState.projectRootPath.trim()
+      ) {
         return;
       }
 
@@ -288,18 +252,18 @@ export function useProjectHandlers({
         void saveCurrentProjectSettings({ reloadProject: shouldReload });
       }, 700);
     },
-    [desktopRuntime, hasSavedProjectSettings, projectRootPath, saveCurrentProjectSettings]
+    [desktopRuntime, saveCurrentProjectSettings, workspaceUiState]
   );
 
   const handlePickProjectFolder = useCallback(async () => {
     if (!desktopRuntime) {
-      setProjectErrorMessage("Project configuration requires the desktop runtime.");
+      workspaceUiState.setProjectErrorMessage("Project configuration requires the desktop runtime.");
       return;
     }
 
-    setProjectErrorMessage("");
-    setProjectStatusMessage("");
-    setIsProjectLoading(true);
+    workspaceUiState.setProjectErrorMessage("");
+    workspaceUiState.setProjectStatusMessage("");
+    workspaceUiState.setIsProjectLoading(true);
 
     try {
       const nextProjectContext = await pickProjectFolder();
@@ -311,18 +275,18 @@ export function useProjectHandlers({
       applyProjectContext(nextProjectContext);
       navigate("/");
     } catch (error) {
-      setProjectErrorMessage(
+      workspaceUiState.setProjectErrorMessage(
         error instanceof Error ? error.message : "Unable to open the selected project folder."
       );
     } finally {
-      setIsProjectLoading(false);
+      workspaceUiState.setIsProjectLoading(false);
     }
-  }, [applyProjectContext, desktopRuntime, navigate, setIsProjectLoading, setProjectErrorMessage, setProjectStatusMessage]);
+  }, [applyProjectContext, desktopRuntime, navigate, workspaceUiState]);
 
   const handleOpenRecentProject = useCallback(
     async (path: string) => {
       if (!desktopRuntime) {
-        setProjectErrorMessage("Project configuration requires the desktop runtime.");
+        workspaceUiState.setProjectErrorMessage("Project configuration requires the desktop runtime.");
         return;
       }
 
@@ -330,29 +294,27 @@ export function useProjectHandlers({
         return;
       }
 
-      setProjectErrorMessage("");
-      setProjectStatusMessage("");
-      setIsProjectLoading(true);
+      workspaceUiState.setProjectErrorMessage("");
+      workspaceUiState.setProjectStatusMessage("");
+      workspaceUiState.setIsProjectLoading(true);
 
       try {
         const nextProjectContext = await loadProjectContext(path);
         applyProjectContext(nextProjectContext);
         navigate("/");
       } catch (error) {
-        setProjectErrorMessage(
+        workspaceUiState.setProjectErrorMessage(
           error instanceof Error ? error.message : "Unable to open the selected recent project."
         );
       } finally {
-        setIsProjectLoading(false);
+        workspaceUiState.setIsProjectLoading(false);
       }
     },
     [
       applyProjectContext,
       desktopRuntime,
       navigate,
-      setIsProjectLoading,
-      setProjectErrorMessage,
-      setProjectStatusMessage
+      workspaceUiState
     ]
   );
 

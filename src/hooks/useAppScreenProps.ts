@@ -7,85 +7,52 @@ import {
 import type { ConfigurationScreen } from "../screens/ConfigurationScreen";
 import type { PrdScreen } from "../screens/PrdScreen";
 import type { SettingsScreen } from "../screens/SettingsScreen";
-import type { CursorModel, ExternalEditor } from "../types";
-import type { AgentStoreSlice, ProjectStoreSlice, SettingsStoreSlice } from "./useAppStoreSlices";
+import type { AgentStoreSlice, ProjectStoreSlice, SettingsStoreSlice, WorkspaceUiStoreSlice } from "./useAppStoreSlices";
 import type { AppUiHandlers } from "./useAppUiHandlers";
 import type { AppDerivedState } from "./useAppView";
 import type { ProjectSettingsHandlers } from "./useProjectSettingsHandlers";
 
 interface UseAppScreenPropsOptions {
   agentState: AgentStoreSlice;
-  commandSearch: string;
-  cursorModels: CursorModel[];
   derivedState: AppDerivedState;
   desktopRuntime: boolean;
-  externalEditors: ExternalEditor[];
   folderInputRef: RefObject<HTMLInputElement | null>;
   handleApproveSpec: () => void;
   handleOpenWorkspaceFileInEditor: (path: string, editorId: string) => Promise<void>;
   handleOpenChat: () => void;
   handleOpenRecentProject: (path: string) => Promise<void>;
   handlePickProjectFolder: () => Promise<void>;
-  hasSavedProjectSettings: boolean;
-  isImporting: boolean;
-  isProjectLoading: boolean;
-  isProjectSaving: boolean;
-  isSearchOpen: boolean;
   reviewVisibleDiff: string;
-  prdGenerationError: string;
-  prdGenerationPrompt: string;
-  projectErrorMessage: string;
-  projectRootName: string;
-  projectRootPath: string;
   projectSettingsHandlers: ProjectSettingsHandlers;
   projectState: ProjectStoreSlice;
-  projectStatusMessage: string;
   searchInputRef: RefObject<HTMLInputElement | null>;
   settingsState: SettingsStoreSlice;
-  specGenerationError: string;
-  specGenerationPrompt: string;
   uiHandlers: AppUiHandlers;
-  workspaceNotice: string;
+  workspaceUiState: WorkspaceUiStoreSlice;
 }
 
 export function useAppScreenProps({
   agentState,
-  commandSearch,
-  cursorModels,
   derivedState,
   desktopRuntime,
-  externalEditors,
   folderInputRef,
   handleApproveSpec,
   handleOpenWorkspaceFileInEditor,
   handleOpenChat,
   handleOpenRecentProject,
   handlePickProjectFolder,
-  hasSavedProjectSettings,
-  isImporting,
-  isProjectLoading,
-  isProjectSaving,
-  isSearchOpen,
   reviewVisibleDiff,
-  prdGenerationError,
-  prdGenerationPrompt,
-  projectErrorMessage,
-  projectRootName,
-  projectRootPath,
   projectSettingsHandlers,
   projectState,
-  projectStatusMessage,
   searchInputRef,
   settingsState,
-  specGenerationError,
-  specGenerationPrompt,
   uiHandlers,
-  workspaceNotice
+  workspaceUiState
 }: UseAppScreenPropsOptions) {
   const controlColumnProps = useMemo(
     () => ({
       configuredModelProviders: derivedState.configuredModelProviders,
-      cursorModels,
+      cursorModels: workspaceUiState.cursorModels,
       autonomyMode: projectState.autonomyMode,
       mcpItems: derivedState.mcpItems,
       onModeChange: projectState.setAutonomyMode,
@@ -94,7 +61,7 @@ export function useAppScreenProps({
       selectedModel: projectState.selectedModel,
       selectedReasoning: projectState.selectedReasoning
     }),
-    [cursorModels, derivedState, projectSettingsHandlers, projectState]
+    [derivedState, projectSettingsHandlers, projectState, workspaceUiState.cursorModels]
   );
 
   const mainWorkspaceProps = useMemo(
@@ -105,7 +72,7 @@ export function useAppScreenProps({
       canGenerateSpec: derivedState.canGenerateSpec,
       configPath: derivedState.configPathDisplay,
       executionSummary: agentState.executionSummary,
-      externalEditors,
+      externalEditors: workspaceUiState.externalEditors,
       isGeneratingPrd: derivedState.isGeneratingPrd,
       isGeneratingSpec: derivedState.isGeneratingSpec,
       isSpecApproved: projectState.isSpecApproved,
@@ -131,37 +98,37 @@ export function useAppScreenProps({
       onSpecSelect: uiHandlers.handleSpecSelect,
       openEditorTabs: projectState.openEditorTabs,
       prdContent: projectState.prdContent,
-      prdGenerationError,
+      prdGenerationError: workspaceUiState.prdGenerationError,
       prdGenerationHelperText: derivedState.prdGenerationHelperText,
-      prdGenerationPrompt,
+      prdGenerationPrompt: workspaceUiState.prdGenerationPrompt,
       prdPaneMode: projectState.prdPaneMode,
       prdPath: projectState.prdPath,
       prdPromptTemplate: projectState.prdPromptTemplate,
       specContent: projectState.specContent,
-      specGenerationError,
+      specGenerationError: workspaceUiState.specGenerationError,
       specGenerationHelperText: derivedState.specGenerationHelperText,
-      specGenerationPrompt,
+      specGenerationPrompt: workspaceUiState.specGenerationPrompt,
       specPaneMode: projectState.specPaneMode,
       specPath: projectState.specPath,
       specPromptTemplate: projectState.specPromptTemplate,
       terminalOutput: agentState.terminalOutput,
       visibleDiff: reviewVisibleDiff,
-      workspaceRootName: projectRootName
+      workspaceRootName: workspaceUiState.projectRootName
     }),
     [
       agentState,
       derivedState,
-      externalEditors,
       handleApproveSpec,
       handleOpenWorkspaceFileInEditor,
-      prdGenerationError,
-      prdGenerationPrompt,
-      projectRootName,
       projectState,
       reviewVisibleDiff,
-      specGenerationError,
-      specGenerationPrompt,
-      uiHandlers
+      uiHandlers,
+      workspaceUiState.externalEditors,
+      workspaceUiState.prdGenerationError,
+      workspaceUiState.prdGenerationPrompt,
+      workspaceUiState.projectRootName,
+      workspaceUiState.specGenerationError,
+      workspaceUiState.specGenerationPrompt
     ]
   );
 
@@ -176,47 +143,36 @@ export function useAppScreenProps({
       onFolderChange: uiHandlers.handleWorkspaceFolderSelection,
       onOpenFolder: handlePickProjectFolder,
       workspaceEntries: derivedState.filteredWorkspaceEntries,
-      workspaceNotice,
-      workspaceRootName: projectRootName,
-      workspaceRootPath: projectRootPath
+      workspaceNotice: workspaceUiState.workspaceNotice,
+      workspaceRootName: workspaceUiState.projectRootName,
+      workspaceRootPath: workspaceUiState.projectRootPath
     }),
     [
       derivedState,
       folderInputRef,
       handlePickProjectFolder,
-      projectRootName,
-      projectRootPath,
       settingsState.workspaceEntries.length,
       uiHandlers,
-      workspaceNotice
+      workspaceUiState.projectRootName,
+      workspaceUiState.projectRootPath,
+      workspaceUiState.workspaceNotice
     ]
   );
 
   const reviewScreenProps = useMemo<ComponentProps<typeof PrdScreen>>(
     () => ({
-      agentStatus: agentState.status,
-      commandSearch,
       controlColumnProps,
       inspectorColumnProps,
-      isSearchOpen,
-      isSpecApproved: projectState.isSpecApproved,
       mainWorkspaceProps,
-      onCommandSearchChange: uiHandlers.handleCommandSearchChange,
       onOpenChat: handleOpenChat,
       onRefresh: uiHandlers.handleRefresh,
-      searchInputRef,
-      workspaceRootName: projectRootName
+      searchInputRef
     }),
     [
-      agentState.status,
-      commandSearch,
       controlColumnProps,
       handleOpenChat,
       inspectorColumnProps,
-      isSearchOpen,
       mainWorkspaceProps,
-      projectRootName,
-      projectState.isSpecApproved,
       searchInputRef,
       uiHandlers
     ]
@@ -245,31 +201,31 @@ export function useAppScreenProps({
             onSaveCursorApiKey: uiHandlers.handleSaveCursorApiKeyClick,
             onSupportingDocumentsChange: projectSettingsHandlers.handleSupportingDocumentsChange,
             onThemeChange: settingsState.setTheme,
-            cursorModels,
+            cursorModels: workspaceUiState.cursorModels,
             prdPath: projectState.configuredPrdPath,
         prdPrompt: projectState.prdPromptTemplate,
-        projectErrorMessage,
-        projectStatusMessage,
+        projectErrorMessage: workspaceUiState.projectErrorMessage,
+        projectStatusMessage: workspaceUiState.projectStatusMessage,
         selectedModel: projectState.selectedModel,
         selectedReasoning: projectState.selectedReasoning,
         specPath: projectState.configuredSpecPath,
         specPrompt: projectState.specPromptTemplate,
         supportingDocumentsValue: derivedState.supportingDocumentsValue,
         theme: settingsState.theme,
-        workspaceRootName: projectRootName
+        workspaceRootName: workspaceUiState.projectRootName
       }
     }),
     [
       agentState.status,
       derivedState,
-      cursorModels,
-      projectErrorMessage,
-      projectRootName,
       projectSettingsHandlers,
       projectState,
-      projectStatusMessage,
       settingsState,
-      uiHandlers
+      uiHandlers,
+      workspaceUiState.cursorModels,
+      workspaceUiState.projectErrorMessage,
+      workspaceUiState.projectRootName,
+      workspaceUiState.projectStatusMessage
     ]
   );
 
@@ -278,10 +234,10 @@ export function useAppScreenProps({
       cursorApiKeyInput: settingsState.cursorApiKeyInput,
       desktopRuntime,
       environment: settingsState.environment,
-      errorMessage: projectErrorMessage,
-      hasSavedSettings: hasSavedProjectSettings,
-      isProjectLoading: isProjectLoading || isImporting,
-      isSaving: isProjectSaving,
+      errorMessage: workspaceUiState.projectErrorMessage,
+      hasSavedSettings: workspaceUiState.hasSavedProjectSettings,
+      isProjectLoading: workspaceUiState.isProjectLoading || workspaceUiState.isImporting,
+      isSaving: workspaceUiState.isProjectSaving,
       onCursorApiKeyInputChange: settingsState.setCursorApiKeyInput,
       onDeleteCursorApiKey: uiHandlers.handleDeleteCursorApiKeyClick,
       onContinue: projectSettingsHandlers.handleSaveConfigurationAndContinue,
@@ -300,37 +256,29 @@ export function useAppScreenProps({
       onSupportingDocumentsChange: projectSettingsHandlers.handleSupportingDocumentsChange,
       prdPath: projectState.configuredPrdPath,
       prdPrompt: projectState.prdPromptTemplate,
-      cursorModels,
+      cursorModels: workspaceUiState.cursorModels,
       selectedModel: projectState.selectedModel,
       selectedReasoning: projectState.selectedReasoning,
       settingsPath: derivedState.configPathDisplay,
       specPath: projectState.configuredSpecPath,
       specPrompt: projectState.specPromptTemplate,
       executionAgentDescription: projectState.executionAgentDescription,
-      statusMessage: projectStatusMessage,
+      statusMessage: workspaceUiState.projectStatusMessage,
       supportingDocumentsValue: derivedState.supportingDocumentsValue,
       recentProjects: settingsState.recentProjects,
-      workspaceRootName: projectRootName,
-      workspaceRootPath: projectRootPath
+      workspaceRootName: workspaceUiState.projectRootName,
+      workspaceRootPath: workspaceUiState.projectRootPath
     }),
     [
       derivedState,
-      cursorModels,
       desktopRuntime,
       handleOpenRecentProject,
       handlePickProjectFolder,
-      hasSavedProjectSettings,
-      isImporting,
-      isProjectLoading,
-      isProjectSaving,
-      projectErrorMessage,
-      projectRootName,
-      projectRootPath,
       projectSettingsHandlers,
       projectState,
-      projectStatusMessage,
       settingsState,
-      uiHandlers
+      uiHandlers,
+      workspaceUiState
     ]
   );
 

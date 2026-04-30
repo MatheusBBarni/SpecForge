@@ -19,7 +19,8 @@ import { formatSupportingDocumentPaths } from "../lib/projectConfig";
 import type {
   AgentStoreSlice,
   ProjectStoreSlice,
-  SettingsStoreSlice
+  SettingsStoreSlice,
+  WorkspaceUiStoreSlice
 } from "./useAppStoreSlices";
 
 export { useAppScreenProps } from "./useAppScreenProps";
@@ -29,34 +30,22 @@ export { type ProjectSettingsHandlers, useProjectSettingsHandlers } from "./useP
 
 interface UseAppDerivedStateOptions {
   agentState: AgentStoreSlice;
-  commandSearch: string;
   desktopRuntime: boolean;
-  latestDiff: string;
-  prdGenerationPrompt: string;
-  projectConfigPath: string;
-  projectRootName: string;
-  projectRootPath: string;
   projectState: ProjectStoreSlice;
   settingsState: SettingsStoreSlice;
-  specGenerationPrompt: string;
   systemPrefersDark: boolean;
+  workspaceUiState: WorkspaceUiStoreSlice;
 }
 
 export function useAppDerivedState({
   agentState,
-  commandSearch,
   desktopRuntime,
-  latestDiff,
-  prdGenerationPrompt,
-  projectConfigPath,
-  projectRootName,
-  projectRootPath,
   projectState,
   settingsState,
-  specGenerationPrompt,
-  systemPrefersDark
+  systemPrefersDark,
+  workspaceUiState
 }: UseAppDerivedStateOptions) {
-  const deferredSearch = useDeferredValue(commandSearch);
+  const deferredSearch = useDeferredValue(workspaceUiState.commandSearch);
 
   const filteredWorkspaceEntries = useMemo(
     () => filterWorkspaceEntries(settingsState.workspaceEntries, deferredSearch),
@@ -68,7 +57,7 @@ export function useAppDerivedState({
   );
   const isGeneratingPrd = agentState.status === "generating_prd";
   const isGeneratingSpec = agentState.status === "generating_spec";
-  const visibleDiff = agentState.pendingDiff ?? latestDiff;
+  const visibleDiff = agentState.pendingDiff ?? workspaceUiState.latestDiff;
   const resolvedTheme = useMemo(
     () => resolveTheme(settingsState.theme, systemPrefersDark),
     [settingsState.theme, systemPrefersDark]
@@ -106,8 +95,12 @@ export function useAppDerivedState({
     ]
   );
   const configPathDisplay = useMemo(
-    () => buildConfigPathDisplay(projectConfigPath, projectRootName),
-    [projectConfigPath, projectRootName]
+    () =>
+      buildConfigPathDisplay(
+        workspaceUiState.projectConfigPath,
+        workspaceUiState.projectRootName
+      ),
+    [workspaceUiState.projectConfigPath, workspaceUiState.projectRootName]
   );
   const supportingDocumentsValue = useMemo(
     () => formatSupportingDocumentPaths(projectState.supportingDocumentPaths),
@@ -118,16 +111,16 @@ export function useAppDerivedState({
       desktopRuntime &&
       !isGeneratingPrd &&
       settingsState.environment.cursor.status === "found" &&
-      projectRootPath.trim().length > 0 &&
+      workspaceUiState.projectRootPath.trim().length > 0 &&
       projectState.configuredPrdPath.trim().length > 0 &&
-      prdGenerationPrompt.trim().length > 0,
+      workspaceUiState.prdGenerationPrompt.trim().length > 0,
     [
       desktopRuntime,
       isGeneratingPrd,
-      prdGenerationPrompt,
-      projectRootPath,
       projectState.configuredPrdPath,
-      settingsState.environment.cursor.status
+      settingsState.environment.cursor.status,
+      workspaceUiState.prdGenerationPrompt,
+      workspaceUiState.projectRootPath
     ]
   );
   const canGenerateSpec = useMemo(
@@ -135,18 +128,18 @@ export function useAppDerivedState({
       desktopRuntime &&
       !isGeneratingSpec &&
       settingsState.environment.cursor.status === "found" &&
-      projectRootPath.trim().length > 0 &&
+      workspaceUiState.projectRootPath.trim().length > 0 &&
       projectState.prdContent.trim().length > 0 &&
       projectState.configuredSpecPath.trim().length > 0 &&
-      specGenerationPrompt.trim().length > 0,
+      workspaceUiState.specGenerationPrompt.trim().length > 0,
     [
       desktopRuntime,
       isGeneratingSpec,
-      projectRootPath,
       projectState.configuredSpecPath,
       projectState.prdContent,
       settingsState.environment.cursor.status,
-      specGenerationPrompt
+      workspaceUiState.projectRootPath,
+      workspaceUiState.specGenerationPrompt
     ]
   );
   const prdGenerationHelperText = useMemo(
@@ -155,19 +148,19 @@ export function useAppDerivedState({
         configPathDisplay,
         configuredDocumentPath: projectState.configuredPrdPath,
         desktopRuntime,
-        generationPrompt: prdGenerationPrompt,
-        projectRootPath,
+        generationPrompt: workspaceUiState.prdGenerationPrompt,
+        projectRootPath: workspaceUiState.projectRootPath,
         selectedModel: projectState.selectedModel,
         selectedProviderStatus
       }),
     [
       configPathDisplay,
       desktopRuntime,
-      prdGenerationPrompt,
-      projectRootPath,
       projectState.configuredPrdPath,
       projectState.selectedModel,
-      selectedProviderStatus
+      selectedProviderStatus,
+      workspaceUiState.prdGenerationPrompt,
+      workspaceUiState.projectRootPath
     ]
   );
   const specGenerationHelperText = useMemo(
@@ -176,21 +169,21 @@ export function useAppDerivedState({
         configPathDisplay,
         configuredDocumentPath: projectState.configuredSpecPath,
         desktopRuntime,
-        generationPrompt: specGenerationPrompt,
+        generationPrompt: workspaceUiState.specGenerationPrompt,
         prdContent: projectState.prdContent,
-        projectRootPath,
+        projectRootPath: workspaceUiState.projectRootPath,
         selectedModel: projectState.selectedModel,
         selectedProviderStatus
       }),
     [
       configPathDisplay,
       desktopRuntime,
-      projectRootPath,
       projectState.configuredSpecPath,
       projectState.prdContent,
       projectState.selectedModel,
       selectedProviderStatus,
-      specGenerationPrompt
+      workspaceUiState.projectRootPath,
+      workspaceUiState.specGenerationPrompt
     ]
   );
 

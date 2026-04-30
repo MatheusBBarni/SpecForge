@@ -187,14 +187,27 @@ export function getReasoningOptions(
 }
 
 export function getModelOption(modelId: ModelId) {
-  return AGENT_MODELS.find((model) => model.id === modelId) ?? cursorModelToAgentModelOption({
-    id: modelId,
-    label: formatModelLabel(modelId)
-  });
+  return (
+    AGENT_MODELS.find((model) => model.id === modelId) ??
+    AGENT_MODELS.find((model) => model.id === DEFAULT_MODEL_ID) ??
+    AGENT_MODELS[0]
+  );
 }
 
 export function getModelLabel(modelId: ModelId) {
   return getModelOption(modelId).label;
+}
+
+export function normalizeModelId(modelId?: string | null): ModelId {
+  const trimmedModelId = modelId?.trim();
+
+  if (!trimmedModelId) {
+    return DEFAULT_MODEL_ID;
+  }
+
+  return AGENT_MODELS.some((model) => model.id === trimmedModelId)
+    ? trimmedModelId
+    : DEFAULT_MODEL_ID;
 }
 
 export function getModelProvider(modelId: ModelId) {

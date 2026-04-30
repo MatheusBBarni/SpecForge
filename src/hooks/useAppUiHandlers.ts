@@ -1,7 +1,5 @@
 import {
   type ChangeEvent,
-  type Dispatch,
-  type SetStateAction, 
   useCallback
 } from "react";
 
@@ -11,7 +9,12 @@ import {
   saveCursorApiKey
 } from "../lib/runtime";
 import type { EnvironmentStatus } from "../types";
-import type { AgentStoreSlice, ProjectStoreSlice, SettingsStoreSlice } from "./useAppStoreSlices";
+import type {
+  AgentStoreSlice,
+  ProjectStoreSlice,
+  SettingsStoreSlice,
+  WorkspaceUiStoreSlice
+} from "./useAppStoreSlices";
 
 interface UseAppUiHandlersOptions {
   agentState: AgentStoreSlice;
@@ -22,17 +25,10 @@ interface UseAppUiHandlersOptions {
   handleOpenImportFile: (target: DocumentTarget) => Promise<void>;
   handleStartBuild: () => Promise<void>;
   handleWorkspaceFileOpen: (path: string) => Promise<void>;
-  prdGenerationError: string;
   projectState: ProjectStoreSlice;
   refreshDiagnostics: (previousEnvironment?: EnvironmentStatus) => Promise<void>;
-  setCommandSearch: Dispatch<SetStateAction<string>>;
-  setIsSearchOpen: Dispatch<SetStateAction<boolean>>;
-  setPrdGenerationError: Dispatch<SetStateAction<string>>;
-  setPrdGenerationPrompt: Dispatch<SetStateAction<string>>;
-  setSpecGenerationError: Dispatch<SetStateAction<string>>;
-  setSpecGenerationPrompt: Dispatch<SetStateAction<string>>;
   settingsState: SettingsStoreSlice;
-  specGenerationError: string;
+  workspaceUiState: WorkspaceUiStoreSlice;
 }
 
 export function useAppUiHandlers({
@@ -44,17 +40,10 @@ export function useAppUiHandlers({
   handleOpenImportFile,
   handleStartBuild,
   handleWorkspaceFileOpen,
-  prdGenerationError,
   projectState,
   refreshDiagnostics,
-  setCommandSearch,
-  setIsSearchOpen,
-  setPrdGenerationError,
-  setPrdGenerationPrompt,
-  setSpecGenerationError,
-  setSpecGenerationPrompt,
   settingsState,
-  specGenerationError
+  workspaceUiState
 }: UseAppUiHandlersOptions) {
   const handlePrdContentChange = useCallback(
     (value: string) => {
@@ -66,12 +55,12 @@ export function useAppUiHandlers({
   const handleSpecContentChange = useCallback(
     (value: string) => {
       if (value.trim()) {
-        setSpecGenerationError("");
+        workspaceUiState.setSpecGenerationError("");
       }
 
       projectState.setSpecContent(value, projectState.specPath);
     },
-    [projectState, setSpecGenerationError]
+    [projectState, workspaceUiState]
   );
 
   const handleSpecSelect = useCallback(
@@ -93,10 +82,10 @@ export function useAppUiHandlers({
 
   const handlePrdGenerationPromptChange = useCallback(
     (value: string) => {
-      setPrdGenerationPrompt(value);
+      workspaceUiState.setPrdGenerationPrompt(value);
 
-      if (prdGenerationError) {
-        setPrdGenerationError("");
+      if (workspaceUiState.prdGenerationError) {
+        workspaceUiState.setPrdGenerationError("");
       }
 
       if (agentState.status === "error") {
@@ -105,18 +94,16 @@ export function useAppUiHandlers({
     },
     [
       agentState,
-      prdGenerationError,
-      setPrdGenerationError,
-      setPrdGenerationPrompt
+      workspaceUiState
     ]
   );
 
   const handleSpecGenerationPromptChange = useCallback(
     (value: string) => {
-      setSpecGenerationPrompt(value);
+      workspaceUiState.setSpecGenerationPrompt(value);
 
-      if (specGenerationError) {
-        setSpecGenerationError("");
+      if (workspaceUiState.specGenerationError) {
+        workspaceUiState.setSpecGenerationError("");
       }
 
       if (agentState.status === "error") {
@@ -125,23 +112,21 @@ export function useAppUiHandlers({
     },
     [
       agentState,
-      setSpecGenerationError,
-      setSpecGenerationPrompt,
-      specGenerationError
+      workspaceUiState
     ]
   );
 
   const handleCommandSearchChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
-      setCommandSearch(event.target.value);
+      workspaceUiState.setCommandSearch(event.target.value);
     },
-    [setCommandSearch]
+    [workspaceUiState]
   );
 
   const closeWorkspaceSearch = useCallback(() => {
-    setIsSearchOpen(false);
-    setCommandSearch("");
-  }, [setCommandSearch, setIsSearchOpen]);
+    workspaceUiState.setIsSearchOpen(false);
+    workspaceUiState.setCommandSearch("");
+  }, [workspaceUiState]);
 
   const handleRefresh = useCallback(() => {
     void refreshDiagnostics();
@@ -159,11 +144,11 @@ export function useAppUiHandlers({
       settingsState.setCursorApiKeyInput("");
       await refreshDiagnostics();
     } catch (error) {
-      setPrdGenerationError(
+      workspaceUiState.setPrdGenerationError(
         error instanceof Error ? error.message : "Unable to save the Cursor API key."
       );
     }
-  }, [refreshDiagnostics, setPrdGenerationError, settingsState]);
+  }, [refreshDiagnostics, settingsState, workspaceUiState]);
 
   const handleDeleteCursorApiKeyClick = useCallback(async () => {
     try {
@@ -171,11 +156,11 @@ export function useAppUiHandlers({
       settingsState.setCursorApiKeyInput("");
       await refreshDiagnostics();
     } catch (error) {
-      setPrdGenerationError(
+      workspaceUiState.setPrdGenerationError(
         error instanceof Error ? error.message : "Unable to delete the Cursor API key."
       );
     }
-  }, [refreshDiagnostics, setPrdGenerationError, settingsState]);
+  }, [refreshDiagnostics, settingsState, workspaceUiState]);
 
   const handleOpenPrdImportClick = useCallback(() => {
     void handleOpenImportFile("prd");

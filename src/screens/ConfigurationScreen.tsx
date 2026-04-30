@@ -17,8 +17,8 @@ import {
   SETTINGS_PANEL_CLASS,
   SETTINGS_SURFACE_CLASS
 } from "../components/SettingsPrimitives";
-import type { CursorModel, EnvironmentStatus, ModelId, ReasoningProfileId } from "../types";
 import type { RecentProject } from "../store/useSettingsStore";
+import type { CursorModel, EnvironmentStatus, ModelId, ReasoningProfileId } from "../types";
 
 interface ConfigurationScreenProps {
   desktopRuntime: boolean;

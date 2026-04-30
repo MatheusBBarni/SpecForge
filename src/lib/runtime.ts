@@ -8,9 +8,9 @@ import type {
   ChatEventPayload,
   ChatSession,
   ChatSessionSummary,
+  CursorModel,
   EnvironmentStatus,
   ExternalEditor,
-  CursorModel,
   ModelId,
   ProjectContext,
   ProjectSettings,
@@ -229,7 +229,6 @@ export async function generateSpecDocument(payload: {
 }
 
 export async function executeCursorAgentPrompt(payload: {
-  apiKey: string;
   workspaceRoot: string;
   model: ModelId;
   reasoning: ReasoningProfileId;
@@ -240,14 +239,6 @@ export async function executeCursorAgentPrompt(payload: {
   }
 
   return invoke<{ content: string; events: string[] }>("run_cursor_agent_prompt", { payload });
-}
-
-export async function getCursorApiKey(): Promise<string | null> {
-  if (!isTauriRuntime()) {
-    throw new Error("Cursor API key access requires the desktop runtime.");
-  }
-
-  return invoke<string | null>("get_cursor_api_key");
 }
 
 export async function saveCursorApiKey(apiKey: string): Promise<void> {

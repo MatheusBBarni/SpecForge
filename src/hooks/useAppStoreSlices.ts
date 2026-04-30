@@ -4,6 +4,7 @@ import { useAgentStore } from "../store/useAgentStore";
 import { useChatStore } from "../store/useChatStore";
 import { useProjectStore } from "../store/useProjectStore";
 import { useSettingsStore } from "../store/useSettingsStore";
+import { useWorkspaceUiStore } from "../store/useWorkspaceUiStore";
 
 export function useAgentStoreSlice() {
   return useAgentStore(
@@ -119,3 +120,60 @@ export function useSettingsStoreSlice() {
 }
 
 export type SettingsStoreSlice = ReturnType<typeof useSettingsStoreSlice>;
+
+export function useWorkspaceUiStoreSlice() {
+  return useWorkspaceUiStore(
+    useShallow((state) => ({
+      commandSearch: state.commandSearch,
+      isImporting: state.isImporting,
+      isSearchOpen: state.isSearchOpen,
+      isProjectLoading: state.isProjectLoading,
+      isProjectSaving: state.isProjectSaving,
+      latestDiff: state.latestDiff,
+      projectConfigPath: state.projectConfigPath,
+      projectErrorMessage: state.projectErrorMessage,
+      projectRootName: state.projectRootName,
+      projectRootPath: state.projectRootPath,
+      projectStatusMessage: state.projectStatusMessage,
+      workspaceNotice: state.workspaceNotice,
+      externalEditors: state.externalEditors,
+      cursorModels: state.cursorModels,
+      hasSavedProjectSettings: state.hasSavedProjectSettings,
+      hasSelectedProject: state.hasSelectedProject,
+      hasAttemptedProjectRestore: state.hasAttemptedProjectRestore,
+      workspaceFiles: state.workspaceFiles,
+      prdGenerationPrompt: state.prdGenerationPrompt,
+      prdGenerationError: state.prdGenerationError,
+      specGenerationPrompt: state.specGenerationPrompt,
+      specGenerationError: state.specGenerationError,
+      setCommandSearch: state.setCommandSearch,
+      setIsImporting: state.setIsImporting,
+      setIsSearchOpen: state.setIsSearchOpen,
+      setIsProjectLoading: state.setIsProjectLoading,
+      setIsProjectSaving: state.setIsProjectSaving,
+      setLatestDiff: state.setLatestDiff,
+      resetLatestDiff: state.resetLatestDiff,
+      setProjectConfigPath: state.setProjectConfigPath,
+      setProjectErrorMessage: state.setProjectErrorMessage,
+      setProjectRootName: state.setProjectRootName,
+      setProjectRootPath: state.setProjectRootPath,
+      setProjectStatusMessage: state.setProjectStatusMessage,
+      setWorkspaceNotice: state.setWorkspaceNotice,
+      setExternalEditors: state.setExternalEditors,
+      setCursorModels: state.setCursorModels,
+      setHasSavedProjectSettings: state.setHasSavedProjectSettings,
+      setHasSelectedProject: state.setHasSelectedProject,
+      setHasAttemptedProjectRestore: state.setHasAttemptedProjectRestore,
+      setWorkspaceFiles: state.setWorkspaceFiles,
+      setPrdGenerationPrompt: state.setPrdGenerationPrompt,
+      setPrdGenerationError: state.setPrdGenerationError,
+      setSpecGenerationPrompt: state.setSpecGenerationPrompt,
+      setSpecGenerationError: state.setSpecGenerationError,
+      clearGenerationState: state.clearGenerationState,
+      setProjectShell: state.setProjectShell,
+      resetWorkspaceUi: state.resetWorkspaceUi
+    }))
+  );
+}
+
+export type WorkspaceUiStoreSlice = ReturnType<typeof useWorkspaceUiStoreSlice>;

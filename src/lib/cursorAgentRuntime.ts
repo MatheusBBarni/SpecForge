@@ -11,7 +11,6 @@ interface BuildCursorSpecPromptOptions extends BuildCursorPrdPromptOptions {
 }
 
 interface RunCursorAgentPromptOptions {
-  apiKey: string;
   workspaceRoot: string;
   model: ModelId;
   reasoning: ReasoningProfileId;
@@ -53,7 +52,6 @@ ${prdContent.trim()}`;
 }
 
 export async function runCursorAgentPrompt({
-  apiKey,
   workspaceRoot,
   model,
   reasoning,
@@ -61,7 +59,6 @@ export async function runCursorAgentPrompt({
   onEvent
 }: RunCursorAgentPromptOptions) {
   const result = await executeCursorAgentPrompt({
-    apiKey,
     workspaceRoot,
     model,
     reasoning,

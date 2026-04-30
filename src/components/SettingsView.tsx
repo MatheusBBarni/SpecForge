@@ -9,8 +9,8 @@ import {
 } from "iconoir-react";
 import { memo } from "react";
 import type {
-  EnvironmentStatus,
   CursorModel,
+  EnvironmentStatus,
   ModelId,
   ReasoningProfileId,
   SpecAnnotation,

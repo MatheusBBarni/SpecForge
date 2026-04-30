@@ -1,8 +1,4 @@
-import {
-  Label,
-  ListBox,
-  Select
-} from "@heroui/react";
+import { Label, ListBox, Select } from "@heroui/react";
 import {
   type ChangeEvent,
   type ComponentProps,
@@ -11,6 +7,7 @@ import {
   type RefObject,
   useCallback
 } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 import { ControlColumn } from "../components/ControlColumn";
 import { FloatingSearch } from "../components/FloatingSearch";
@@ -18,15 +15,12 @@ import { InspectorColumn } from "../components/InspectorColumn";
 import { MainWorkspace } from "../components/MainWorkspace";
 import { StatusPill } from "../components/StatusPill";
 import { getModelOptions, getReasoningOptions } from "../lib/agentConfig";
-import type { AgentStatus, AutonomyMode } from "../types";
+import { useAgentStore } from "../store/useAgentStore";
+import { useProjectStore } from "../store/useProjectStore";
+import { useWorkspaceUiStore } from "../store/useWorkspaceUiStore";
+import type { AutonomyMode } from "../types";
 
-interface PrdScreenProps {
-  agentStatus: AgentStatus;
-  commandSearch: string;
-  isSearchOpen: boolean;
-  isSpecApproved: boolean;
-  workspaceRootName: string;
-  onCommandSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
+export interface PrdScreenProps {
   onOpenChat: () => void;
   onRefresh: () => void;
   searchInputRef: RefObject<HTMLInputElement | null>;
@@ -36,36 +30,42 @@ interface PrdScreenProps {
 }
 
 export const PrdScreen = memo(function PrdScreen({
-  agentStatus,
-  commandSearch,
-  isSearchOpen,
-  isSpecApproved,
-  workspaceRootName,
-  onCommandSearchChange,
   onOpenChat,
   onRefresh,
   searchInputRef,
   controlColumnProps,
   mainWorkspaceProps,
-  inspectorColumnProps
+  inspectorColumnProps,
 }: PrdScreenProps) {
+  const { commandSearch, isSearchOpen, setCommandSearch } = useWorkspaceUiStore(
+    useShallow((state) => ({
+      commandSearch: state.commandSearch,
+      isSearchOpen: state.isSearchOpen,
+      setCommandSearch: state.setCommandSearch,
+    })),
+  );
+  const handleCommandSearchChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setCommandSearch(event.target.value);
+    },
+    [setCommandSearch],
+  );
+
   return (
     <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       {isSearchOpen ? (
         <FloatingSearch
           inputRef={searchInputRef}
-          onChange={onCommandSearchChange}
+          onChange={handleCommandSearchChange}
           value={commandSearch}
         />
       ) : null}
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <ReviewTopBar
-          agentStatus={agentStatus}
           controlColumnProps={controlColumnProps}
           onOpenChat={onOpenChat}
           onRefresh={onRefresh}
-          workspaceRootName={workspaceRootName}
         />
 
         <div className="grid min-h-0 flex-1 overflow-hidden xl:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
@@ -83,18 +83,23 @@ export const PrdScreen = memo(function PrdScreen({
 });
 
 function ReviewTopBar({
-  agentStatus,
   controlColumnProps,
   onOpenChat,
   onRefresh,
-  workspaceRootName
 }: {
-  agentStatus: AgentStatus;
   controlColumnProps: ComponentProps<typeof ControlColumn>;
   onOpenChat: () => void;
   onRefresh: () => void;
-  workspaceRootName: string;
 }) {
+  const agentStatus = useAgentStore((state) => state.status);
+  const {
+    autonomyMode,
+    cursorModels,
+    selectedModel,
+    selectedReasoning,
+    workspaceRootName,
+  } = useReviewTopBarState();
+
   return (
     <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-[var(--border-strong)] bg-[var(--bg-panel)] px-4">
       <div className="min-w-0 flex-1">
@@ -112,26 +117,34 @@ function ReviewTopBar({
             controlColumnProps.configuredModelProviders.length === 1
               ? controlColumnProps.configuredModelProviders[0]
               : undefined,
-            controlColumnProps.cursorModels
+            cursorModels,
           )}
-          value={controlColumnProps.selectedModel}
+          value={selectedModel}
         />
         <TopBarSelect
           label="Reasoning"
           onChange={controlColumnProps.onReasoningChange}
-          options={getReasoningOptions(controlColumnProps.selectedModel, controlColumnProps.cursorModels)}
-          value={controlColumnProps.selectedReasoning}
+          options={getReasoningOptions(selectedModel, cursorModels)}
+          value={selectedReasoning}
         />
         <TopBarSelect
           label="Mode"
           onChange={controlColumnProps.onModeChange}
           options={MODE_OPTIONS}
-          value={controlColumnProps.autonomyMode}
+          value={autonomyMode}
         />
-        <button className={TOPBAR_ACTION_CLASS} onClick={onRefresh} type="button">
+        <button
+          className={TOPBAR_ACTION_CLASS}
+          onClick={onRefresh}
+          type="button"
+        >
           Refresh
         </button>
-        <button className={TOPBAR_ACTION_CLASS} onClick={onOpenChat} type="button">
+        <button
+          className={TOPBAR_ACTION_CLASS}
+          onClick={onOpenChat}
+          type="button"
+        >
           Chat
         </button>
       </div>
@@ -139,11 +152,32 @@ function ReviewTopBar({
   );
 }
 
+function useReviewTopBarState() {
+  const projectState = useProjectStore(
+    useShallow((state) => ({
+      autonomyMode: state.autonomyMode,
+      selectedModel: state.selectedModel,
+      selectedReasoning: state.selectedReasoning,
+    })),
+  );
+  const workspaceState = useWorkspaceUiStore(
+    useShallow((state) => ({
+      cursorModels: state.cursorModels,
+      workspaceRootName: state.projectRootName,
+    })),
+  );
+
+  return {
+    ...projectState,
+    ...workspaceState,
+  };
+}
+
 function TopBarSelect<Value extends string>({
   label,
   options,
   value,
-  onChange
+  onChange,
 }: {
   label: string;
   options: Array<{ value: Value; label: string; hint?: string }>;
@@ -156,7 +190,7 @@ function TopBarSelect<Value extends string>({
         onChange(String(key) as Value);
       }
     },
-    [onChange]
+    [onChange],
   );
 
   return (
@@ -191,7 +225,7 @@ function TopBarSelect<Value extends string>({
 const MODE_OPTIONS: Array<{ value: AutonomyMode; label: string }> = [
   { value: "stepped", label: "Stepped Approval" },
   { value: "milestone", label: "Milestone Approval" },
-  { value: "god_mode", label: "God Mode" }
+  { value: "god_mode", label: "God Mode" },
 ];
 
 const TOPBAR_ACTION_CLASS =

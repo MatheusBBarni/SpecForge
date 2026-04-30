@@ -25,7 +25,7 @@ use environment::run_environment_scan;
 use external_editors::{list_external_editors, open_workspace_file_in_editor};
 use git::git_get_diff;
 use project::{load_project_context, pick_project_folder, save_project_settings};
-use secrets::{delete_cursor_api_key, get_cursor_api_key, save_cursor_api_key};
+use secrets::{delete_cursor_api_key, save_cursor_api_key};
 use state::SharedState;
 use workspace::{get_workspace_snapshot, open_workspace_folder, read_workspace_file};
 
@@ -36,7 +36,6 @@ pub fn run() {
             run_environment_scan,
             run_cursor_agent_prompt,
             list_cursor_models,
-            get_cursor_api_key,
             save_cursor_api_key,
             delete_cursor_api_key,
             parse_document,

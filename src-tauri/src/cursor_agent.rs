@@ -9,6 +9,15 @@ use std::{
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CursorAgentPromptRequest {
+    workspace_root: String,
+    model: String,
+    reasoning: String,
+    prompt: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CursorAgentRunnerRequest {
     api_key: String,
     workspace_root: String,
     model: String,
@@ -37,16 +46,24 @@ struct CursorModelsRunnerRequest {
 }
 
 #[tauri::command]
-pub(crate) fn run_cursor_agent_prompt(
+pub(crate) async fn run_cursor_agent_prompt(
     payload: CursorAgentPromptRequest,
 ) -> Result<CursorAgentPromptResponse, String> {
-    if payload.api_key.trim().is_empty() {
-        return Err(String::from("Cursor API key is required."));
-    }
+    tauri::async_runtime::spawn_blocking(move || run_cursor_agent_prompt_sync(payload))
+        .await
+        .map_err(|error| format!("Unable to join Cursor SDK runner task: {error}"))?
+}
 
+fn run_cursor_agent_prompt_sync(
+    payload: CursorAgentPromptRequest,
+) -> Result<CursorAgentPromptResponse, String> {
     if payload.prompt.trim().is_empty() {
         return Err(String::from("Cursor prompt is required."));
     }
+
+    let api_key = read_cursor_api_key()?
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| String::from("Cursor API key is required."))?;
 
     let workspace_root = canonicalize_existing_path(&PathBuf::from(payload.workspace_root.trim()))
         .map_err(|error| format!("Unable to resolve workspace root: {error}"))?;
@@ -62,9 +79,12 @@ pub(crate) fn run_cursor_agent_prompt(
 
     let bun_path =
         which::which("bun").map_err(|error| format!("Unable to find Bun on PATH: {error}"))?;
-    let request = CursorAgentPromptRequest {
+    let request = CursorAgentRunnerRequest {
+        api_key,
         workspace_root: workspace_root.display().to_string(),
-        ..payload
+        model: payload.model,
+        reasoning: payload.reasoning,
+        prompt: payload.prompt,
     };
     let request_json = serde_json::to_vec(&request)
         .map_err(|error| format!("Unable to prepare Cursor SDK request: {error}"))?;
@@ -101,7 +121,13 @@ pub(crate) fn run_cursor_agent_prompt(
 }
 
 #[tauri::command]
-pub(crate) fn list_cursor_models() -> Result<Vec<CursorModel>, String> {
+pub(crate) async fn list_cursor_models() -> Result<Vec<CursorModel>, String> {
+    tauri::async_runtime::spawn_blocking(list_cursor_models_sync)
+        .await
+        .map_err(|error| format!("Unable to join Cursor model runner task: {error}"))?
+}
+
+fn list_cursor_models_sync() -> Result<Vec<CursorModel>, String> {
     let api_key = read_cursor_api_key()?;
     let app_root = resolve_app_root()?;
     let runner_path = app_root.join("src").join("cursorModelsRunner.ts");

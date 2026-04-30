@@ -5,11 +5,6 @@ const CURSOR_KEY_SERVICE: &str = "SpecForge";
 const CURSOR_KEY_USER: &str = "cursor-api-key";
 
 #[tauri::command]
-pub(crate) fn get_cursor_api_key() -> Result<Option<String>, String> {
-    read_cursor_api_key()
-}
-
-#[tauri::command]
 pub(crate) fn save_cursor_api_key(api_key: String) -> Result<(), String> {
     let trimmed_key = api_key.trim();
 
