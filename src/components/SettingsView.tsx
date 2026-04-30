@@ -152,7 +152,7 @@ export const SettingsView = memo(function SettingsView({
                     Cursor SDK
                   </h3>
                   <CliHealthCard entry={environment.cursor} />
-                  <label className="grid gap-2">
+                  <label className="grid gap-2" htmlFor="settings-cursor-key">
                     <span className={FIELD_LABEL_CLASS}>Cursor API key</span>
                     <Input
                       className={INPUT_CLASS}

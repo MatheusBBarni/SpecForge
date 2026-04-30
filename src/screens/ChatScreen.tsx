@@ -7,6 +7,7 @@ import {
   DropdownRoot,
   DropdownTrigger,
   Input,
+  Modal,
   TextArea
 } from "@heroui/react";
 import {
@@ -17,10 +18,10 @@ import {
   Code,
   Copy,
   EditPencil,
+  MoreHoriz,
   Refresh,
   SendSolid,
   Terminal,
-  ThreePointsCircle,
   Trash,
   WarningCircle,
   Xmark,
@@ -126,6 +127,10 @@ export const ChatScreen = memo(function ChatScreen({
   onOpenReview
 }: ChatScreenProps) {
   const [sessionSearch, setSessionSearch] = useState("");
+  const [openSessionMenuId, setOpenSessionMenuId] = useState<string | null>(null);
+  const [renameSession, setRenameSession] = useState<ChatSessionSummary | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
+  const [deleteSession, setDeleteSession] = useState<ChatSessionSummary | null>(null);
   const draftInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const mentionQuery = useMemo(() => {
@@ -181,16 +186,37 @@ export const ChatScreen = memo(function ChatScreen({
     [activeSession, cursorModels]
   );
 
-  const handleRenameRequest = useCallback(
-    (session: ChatSessionSummary) => {
-      const nextTitle = window.prompt("Rename session", session.title)?.trim();
+  const handleRenameRequest = useCallback((session: ChatSessionSummary) => {
+    setRenameSession(session);
+    setRenameTitle(session.title);
+    setOpenSessionMenuId(null);
+  }, []);
 
-      if (nextTitle) {
-        onRenameSession(session.id, nextTitle);
-      }
-    },
-    [onRenameSession]
-  );
+  const handleRenameSubmit = useCallback(() => {
+    const nextTitle = renameTitle.trim();
+
+    if (!renameSession || !nextTitle) {
+      return;
+    }
+
+    onRenameSession(renameSession.id, nextTitle);
+    setRenameSession(null);
+    setRenameTitle("");
+  }, [onRenameSession, renameSession, renameTitle]);
+
+  const handleDeleteRequest = useCallback((session: ChatSessionSummary) => {
+    setDeleteSession(session);
+    setOpenSessionMenuId(null);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (!deleteSession) {
+      return;
+    }
+
+    onDeleteSession(deleteSession.id);
+    setDeleteSession(null);
+  }, [deleteSession, onDeleteSession]);
 
   useEffect(() => {
     if (mentionQuery.length === 0) {
@@ -204,6 +230,97 @@ export const ChatScreen = memo(function ChatScreen({
 
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-panel)]">
+      <Modal.Root
+        isOpen={Boolean(renameSession)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setRenameSession(null);
+            setRenameTitle("");
+          }
+        }}
+      >
+        <Modal.Backdrop>
+          <Modal.Container placement="center" size="sm">
+            <Modal.Dialog className="border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] text-[var(--text-main)]">
+              <Modal.Header className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
+                <Modal.Heading className="m-0 text-lg font-semibold">
+                  Rename Topic
+                </Modal.Heading>
+                <Modal.CloseTrigger aria-label="Close rename topic modal" />
+              </Modal.Header>
+              <Modal.Body className="grid gap-3 px-5 py-5">
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium text-[var(--text-main)]">
+                    Topic name
+                  </span>
+                  <Input
+                    autoFocus
+                    className={INPUT_CLASS}
+                    onChange={(event) => setRenameTitle(event.target.value)}
+                    placeholder="Topic name"
+                    value={renameTitle}
+                  />
+                </label>
+              </Modal.Body>
+              <Modal.Footer className="flex justify-end gap-3 border-t border-[var(--border-soft)] px-5 py-4">
+                <Button
+                  className={TEXT_BUTTON_CLASS}
+                  onPress={() => {
+                    setRenameSession(null);
+                    setRenameTitle("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className={PRIMARY_BUTTON_CLASS}
+                  isDisabled={!renameTitle.trim()}
+                  onPress={handleRenameSubmit}
+                >
+                  Rename
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal.Root>
+
+      <Modal.Root
+        isOpen={Boolean(deleteSession)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setDeleteSession(null);
+          }
+        }}
+      >
+        <Modal.Backdrop>
+          <Modal.Container placement="center" size="sm">
+            <Modal.Dialog className="border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] text-[var(--text-main)]">
+              <Modal.Header className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
+                <Modal.Heading className="m-0 text-lg font-semibold">
+                  Delete Topic
+                </Modal.Heading>
+                <Modal.CloseTrigger aria-label="Close delete topic modal" />
+              </Modal.Header>
+              <Modal.Body className="px-5 py-5">
+                <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
+                  Delete {deleteSession?.title ? `"${deleteSession.title}"` : "this topic"}? This
+                  removes the saved chat session from this project.
+                </p>
+              </Modal.Body>
+              <Modal.Footer className="flex justify-end gap-3 border-t border-[var(--border-soft)] px-5 py-4">
+                <Button className={TEXT_BUTTON_CLASS} onPress={() => setDeleteSession(null)}>
+                  Cancel
+                </Button>
+                <Button className={DANGER_BUTTON_CLASS} onPress={handleDeleteConfirm}>
+                  Delete
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal.Root>
+
       <header className={TOP_BAR_CLASS}>
         <div className="relative w-full max-w-[320px]">
           <BubbleSearch className="-translate-y-1/2 pointer-events-none absolute left-3 top-1/2 size-5 text-[var(--text-muted)]" />
@@ -235,6 +352,7 @@ export const ChatScreen = memo(function ChatScreen({
           <div className="min-h-0 overflow-auto px-3 py-3">
             {visibleSessions.map((session) => {
               const isActive = session.id === activeSession?.id;
+              const isMenuOpen = session.id === openSessionMenuId;
 
               return (
                 <article
@@ -270,13 +388,22 @@ export const ChatScreen = memo(function ChatScreen({
                       </p>
                     </button>
 
-                    <DropdownRoot>
+                    <DropdownRoot
+                      isOpen={isMenuOpen}
+                      onOpenChange={(isOpen) => {
+                        setOpenSessionMenuId(isOpen ? session.id : null);
+                      }}
+                    >
                       <DropdownTrigger>
                         <Button
                           aria-label={`Actions for ${session.title}`}
-                          className="grid size-8 shrink-0 place-items-center rounded bg-transparent p-0 text-[var(--text-muted)] opacity-0 transition hover:bg-white/8 hover:text-[var(--text-main)] group-hover:opacity-100"
+                          className={`grid size-8 shrink-0 place-items-center rounded bg-transparent p-0 transition hover:bg-white/8 hover:text-[var(--text-main)] ${
+                            isActive || isMenuOpen
+                              ? "text-[var(--text-main)] opacity-100"
+                              : "text-[var(--text-muted)] opacity-0 group-hover:opacity-100"
+                          }`}
                         >
-                          <ThreePointsCircle className="size-4" />
+                          <MoreHoriz className="size-5" />
                         </Button>
                       </DropdownTrigger>
                       <DropdownPopover className={MENU_POPOVER_CLASS}>
@@ -289,7 +416,7 @@ export const ChatScreen = memo(function ChatScreen({
                             }
 
                             if (key === "delete") {
-                              onDeleteSession(session.id);
+                              handleDeleteRequest(session);
                             }
                           }}
                         >

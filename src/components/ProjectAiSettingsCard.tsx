@@ -82,28 +82,31 @@ export const ProjectAiSettingsCard = memo(function ProjectAiSettingsCard({
         </div>
 
         <div className="grid gap-4">
-          <label className="grid gap-2">
+          <label className="grid gap-2" htmlFor="settings-prd-agent-description">
             <span className={FIELD_LABEL_CLASS}>PRD agent description</span>
             <TextArea
               className={TEXTAREA_CLASS}
+              id="settings-prd-agent-description"
               onChange={(event) => onPrdPromptChange(event.target.value)}
               value={prdPrompt}
             />
           </label>
 
-          <label className="grid gap-2">
+          <label className="grid gap-2" htmlFor="settings-spec-agent-description">
             <span className={FIELD_LABEL_CLASS}>Spec agent description</span>
             <TextArea
               className={TEXTAREA_CLASS}
+              id="settings-spec-agent-description"
               onChange={(event) => onSpecPromptChange(event.target.value)}
               value={specPrompt}
             />
           </label>
 
-          <label className="grid gap-2">
+          <label className="grid gap-2" htmlFor="settings-execution-agent-description">
             <span className={FIELD_LABEL_CLASS}>Execution agent description</span>
             <TextArea
               className={TEXTAREA_CLASS}
+              id="settings-execution-agent-description"
               onChange={(event) => onExecutionAgentDescriptionChange(event.target.value)}
               value={executionAgentDescription}
             />

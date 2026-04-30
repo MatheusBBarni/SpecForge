@@ -51,20 +51,22 @@ export const ProjectDocumentsCard = memo(function ProjectDocumentsCard({
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-2">
+          <label className="grid gap-2" htmlFor="settings-prd-path">
             <span className={FIELD_LABEL_CLASS}>PRD path</span>
             <Input
               className={INPUT_CLASS}
+              id="settings-prd-path"
               onChange={(event) => onPrdPathChange(event.target.value)}
               placeholder="docs/PRD.md"
               value={prdPath}
             />
           </label>
 
-          <label className="grid gap-2">
+          <label className="grid gap-2" htmlFor="settings-spec-path">
             <span className={FIELD_LABEL_CLASS}>Spec path</span>
             <Input
               className={INPUT_CLASS}
+              id="settings-spec-path"
               onChange={(event) => onSpecPathChange(event.target.value)}
               placeholder="docs/SPEC.md"
               value={specPath}
@@ -72,10 +74,11 @@ export const ProjectDocumentsCard = memo(function ProjectDocumentsCard({
           </label>
         </div>
 
-        <label className="grid gap-2">
+        <label className="grid gap-2" htmlFor="settings-supporting-documents">
           <span className={FIELD_LABEL_CLASS}>Additional documents</span>
           <TextArea
             className={TEXTAREA_CLASS}
+            id="settings-supporting-documents"
             onChange={(event) => onSupportingDocumentsChange(event.target.value)}
             placeholder={"docs/notes/constraints.md\ndocs/research/api.md"}
             value={supportingDocumentsValue}
