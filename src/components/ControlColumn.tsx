@@ -28,6 +28,7 @@ import {
 import type {
   AutonomyMode,
   CliHealth,
+  CursorModel,
   ModelId,
   ModelProvider,
   ReasoningProfileId
@@ -43,6 +44,7 @@ interface ControlColumnProps {
   selectedModel: ModelId;
   selectedReasoning: ReasoningProfileId;
   configuredModelProviders: ModelProvider[];
+  cursorModels?: CursorModel[];
   autonomyMode: AutonomyMode;
   mcpItems?: McpListItem[];
   onModelChange: (model: ModelId) => void;
@@ -54,23 +56,24 @@ export const ControlColumn = memo(function ControlColumn({
   selectedModel,
   selectedReasoning,
   configuredModelProviders,
+  cursorModels = [],
   autonomyMode,
   mcpItems = [],
   onModelChange,
   onReasoningChange,
   onModeChange
 }: ControlColumnProps) {
-  const reasoningOptions = getReasoningOptions(selectedModel);
+  const reasoningOptions = getReasoningOptions(selectedModel, cursorModels);
 
   return (
-    <section className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-y-auto rounded-[1.5rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] p-5 pr-4 shadow-[var(--shadow)] backdrop-blur-[30px]">
+    <section className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-y-auto rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] p-5 pr-4 shadow-none">
       <header className="shrink-0 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="m-0 text-[1.05rem] font-semibold text-[var(--text-main)]">
             SpecForge Review
           </h1>
         </div>
-        <div className="inline-flex shrink-0 items-center gap-2 rounded-full border border-white/8 bg-white/5 px-3 py-2 text-sm text-[var(--text-subtle)]">
+        <div className="inline-flex shrink-0 items-center gap-2 rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-3 py-2 text-sm text-[var(--text-subtle)]">
           <Spark />
           MVP
         </div>
@@ -84,6 +87,7 @@ export const ControlColumn = memo(function ControlColumn({
           <div className="flex flex-col gap-4">
             <ModelSelectField
               configuredProviders={configuredModelProviders}
+              cursorModels={cursorModels}
               label="Agent model"
               onSelectionChange={onModelChange}
               selectedKey={selectedModel}
@@ -148,6 +152,7 @@ interface ModelSelectFieldProps {
   label: string;
   selectedKey: ModelId;
   configuredProviders: ModelProvider[];
+  cursorModels: CursorModel[];
   onSelectionChange: (value: ModelId) => void;
 }
 
@@ -155,6 +160,7 @@ function ModelSelectField({
   label,
   selectedKey,
   configuredProviders,
+  cursorModels,
   onSelectionChange
 }: ModelSelectFieldProps) {
   const hasProviderTabs = configuredProviders.length > 1;
@@ -180,15 +186,15 @@ function ModelSelectField({
 
   const visibleOptions = useMemo(() => {
     if (singleConfiguredProvider) {
-      return getModelOptions(singleConfiguredProvider);
+      return getModelOptions(singleConfiguredProvider, cursorModels);
     }
 
     if (hasProviderTabs) {
-      return getModelOptions(activeProviderTab);
+      return getModelOptions(activeProviderTab, cursorModels);
     }
 
-    return getModelOptions();
-  }, [activeProviderTab, hasProviderTabs, singleConfiguredProvider]);
+    return getModelOptions(undefined, cursorModels);
+  }, [activeProviderTab, cursorModels, hasProviderTabs, singleConfiguredProvider]);
 
   const handleSelectionChange = useCallback(
     (key: Key | null) => {
@@ -267,7 +273,7 @@ interface ControlSectionProps {
 
 function ControlSection({ icon, title, children }: ControlSectionProps) {
   return (
-    <Card className="shrink-0 border border-[var(--border-soft)] bg-[var(--bg-surface)]/75 shadow-none backdrop-blur-sm">
+    <Card className="shrink-0 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-surface-high)] shadow-none">
       <Card.Header className="flex flex-col gap-3 px-5 pt-5 pb-0">
         <div className="flex min-w-0 items-center gap-3">
           <span className="shrink-0 text-[var(--accent-2)]">{icon}</span>
@@ -352,19 +358,19 @@ const FIELD_LABEL_CLASS =
   "text-sm font-medium leading-6 text-[var(--text-subtle)]";
 
 const SELECT_TRIGGER_CLASS =
-  "flex min-h-[3.5rem] w-full items-center gap-3 rounded-[1.1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-3 text-[var(--text-main)] shadow-none transition hover:bg-black/25";
+  "flex min-h-[3.5rem] w-full items-center gap-3 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-surface)] px-4 py-3 text-[var(--text-main)] shadow-none transition hover:border-[var(--accent)]";
 
 const LISTBOX_ITEM_CLASS =
-  "rounded-xl px-3 py-2.5 text-[15px] text-[var(--text-main)] outline-none transition hover:bg-white/6 data-[focused=true]:bg-white/6 data-[selected=true]:bg-white/10";
+  "rounded px-3 py-2.5 text-[15px] text-[var(--text-main)] outline-none transition hover:bg-[var(--bg-nav-active)] data-[focused=true]:bg-[var(--bg-nav-active)] data-[selected=true]:bg-[var(--bg-nav-active)]";
 
 const MODEL_PROVIDER_TAB_CLASS =
-  "rounded-full border border-[var(--border-soft)] bg-white/4 px-3 py-1.5 text-sm font-medium text-[var(--text-subtle)] transition hover:bg-white/8";
+  "rounded border border-[var(--border-soft)] bg-[var(--bg-panel)] px-3 py-1.5 text-sm font-medium text-[var(--text-subtle)] transition hover:border-[var(--accent)]";
 
 const MODEL_PROVIDER_TAB_ACTIVE_CLASS =
-  "rounded-full border border-[var(--accent)]/40 bg-white/10 px-3 py-1.5 text-sm font-medium text-[var(--text-main)] transition";
+  "rounded border border-[var(--accent)] bg-[var(--bg-nav-active)] px-3 py-1.5 text-sm font-medium text-[var(--accent)] transition";
 
 const SURFACE_CARD_CLASS =
-  "border border-dashed border-[var(--border-soft)] bg-[var(--bg-surface)]/80 shadow-none";
+  "rounded-lg border border-dashed border-[var(--border-soft)] bg-[var(--bg-surface)] shadow-none";
 
 function formatMcpStatus(status: string) {
   switch (status) {

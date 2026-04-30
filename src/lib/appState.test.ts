@@ -8,22 +8,15 @@ import {
   buildWorkspaceNotice
 } from "./appState";
 
-function makeEnvironment(overrides?: Partial<Record<"claude" | "codex" | "git", Partial<EnvironmentStatus["claude"]>>>): EnvironmentStatus {
+function makeEnvironment(overrides?: Partial<Record<"cursor" | "git", Partial<EnvironmentStatus["cursor"]>>>): EnvironmentStatus {
   return {
     scannedAt: new Date().toISOString(),
-    claude: {
-      name: "Claude CLI",
+    cursor: {
+      name: "Cursor SDK",
       status: "found",
-      path: "/usr/bin/claude",
-      detail: "Claude is available",
-      ...overrides?.claude
-    },
-    codex: {
-      name: "Codex CLI",
-      status: "found",
-      path: "/usr/bin/codex",
-      detail: "Codex is available",
-      ...overrides?.codex
+      path: null,
+      detail: "Cursor API key is configured",
+      ...overrides?.cursor
     },
     git: {
       name: "Git",
@@ -40,14 +33,15 @@ describe("buildCurrentProjectSettings", () => {
     const result = buildCurrentProjectSettings({
       configuredPrdPath: "docs/PRD.md",
       configuredSpecPath: "docs/SPEC.md",
-      prdPromptTemplate: "Generate PRD",
-      selectedModel: "gpt-5.4",
+      prdAgentDescription: "Generate PRD",
+      selectedModel: "composer-2",
       selectedReasoning: "medium",
-      specPromptTemplate: "Generate Spec",
+      specAgentDescription: "Generate Spec",
+      executionAgentDescription: "Execute Spec",
       supportingDocumentPaths: ["docs/api.md"]
     });
 
-    expect(result.selectedModel).toBe("gpt-5.4");
+    expect(result.selectedModel).toBe("composer-2");
     expect(result.selectedReasoning).toBe("medium");
     expect(result.prdPath).toBe("docs/PRD.md");
     expect(result.specPath).toBe("docs/SPEC.md");
@@ -58,10 +52,11 @@ describe("buildCurrentProjectSettings", () => {
     const result = buildCurrentProjectSettings({
       configuredPrdPath: "",
       configuredSpecPath: "",
-      prdPromptTemplate: "prompt",
-      selectedModel: "gpt-5.4",
+      prdAgentDescription: "prompt",
+      selectedModel: "composer-2",
       selectedReasoning: "medium",
-      specPromptTemplate: "prompt",
+      specAgentDescription: "prompt",
+      executionAgentDescription: "prompt",
       supportingDocumentPaths: []
     });
 
@@ -73,14 +68,15 @@ describe("buildCurrentProjectSettings", () => {
     const result = buildCurrentProjectSettings({
       configuredPrdPath: "docs/PRD.md",
       configuredSpecPath: "docs/SPEC.md",
-      prdPromptTemplate: "prompt",
-      selectedModel: "claude-3-5-sonnet-20241022",
-      selectedReasoning: "max",
-      specPromptTemplate: "prompt",
+      prdAgentDescription: "prompt",
+      selectedModel: "composer-2",
+      selectedReasoning: "high",
+      specAgentDescription: "prompt",
+      executionAgentDescription: "prompt",
       supportingDocumentPaths: []
     });
 
-    expect(result.selectedReasoning).toBe("low");
+    expect(result.selectedReasoning).toBe("high");
   });
 });
 
@@ -114,10 +110,11 @@ describe("buildWorkspaceNotice", () => {
       settingsPath: "/Users/me/my-project/.specforge/settings.json",
       hasSavedSettings: true,
       settings: {
-        selectedModel: "gpt-5.4",
+        selectedModel: "composer-2",
         selectedReasoning: "medium",
-        prdPrompt: "prompt",
-        specPrompt: "prompt",
+        prdAgentDescription: "prompt",
+        specAgentDescription: "prompt",
+        executionAgentDescription: "prompt",
         prdPath: "docs/PRD.md",
         specPath: "docs/SPEC.md",
         supportingDocumentPaths: []
@@ -132,78 +129,52 @@ describe("buildWorkspaceNotice", () => {
     };
   }
 
-  it("shows 'no document exists' when no documents are loaded", () => {
-    const notice = buildWorkspaceNotice(makeContext());
-    expect(notice).toContain("my-project is configured");
-    expect(notice).toContain("No document exists yet");
-    expect(notice).toContain("docs/PRD.md");
-    expect(notice).toContain("docs/SPEC.md");
+  it("stays empty after a project context loads", () => {
+    expect(buildWorkspaceNotice(makeContext())).toBe("");
   });
 
-  it("lists PRD when only PRD is loaded", () => {
+  it("stays empty when only PRD is loaded", () => {
     const notice = buildWorkspaceNotice(
       makeContext({
         prdDocument: { content: "# PRD", sourcePath: "/path/PRD.md", fileName: "PRD.md" }
       })
     );
-    expect(notice).toContain("PRD: PRD.md");
-    expect(notice).not.toContain("SPEC:");
+    expect(notice).toBe("");
   });
 
-  it("lists both PRD and SPEC when both are loaded", () => {
+  it("stays empty when both PRD and SPEC are loaded", () => {
     const notice = buildWorkspaceNotice(
       makeContext({
         prdDocument: { content: "# PRD", sourcePath: "/path/PRD.md", fileName: "PRD.md" },
         specDocument: { content: "# SPEC", sourcePath: "/path/SPEC.md", fileName: "SPEC.md" }
       })
     );
-    expect(notice).toContain("PRD: PRD.md");
-    expect(notice).toContain("SPEC: SPEC.md");
-    expect(notice).toContain(" and ");
-  });
-
-  it("uses the project root name in the notice", () => {
-    const notice = buildWorkspaceNotice(makeContext({ rootName: "awesome-app" }));
-    expect(notice).toContain("awesome-app is configured");
+    expect(notice).toBe("");
   });
 });
 
 describe("buildConfiguredModelProviders", () => {
-  it("returns both providers when both are found", () => {
-    const providers = buildConfiguredModelProviders(makeEnvironment());
-    expect(providers).toContain("claude");
-    expect(providers).toContain("codex");
+  it("returns cursor when the Cursor API key is configured", () => {
+    const providers = buildConfiguredModelProviders(
+      makeEnvironment({ cursor: { status: "found" } })
+    );
+    expect(providers).toEqual(["cursor"]);
   });
 
-  it("returns empty array when none are found", () => {
+  it("returns empty array when Cursor API key is missing", () => {
     const providers = buildConfiguredModelProviders(
-      makeEnvironment({ claude: { status: "missing" }, codex: { status: "missing" } })
+      makeEnvironment({ cursor: { status: "missing" } })
     );
     expect(providers).toEqual([]);
-  });
-
-  it("returns only claude when codex is missing", () => {
-    const providers = buildConfiguredModelProviders(
-      makeEnvironment({ codex: { status: "missing" } })
-    );
-    expect(providers).toEqual(["claude"]);
-  });
-
-  it("returns only codex when claude is missing", () => {
-    const providers = buildConfiguredModelProviders(
-      makeEnvironment({ claude: { status: "missing" } })
-    );
-    expect(providers).toEqual(["codex"]);
   });
 });
 
 describe("buildMcpItems", () => {
-  it("returns three items for codex, claude, and git", () => {
+  it("returns two items for Cursor and git", () => {
     const items = buildMcpItems(makeEnvironment());
-    expect(items).toHaveLength(3);
-    expect(items[0].name).toBe("Codex CLI");
-    expect(items[1].name).toBe("Claude CLI");
-    expect(items[2].name).toBe("Git");
+    expect(items).toHaveLength(2);
+    expect(items[0].name).toBe("Cursor SDK");
+    expect(items[1].name).toBe("Git");
   });
 
   it("includes status and detail in each item", () => {
@@ -216,6 +187,6 @@ describe("buildMcpItems", () => {
 
   it("reflects missing status", () => {
     const items = buildMcpItems(makeEnvironment({ git: { status: "missing" } }));
-    expect(items[2].status).toBe("missing");
+    expect(items[1].status).toBe("missing");
   });
 });

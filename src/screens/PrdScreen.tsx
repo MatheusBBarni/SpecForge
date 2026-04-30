@@ -1,20 +1,27 @@
-import { PlaySolid } from "iconoir-react";
-import { type ChangeEvent, type ComponentProps, memo, type RefObject } from "react";
+import { Label, ListBox, Select } from "@heroui/react";
+import {
+  type ChangeEvent,
+  type ComponentProps,
+  type Key,
+  memo,
+  type RefObject,
+  useCallback
+} from "react";
+import { useShallow } from "zustand/react/shallow";
 
 import { ControlColumn } from "../components/ControlColumn";
 import { FloatingSearch } from "../components/FloatingSearch";
 import { InspectorColumn } from "../components/InspectorColumn";
 import { MainWorkspace } from "../components/MainWorkspace";
+import { ModelReasoningDropdown } from "../components/ModelReasoningDropdown";
 import { StatusPill } from "../components/StatusPill";
-import type { AgentStatus } from "../types";
+import { getModelOptions, getReasoningOptions } from "../lib/agentConfig";
+import { useAgentStore } from "../store/useAgentStore";
+import { useProjectStore } from "../store/useProjectStore";
+import { useWorkspaceUiStore } from "../store/useWorkspaceUiStore";
+import type { AutonomyMode } from "../types";
 
-interface PrdScreenProps {
-  agentStatus: AgentStatus;
-  commandSearch: string;
-  isSearchOpen: boolean;
-  isSpecApproved: boolean;
-  workspaceRootName: string;
-  onCommandSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
+export interface PrdScreenProps {
   onOpenChat: () => void;
   onRefresh: () => void;
   searchInputRef: RefObject<HTMLInputElement | null>;
@@ -24,67 +31,207 @@ interface PrdScreenProps {
 }
 
 export const PrdScreen = memo(function PrdScreen({
-  agentStatus,
-  commandSearch,
-  isSearchOpen,
-  isSpecApproved,
-  workspaceRootName,
-  onCommandSearchChange,
   onOpenChat,
   onRefresh,
   searchInputRef,
   controlColumnProps,
   mainWorkspaceProps,
-  inspectorColumnProps
+  inspectorColumnProps,
 }: PrdScreenProps) {
+  const { commandSearch, isSearchOpen, setCommandSearch } = useWorkspaceUiStore(
+    useShallow((state) => ({
+      commandSearch: state.commandSearch,
+      isSearchOpen: state.isSearchOpen,
+      setCommandSearch: state.setCommandSearch,
+    })),
+  );
+  const handleCommandSearchChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setCommandSearch(event.target.value);
+    },
+    [setCommandSearch],
+  );
+
   return (
     <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       {isSearchOpen ? (
         <FloatingSearch
           inputRef={searchInputRef}
-          onChange={onCommandSearchChange}
+          onChange={handleCommandSearchChange}
           value={commandSearch}
         />
       ) : null}
 
-      <div className="grid min-h-0 flex-1 gap-4 overflow-hidden px-4 pb-4 pt-4 grid-rows-[auto_minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)] lg:px-5 lg:pb-5 xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)_minmax(260px,320px)] xl:grid-rows-[auto_minmax(0,1fr)]">
-        <div className="order-1 flex items-center justify-between gap-4 rounded-[1.2rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] px-4 py-4 shadow-[var(--shadow)] backdrop-blur-xl xl:col-[2/4] xl:row-[1] xl:justify-end">
-          <div className="min-w-0 xl:mr-auto">
-            <h1 className="m-0 text-lg font-semibold text-[var(--text-main)]">
-              {workspaceRootName}
-            </h1>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <ReviewTopBar
+          controlColumnProps={controlColumnProps}
+          onOpenChat={onOpenChat}
+          onRefresh={onRefresh}
+        />
+
+        <div className="grid min-h-0 flex-1 overflow-hidden xl:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
+          <div className="flex min-h-0 min-w-0 w-full overflow-hidden border-r border-[var(--border-strong)]">
+            <MainWorkspace {...mainWorkspaceProps} />
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <StatusPill status={agentStatus} />
-            <button className={SECONDARY_BUTTON_CLASS} onClick={onRefresh} type="button">
-              Refresh
-            </button>
-            <button className={PRIMARY_BUTTON_CLASS} onClick={onOpenChat} type="button">
-              <PlaySolid className="size-5" />
-              Open Chat
-            </button>
+          <div className="flex h-full min-h-0 min-w-0 w-full overflow-hidden">
+            <InspectorColumn {...inspectorColumnProps} />
           </div>
-        </div>
-
-        <div className="order-2 flex min-h-0 min-w-0 overflow-hidden xl:col-[1] xl:row-[1/3]">
-          <ControlColumn {...controlColumnProps} />
-        </div>
-
-        <div className="order-3 flex min-h-0 min-w-0 w-full overflow-hidden xl:col-[2] xl:row-[2]">
-          <MainWorkspace {...mainWorkspaceProps} />
-        </div>
-
-        <div className="order-4 flex min-h-0 min-w-0 overflow-hidden xl:col-[3] xl:row-[2]">
-          <InspectorColumn {...inspectorColumnProps} />
         </div>
       </div>
     </section>
   );
 });
 
-const SECONDARY_BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[var(--border-soft)] bg-white/5 px-4 py-3 font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/8";
+function ReviewTopBar({
+  controlColumnProps,
+  onOpenChat,
+  onRefresh,
+}: {
+  controlColumnProps: ComponentProps<typeof ControlColumn>;
+  onOpenChat: () => void;
+  onRefresh: () => void;
+}) {
+  const agentStatus = useAgentStore((state) => state.status);
+  const {
+    autonomyMode,
+    cursorModels,
+    selectedModel,
+    selectedReasoning,
+    workspaceRootName,
+  } = useReviewTopBarState();
 
-const PRIMARY_BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-[1rem] border-0 bg-[linear-gradient(135deg,var(--accent),#ff79c6)] px-4 py-3 font-semibold text-[#15131c] transition hover:-translate-y-0.5 hover:opacity-95";
+  return (
+    <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-[var(--border-strong)] bg-[var(--bg-panel)] px-4">
+      <div className="min-w-0 flex-1">
+        <h1 className="m-0 truncate font-[var(--font-mono)] text-sm text-[var(--text-main)]">
+          {workspaceRootName}
+        </h1>
+      </div>
+
+      <div className="flex min-w-0 items-center justify-end gap-2">
+        <StatusPill status={agentStatus} />
+        <ModelReasoningDropdown
+          cursorModels={cursorModels}
+          modelOptions={getModelOptions(
+            controlColumnProps.configuredModelProviders.length === 1
+              ? controlColumnProps.configuredModelProviders[0]
+              : undefined,
+            cursorModels,
+          )}
+          onChange={({ selectedModel: nextModel, selectedReasoning: nextReasoning }) => {
+            if (nextModel !== selectedModel) {
+              controlColumnProps.onModelChange(nextModel);
+            }
+
+            if (nextReasoning !== selectedReasoning) {
+              controlColumnProps.onReasoningChange(nextReasoning);
+            }
+          }}
+          reasoningOptions={getReasoningOptions(selectedModel, cursorModels)}
+          selectedModel={selectedModel}
+          selectedReasoning={selectedReasoning}
+        />
+        <TopBarSelect
+          label="Mode"
+          onChange={controlColumnProps.onModeChange}
+          options={MODE_OPTIONS}
+          value={autonomyMode}
+        />
+        <button
+          className={TOPBAR_ACTION_CLASS}
+          onClick={onRefresh}
+          type="button"
+        >
+          Refresh
+        </button>
+        <button
+          className={TOPBAR_ACTION_CLASS}
+          onClick={onOpenChat}
+          type="button"
+        >
+          Chat
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function useReviewTopBarState() {
+  const projectState = useProjectStore(
+    useShallow((state) => ({
+      autonomyMode: state.autonomyMode,
+      selectedModel: state.selectedModel,
+      selectedReasoning: state.selectedReasoning,
+    })),
+  );
+  const workspaceState = useWorkspaceUiStore(
+    useShallow((state) => ({
+      cursorModels: state.cursorModels,
+      workspaceRootName: state.projectRootName,
+    })),
+  );
+
+  return {
+    ...projectState,
+    ...workspaceState,
+  };
+}
+
+function TopBarSelect<Value extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: Array<{ value: Value; label: string; hint?: string }>;
+  value: Value;
+  onChange: (value: Value) => void;
+}) {
+  const handleSelectionChange = useCallback(
+    (key: Key | null) => {
+      if (key !== null) {
+        onChange(String(key) as Value);
+      }
+    },
+    [onChange],
+  );
+
+  return (
+    <Select
+      className="hidden min-w-44 flex-col gap-1 xl:flex"
+      onSelectionChange={handleSelectionChange}
+      selectedKey={value}
+    >
+      <Label className="sr-only">{label}</Label>
+      <Select.Trigger className="h-8 min-h-8 rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-2 text-xs text-[var(--text-main)]">
+        <Select.Value className="min-w-0 flex-1 text-left" />
+        <Select.Indicator className="size-3 shrink-0 text-[var(--text-muted)]" />
+      </Select.Trigger>
+      <Select.Popover className="min-w-56 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)]">
+        <ListBox className="outline-none">
+          {options.map((option) => (
+            <ListBox.Item
+              className="cursor-pointer rounded px-3 py-2 text-sm text-[var(--text-main)] outline-none data-[focused=true]:bg-[var(--bg-nav-active)]"
+              id={option.value}
+              key={option.value}
+              textValue={option.label}
+            >
+              {option.label}
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
+  );
+}
+
+const MODE_OPTIONS: Array<{ value: AutonomyMode; label: string }> = [
+  { value: "stepped", label: "Stepped Approval" },
+  { value: "milestone", label: "Milestone Approval" },
+  { value: "god_mode", label: "God Mode" },
+];
+
+const TOPBAR_ACTION_CLASS =
+  "rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-3 py-1 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--bg-nav-active)]";

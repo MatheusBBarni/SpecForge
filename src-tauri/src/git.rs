@@ -5,7 +5,7 @@ use std::path::Path;
 use tauri::State;
 
 #[tauri::command]
-pub(crate) fn git_get_diff(state: State<SharedState>) -> Result<String, String> {
+pub(crate) async fn git_get_diff(state: State<'_, SharedState>) -> Result<String, String> {
     let workspace_root = state
         .workspace
         .lock()
@@ -13,7 +13,10 @@ pub(crate) fn git_get_diff(state: State<SharedState>) -> Result<String, String> 
         .as_ref()
         .map(|workspace| workspace.root.clone())
         .unwrap_or_else(project_root);
-    git_get_diff_for_root(&workspace_root)
+
+    tauri::async_runtime::spawn_blocking(move || git_get_diff_for_root(&workspace_root))
+        .await
+        .map_err(|error| format!("Unable to join git diff task: {error}"))?
 }
 
 pub(crate) fn git_get_diff_for_root(root: &Path) -> Result<String, String> {

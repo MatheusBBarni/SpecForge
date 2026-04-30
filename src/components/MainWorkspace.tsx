@@ -1,16 +1,26 @@
 import {
+  Button,
+  DropdownItem,
+  DropdownMenu,
+  DropdownPopover,
+  DropdownRoot,
+  DropdownTrigger
+} from "@heroui/react";
+import {
   CheckCircle,
   FileNotFound
 } from "iconoir-react";
-import { type ChangeEvent, memo, useEffect, useMemo } from "react";
+import { type ChangeEvent, type Key, memo, useEffect, useMemo } from "react";
 
 import { getWorkspaceDisplayPath } from "../lib/projectConfig";
 import type {
   AgentStatus,
   EditorTab,
+  ExternalEditor,
   PaneMode,
   WorkspaceTab
 } from "../types";
+import { CodePreview } from "./CodePreview";
 import { DocumentActionBar } from "./DocumentActionBar";
 import { DocumentEmptyState } from "./DocumentEmptyState";
 import { DocumentPane } from "./DocumentPane";
@@ -31,11 +41,13 @@ interface MainWorkspaceProps {
   specPaneMode: PaneMode;
   isSpecApproved: boolean;
   canGeneratePrd: boolean;
+  canGrillPrd: boolean;
   isGeneratingPrd: boolean;
   prdGenerationPrompt: string;
   prdGenerationError: string;
   prdGenerationHelperText: string;
   canGenerateSpec: boolean;
+  canGrillSpec: boolean;
   isGeneratingSpec: boolean;
   specGenerationPrompt: string;
   specGenerationError: string;
@@ -48,6 +60,7 @@ interface MainWorkspaceProps {
   visibleDiff: string;
   agentStatus: AgentStatus;
   executionControlsEnabled?: boolean;
+  externalEditors: ExternalEditor[];
   onActiveTabChange: (tab: WorkspaceTab) => void;
   onPrdPaneModeChange: (mode: PaneMode) => void;
   onSpecPaneModeChange: (mode: PaneMode) => void;
@@ -58,11 +71,13 @@ interface MainWorkspaceProps {
   onApproveSpec: () => void;
   onPrdGenerationPromptChange: (value: string) => void;
   onGeneratePrd: () => void;
+  onGrillPrd: () => void;
   onSpecGenerationPromptChange: (value: string) => void;
   onGenerateSpec: () => void;
+  onGrillSpec: () => void;
   onSpecSelect: (event: ChangeEvent<HTMLTextAreaElement>) => void;
-  onEditorTabChange: (path: string, content: string) => void;
   onEditorTabClose: (path: string) => void;
+  onOpenEditorTabExternally: (path: string, editorId: string) => void;
   onApproveExecutionGate: () => void;
   onEmergencyStop: () => void;
 }
@@ -79,11 +94,13 @@ export const MainWorkspace = memo(function MainWorkspace({
   specPaneMode,
   isSpecApproved,
   canGeneratePrd,
+  canGrillPrd,
   isGeneratingPrd,
   prdGenerationPrompt,
   prdGenerationError,
   prdGenerationHelperText,
   canGenerateSpec,
+  canGrillSpec,
   isGeneratingSpec,
   specGenerationPrompt,
   specGenerationError,
@@ -96,6 +113,7 @@ export const MainWorkspace = memo(function MainWorkspace({
   visibleDiff,
   agentStatus,
   executionControlsEnabled = true,
+  externalEditors,
   onActiveTabChange,
   onPrdPaneModeChange,
   onSpecPaneModeChange,
@@ -106,11 +124,13 @@ export const MainWorkspace = memo(function MainWorkspace({
   onApproveSpec,
   onPrdGenerationPromptChange,
   onGeneratePrd,
+  onGrillPrd,
   onSpecGenerationPromptChange,
   onGenerateSpec,
+  onGrillSpec,
   onSpecSelect,
-  onEditorTabChange,
   onEditorTabClose,
+  onOpenEditorTabExternally,
   onApproveExecutionGate,
   onEmergencyStop
 }: MainWorkspaceProps) {
@@ -128,7 +148,7 @@ export const MainWorkspace = memo(function MainWorkspace({
   );
   const hasPrdContent = prdContent.trim().length > 0;
   const hasSpecContent = specContent.trim().length > 0;
-  const showPrdEmptyState = !hasPrdContent && prdPaneMode === "preview";
+  const showPrdEmptyState = !hasPrdContent;
   const showSpecPreviewState = !hasSpecContent && specPaneMode === "preview";
   const approveSpecButton = (
     <button
@@ -173,7 +193,7 @@ export const MainWorkspace = memo(function MainWorkspace({
   }, [activeEditorTab, onEditorTabClose]);
 
   return (
-    <section className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-[var(--border-strong)] bg-[var(--bg-panel)] shadow-[var(--shadow)] backdrop-blur-[30px]">
+    <section className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-[var(--bg-panel)] shadow-none">
       <WorkspaceTabBar
         activeTab={activeTab}
         onActiveTabChange={onActiveTabChange}
@@ -182,48 +202,53 @@ export const MainWorkspace = memo(function MainWorkspace({
       />
 
       {activeTab === "review" ? (
-        <div className="grid h-full min-h-0 gap-4 p-4 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-2 xl:grid-rows-1">
-          <section className="flex min-h-0 min-w-0 flex-col gap-3">
-            <div className="flex flex-wrap items-start justify-between gap-3 px-1">
+        <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] xl:grid-rows-1">
+          <section className="flex min-h-0 min-w-0 flex-col border-b border-[var(--border-strong)] xl:border-r xl:border-b-0">
+            <div className="flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-[var(--border-strong)] px-4 py-2">
               <div className="min-w-0">
-                <h2 className="m-0 text-sm font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
-                  PRD (Product Requirements Document)
-                </h2>
-                <p className="m-0 truncate pt-1 text-lg font-semibold text-[var(--text-main)]">
+                <h2 className="m-0 truncate font-[var(--font-mono)] text-sm font-medium text-[var(--text-main)]">
                   {displayPrdPath || "PRD.md"}
-                </p>
+                </h2>
               </div>
               <DocumentActionBar
                 loadLabel="Load PRD"
                 mode={prdPaneMode}
                 onLoad={onLoadPrd}
                 onModeChange={onPrdPaneModeChange}
+                showModeButtons={hasPrdContent}
               />
             </div>
             {showPrdEmptyState ? (
               <PrdEmptyState
                 canGenerate={canGeneratePrd}
+                canGrill={canGrillPrd}
                 configPath={configPath}
                 error={prdGenerationError}
                 helperText={prdGenerationHelperText}
                 isGenerating={isGeneratingPrd}
                 onGenerate={onGeneratePrd}
+                onGrill={onGrillPrd}
                 onPromptChange={onPrdGenerationPromptChange}
                 prompt={prdGenerationPrompt}
                 templatePrompt={prdPromptTemplate}
               />
             ) : (
-              <DocumentPane content={prdContent} mode={prdPaneMode} onChange={onPrdContentChange} />
+              <DocumentPane
+                className="m-4 flex-1"
+                content={prdContent}
+                mode={prdPaneMode}
+                onChange={onPrdContentChange}
+              />
             )}
           </section>
 
-          <section className="flex min-h-0 min-w-0 flex-col gap-3">
-            <div className="flex flex-wrap items-start justify-between gap-3 px-1">
+          <section className="flex min-h-0 min-w-0 flex-col bg-[var(--bg-panel)]">
+            <div className="flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-[var(--border-strong)] bg-[var(--bg-panel-strong)] px-4 py-2">
               <div className="min-w-0">
-                <h2 className="m-0 text-sm font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
-                  Spec (Technical Specification)
+                <h2 className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-main)]">
+                  Spec
                 </h2>
-                <p className="m-0 truncate pt-1 text-lg font-semibold text-[var(--text-main)]">
+                <p className="m-0 truncate pt-1 font-[var(--font-mono)] text-xs text-[var(--text-muted)]">
                   {displaySpecPath || "spec.md"}
                 </p>
               </div>
@@ -240,6 +265,7 @@ export const MainWorkspace = memo(function MainWorkspace({
             </div>
             {hasSpecContent || !showSpecPreviewState ? (
               <DocumentPane
+                className="m-4 flex-1"
                 content={specContent}
                 mode={specPaneMode}
                 onChange={onSpecContentChange}
@@ -254,11 +280,13 @@ export const MainWorkspace = memo(function MainWorkspace({
             ) : (
               <SpecEmptyState
                 canGenerate={canGenerateSpec}
+                canGrill={canGrillSpec}
                 configPath={configPath}
                 error={specGenerationError}
                 helperText={specGenerationHelperText}
                 isGenerating={isGeneratingSpec}
                 onGenerate={onGenerateSpec}
+                onGrill={onGrillSpec}
                 onPromptChange={onSpecGenerationPromptChange}
                 prompt={specGenerationPrompt}
                 templatePrompt={specPromptTemplate}
@@ -279,27 +307,18 @@ export const MainWorkspace = memo(function MainWorkspace({
           />
         </div>
       ) : activeEditorTab ? (
-        <div className="grid h-full min-h-0 min-w-0 w-full gap-4 p-4">
-          <article className="flex min-h-0 min-w-0 w-full flex-col gap-4 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4">
-            <div>
-              <p className="mb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
-                Workspace File
-              </p>
-              <h2 className="m-0 text-lg font-semibold text-[var(--text-main)]">
-                {activeEditorTab.path}
-              </h2>
-            </div>
-
-            <textarea
-              className="min-h-0 min-w-0 w-full flex-1 resize-none rounded-[1rem] border border-[var(--border-soft)] bg-black/20 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-7 text-[var(--text-main)]"
-              onChange={(event) => onEditorTabChange(activeEditorTab.path, event.target.value)}
-              value={activeEditorTab.content}
+        <div className="grid h-full min-h-0 min-w-0 w-full grid-rows-[auto_minmax(0,1fr)] gap-3 p-4">
+          <div className="flex min-h-0 items-center justify-end">
+            <ExternalEditorMenu
+              editors={externalEditors}
+              onOpen={(editorId) => onOpenEditorTabExternally(activeEditorTab.path, editorId)}
             />
-          </article>
+          </div>
+          <CodePreview content={activeEditorTab.content} path={activeEditorTab.path} />
         </div>
       ) : (
         <div className="grid h-full min-h-0 gap-4 p-4">
-          <article className="flex min-h-0 flex-col items-center justify-center gap-3 rounded-[1.2rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-8 text-center">
+          <article className="flex min-h-0 flex-col items-center justify-center gap-3 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-surface)] p-8 text-center">
             <FileNotFound className="size-8 text-[var(--text-subtle)]" />
             <div>
               <p className="mb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
@@ -310,7 +329,7 @@ export const MainWorkspace = memo(function MainWorkspace({
               </h2>
             </div>
             <p className="m-0 max-w-md text-sm leading-7 text-[var(--text-subtle)]">
-              Open a text or code file from the right sidebar to edit it here.
+              Open a text or code file from the right sidebar to inspect it here.
             </p>
           </article>
         </div>
@@ -319,8 +338,48 @@ export const MainWorkspace = memo(function MainWorkspace({
   );
 });
 
+function ExternalEditorMenu({
+  editors,
+  onOpen
+}: {
+  editors: ExternalEditor[];
+  onOpen: (editorId: string) => void;
+}) {
+  const isDisabled = editors.length === 0;
+
+  return (
+    <DropdownRoot>
+      <DropdownTrigger>
+        <Button className={OPEN_EDITOR_BUTTON_CLASS} isDisabled={isDisabled}>
+          Open in
+        </Button>
+      </DropdownTrigger>
+      <DropdownPopover className="min-w-56 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)]">
+        <DropdownMenu
+          aria-label="Open file in external editor"
+          onAction={(key: Key) => onOpen(String(key))}
+        >
+          {editors.map((editor) => (
+            <DropdownItem
+              className="cursor-pointer rounded px-3 py-2.5 text-sm text-[var(--text-main)] outline-none transition data-[focused=true]:bg-[var(--bg-nav-active)]"
+              id={editor.id}
+              key={editor.id}
+              textValue={editor.label}
+            >
+              {editor.label}
+            </DropdownItem>
+          ))}
+        </DropdownMenu>
+      </DropdownPopover>
+    </DropdownRoot>
+  );
+}
+
 const HEADER_ACTION_BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[var(--border-soft)] bg-white/5 px-4 py-3 font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/8";
+  "inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3 font-medium text-[var(--text-main)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";
 
 const APPROVED_ACTION_BUTTON_CLASS =
   "border-emerald-400/30 bg-emerald-400/12 text-[var(--text-main)]";
+
+const OPEN_EDITOR_BUTTON_CLASS =
+  "rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-3 py-2 text-sm font-medium text-[var(--text-main)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";

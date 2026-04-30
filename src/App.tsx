@@ -1,3 +1,4 @@
+import { Button, Modal } from "@heroui/react";
 import {
   lazy,
   Suspense,
@@ -17,6 +18,10 @@ import { useShallow } from "zustand/react/shallow";
 
 import { AppRail } from "./components/AppRail";
 import {
+  PRIMARY_BUTTON_CLASS,
+  SECONDARY_BUTTON_CLASS
+} from "./components/SettingsPrimitives";
+import {
   useAgentEventSubscription,
   useDocumentTheme,
   useInitialDiagnostics,
@@ -29,7 +34,8 @@ import {
 import {
   useAgentStoreSlice,
   useProjectStoreSlice,
-  useSettingsStoreSlice
+  useSettingsStoreSlice,
+  useWorkspaceUiStoreSlice
 } from "./hooks/useAppStoreSlices";
 import {
   useAppDerivedState,
@@ -49,20 +55,19 @@ import {
   clearFallbackTimer,
   type DocumentTarget,
   type FallbackStep,
-  isOpenableWorkspacePath,
   runFallbackStep,
-  stampLog,
-  type WorkspaceFileSource
+  stampLog
 } from "./lib/appShell";
 import {
   approveAgentAction,
   createChatSession,
-  DEFAULT_PENDING_DIFF,
   emergencyStop,
-  getGitDiff,
   getWorkspaceSnapshot,
   isTauriRuntime,
+  listCursorModels,
+  listExternalEditors,
   loadChatSession,
+  openWorkspaceFileInEditor,
   readWorkspaceFile,
   runEnvironmentScan,
   startAgentRun,
@@ -81,8 +86,36 @@ const SettingsScreen = lazy(() => import("./screens/SettingsScreen").then(m => (
 import { useAgentStore } from "./store/useAgentStore";
 import { useChatStore } from "./store/useChatStore";
 import type {
+  CursorModel,
   EnvironmentStatus
 } from "./types";
+
+interface CursorModelRefreshResult {
+  models: CursorModel[];
+  projectErrorMessage?: string;
+}
+
+async function refreshCursorModelsForEnvironment(
+  environment: EnvironmentStatus
+): Promise<CursorModelRefreshResult> {
+  if (environment.cursor.status !== "found") {
+    return { models: [] };
+  }
+
+  try {
+    return {
+      models: await listCursorModels(),
+      projectErrorMessage: ""
+    };
+  } catch (error) {
+    return {
+      models: [],
+      projectErrorMessage: error instanceof Error
+        ? error.message
+        : "Unable to load Cursor SDK models."
+    };
+  }
+}
 
 function App() {
   const location = useLocation();
@@ -94,6 +127,7 @@ function App() {
   const agentState = useAgentStoreSlice();
   const projectState = useProjectStoreSlice();
   const settingsState = useSettingsStoreSlice();
+  const workspaceUiState = useWorkspaceUiStoreSlice();
   const {
     sessions: chatSessions,
     activeSessionId,
@@ -126,29 +160,7 @@ function App() {
     }))
   );
 
-  const [commandSearch, setCommandSearch] = useState("");
-  const [isImporting, setIsImporting] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isProjectLoading, setIsProjectLoading] = useState(false);
-  const [isProjectSaving, setIsProjectSaving] = useState(false);
-  const [latestDiff, setLatestDiff] = useState(DEFAULT_PENDING_DIFF);
-  const [projectConfigPath, setProjectConfigPath] = useState("");
-  const [projectErrorMessage, setProjectErrorMessage] = useState("");
-  const [projectRootName, setProjectRootName] = useState("No project selected");
-  const [projectRootPath, setProjectRootPath] = useState("");
-  const [projectStatusMessage, setProjectStatusMessage] = useState("");
-  const [workspaceNotice, setWorkspaceNotice] = useState(
-    "Finish the setup flow to load a project workspace."
-  );
-  const [hasSavedProjectSettings, setHasSavedProjectSettings] = useState(false);
-  const [hasSelectedProject, setHasSelectedProject] = useState(false);
-  const [hasAttemptedProjectRestore, setHasAttemptedProjectRestore] = useState(!desktopRuntime);
   const [systemPrefersDark, setSystemPrefersDark] = useState(true);
-  const [workspaceFiles, setWorkspaceFiles] = useState<Record<string, WorkspaceFileSource>>({});
-  const [prdGenerationPrompt, setPrdGenerationPrompt] = useState("");
-  const [prdGenerationError, setPrdGenerationError] = useState("");
-  const [specGenerationPrompt, setSpecGenerationPrompt] = useState("");
-  const [specGenerationError, setSpecGenerationError] = useState("");
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -159,10 +171,17 @@ function App() {
   const fallbackIndexRef = useRef(0);
   const hasScannedEnvironmentRef = useRef(false);
   const latestPathnameRef = useRef(location.pathname);
+  const refreshDiagnosticsPromiseRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     latestPathnameRef.current = location.pathname;
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!desktopRuntime) {
+      workspaceUiState.setHasAttemptedProjectRestore(true);
+    }
+  }, [desktopRuntime, workspaceUiState.setHasAttemptedProjectRestore]);
 
   const activeChatSession = useChatStore(
     useCallback(
@@ -179,52 +198,62 @@ function App() {
   );
   const reviewVisibleDiff = activeChatSession
     ? activeChatSession.runtime.pendingDiff ?? "No diff captured for the active chat topic yet."
-    : agentState.pendingDiff ?? latestDiff;
+    : agentState.pendingDiff ?? workspaceUiState.latestDiff;
 
   const derivedState = useAppDerivedState({
     agentState,
-    commandSearch,
     desktopRuntime,
-    latestDiff,
-    prdGenerationPrompt,
-    projectConfigPath,
-    projectRootName,
-    projectRootPath,
     projectState,
     settingsState,
-    specGenerationPrompt,
-    systemPrefersDark
+    systemPrefersDark,
+    workspaceUiState
   });
 
   const refreshDiagnostics = useCallback(
-    async (previousEnvironment?: EnvironmentStatus) => {
-      const [nextEnvironment, snapshotEntries, diff] = await Promise.all([
-        runEnvironmentScan({
-          claudePath: settingsState.claudePath,
-          codexPath: settingsState.codexPath
-        }).catch(() => previousEnvironment ?? settingsState.environment),
-        hasSelectedProject
-          ? Promise.resolve(settingsState.workspaceEntries)
-          : getWorkspaceSnapshot().catch(() => settingsState.workspaceEntries),
-        getGitDiff().catch(() => DEFAULT_PENDING_DIFF)
-      ]);
-
-      settingsState.setEnvironment(nextEnvironment);
-
-      if (!hasSelectedProject) {
-        settingsState.setWorkspaceEntries(snapshotEntries);
+    (previousEnvironment?: EnvironmentStatus) => {
+      if (refreshDiagnosticsPromiseRef.current) {
+        return refreshDiagnosticsPromiseRef.current;
       }
 
-      setLatestDiff(diff);
+      const refreshPromise = (async () => {
+        const [nextEnvironment, snapshotEntries, nextExternalEditors] = await Promise.all([
+          runEnvironmentScan().catch(() => previousEnvironment ?? settingsState.environment),
+          workspaceUiState.hasSelectedProject
+            ? Promise.resolve(settingsState.workspaceEntries)
+            : getWorkspaceSnapshot().catch(() => settingsState.workspaceEntries),
+          listExternalEditors().catch(() => [])
+        ]);
+
+        settingsState.setEnvironment(nextEnvironment);
+        workspaceUiState.setExternalEditors(nextExternalEditors);
+
+        if (!workspaceUiState.hasSelectedProject) {
+          settingsState.setWorkspaceEntries(snapshotEntries);
+        }
+
+        const cursorModelsResult = await refreshCursorModelsForEnvironment(nextEnvironment);
+        workspaceUiState.setCursorModels(cursorModelsResult.models);
+
+        if (cursorModelsResult.projectErrorMessage !== undefined) {
+          workspaceUiState.setProjectErrorMessage(cursorModelsResult.projectErrorMessage);
+        }
+      })().finally(() => {
+        refreshDiagnosticsPromiseRef.current = null;
+      });
+
+      refreshDiagnosticsPromiseRef.current = refreshPromise;
+      return refreshPromise;
     },
-    [hasSelectedProject, settingsState]
+    [settingsState, workspaceUiState]
   );
 
   // --- Document handlers ---
   const {
     handleOpenImportFile,
     handleFileSelection,
+    handleGrillPrd,
     handleGeneratePrd,
+    handleGrillSpec,
     handleGenerateSpec
   } = useDocumentHandlers({
     agentState,
@@ -232,16 +261,9 @@ function App() {
     desktopRuntime,
     fileInputRef,
     pendingImportTargetRef,
-    prdGenerationPrompt,
-    projectRootPath,
     projectState,
-    setIsImporting,
-    setPrdGenerationError,
-    setPrdGenerationPrompt,
-    setSpecGenerationError,
-    setSpecGenerationPrompt,
     settingsState,
-    specGenerationPrompt
+    workspaceUiState
   });
 
   // --- Project handlers ---
@@ -250,40 +272,22 @@ function App() {
     saveCurrentProjectSettings,
     scheduleProjectSettingsSave,
     handlePickProjectFolder,
+    handleOpenRecentProject,
     projectSaveTimerRef
   } = useProjectHandlers({
     applyProjectContextDeps: {
-      projectRootPath,
       projectState,
       settingsState,
-      setProjectRootName,
-      setProjectRootPath,
-      setProjectConfigPath,
-      setHasSelectedProject,
-      setHasSavedProjectSettings,
-      setWorkspaceFiles,
-      setPrdGenerationPrompt,
-      setPrdGenerationError,
-      setSpecGenerationPrompt,
-      setSpecGenerationError,
+      workspaceUiState,
       setChatSessions,
       setActiveSessionId,
       setCavemanStatus,
-      setProjectStatusMessage,
-      setProjectErrorMessage,
-      setWorkspaceNotice,
       latestPathnameRef
     },
     derivedState,
     desktopRuntime,
-    hasSavedProjectSettings,
-    projectRootName,
-    projectRootPath,
     projectState,
-    setIsProjectLoading,
-    setIsProjectSaving,
-    setProjectErrorMessage,
-    setProjectStatusMessage
+    workspaceUiState
   });
 
   const projectSettingsHandlers = useProjectSettingsHandlers({
@@ -291,6 +295,7 @@ function App() {
     scheduleProjectSettingsSave,
     setConfiguredPrdPath: projectState.setConfiguredPrdPath,
     setConfiguredSpecPath: projectState.setConfiguredSpecPath,
+    setExecutionAgentDescription: projectState.setExecutionAgentDescription,
     setPrdPromptTemplate: projectState.setPrdPromptTemplate,
     setReasoningProfile: projectState.setReasoningProfile,
     setSelectedModel: projectState.setSelectedModel,
@@ -323,21 +328,23 @@ function App() {
     setSessionConfig,
     deleteChatSessionState,
     setChatSessions,
-    setProjectErrorMessage
+    setProjectErrorMessage: workspaceUiState.setProjectErrorMessage
   });
 
   const handleWorkspaceFileOpen = useCallback(
     async (path: string) => {
-      const file = workspaceFiles[path];
+      const file = workspaceUiState.workspaceFiles[path];
 
       if (!file) {
-        setWorkspaceNotice(`The file ${path} is not available in the active workspace snapshot.`);
+        workspaceUiState.setWorkspaceNotice(
+          `The file ${path} is not available in the active workspace snapshot.`
+        );
         return;
       }
 
       if (file.kind === "browser") {
         if (!isOpenableTextFile(file.file)) {
-          setWorkspaceNotice(`${file.file.name} is not an openable text/code file.`);
+          workspaceUiState.setWorkspaceNotice(`${file.file.name} is not an openable text/code file.`);
           return;
         }
 
@@ -350,11 +357,6 @@ function App() {
         return;
       }
 
-      if (!isOpenableWorkspacePath(path)) {
-        setWorkspaceNotice(`${file.fileName} is not an openable text/code file.`);
-        return;
-      }
-
       try {
         const content = await readWorkspaceFile(path);
         projectState.openEditorTab({
@@ -363,14 +365,28 @@ function App() {
           content
         });
       } catch (error) {
-        setWorkspaceNotice(
+        workspaceUiState.setWorkspaceNotice(
           error instanceof Error
             ? `Unable to open ${file.fileName}: ${error.message}`
             : `Unable to open ${file.fileName}.`
         );
       }
     },
-    [projectState, workspaceFiles]
+    [projectState, workspaceUiState]
+  );
+
+  const handleOpenWorkspaceFileInEditor = useCallback(
+    async (path: string, editorId: string) => {
+      try {
+        await openWorkspaceFileInEditor({ filePath: path, editorId });
+        workspaceUiState.setWorkspaceNotice("");
+      } catch (error) {
+        workspaceUiState.setWorkspaceNotice(
+          error instanceof Error ? error.message : "Unable to open the file in the selected editor."
+        );
+      }
+    },
+    [workspaceUiState]
   );
 
   const handleApproveSpec = useCallback(() => {
@@ -437,9 +453,9 @@ function App() {
       fallbackStepsRef,
       fallbackIndexRef,
       fallbackTimerRef,
-      setLatestDiff
+      workspaceUiState.setLatestDiff
     );
-  }, [agentState, desktopRuntime, projectState]);
+  }, [agentState, desktopRuntime, projectState, workspaceUiState.setLatestDiff]);
 
   const handleApproveExecutionGate = useCallback(async () => {
     if (agentState.status !== "awaiting_approval") {
@@ -471,9 +487,9 @@ function App() {
       fallbackStepsRef,
       fallbackIndexRef,
       fallbackTimerRef,
-      setLatestDiff
+      workspaceUiState.setLatestDiff
     );
-  }, [agentState, desktopRuntime]);
+  }, [agentState, desktopRuntime, workspaceUiState.setLatestDiff]);
 
   const handleEmergencyStop = useCallback(async () => {
     if (desktopRuntime) {
@@ -519,19 +535,15 @@ function App() {
     handleEmergencyStop,
     handleGeneratePrd,
     handleGenerateSpec,
+    handleGrillPrd,
+    handleGrillSpec,
     handleOpenImportFile,
     handleStartBuild,
     handleWorkspaceFileOpen,
-    prdGenerationError,
     projectState,
     refreshDiagnostics,
-    setCommandSearch,
-    setIsSearchOpen,
-    setPrdGenerationError,
-    setPrdGenerationPrompt,
-    setSpecGenerationError,
-    setSpecGenerationPrompt,
-    specGenerationError
+    settingsState,
+    workspaceUiState
   });
 
   useSystemThemePreference(setSystemPrefersDark);
@@ -539,18 +551,18 @@ function App() {
   useWorkspaceSearchShortcuts({
     closeWorkspaceSearch: uiHandlers.closeWorkspaceSearch,
     isReviewRoute,
-    isSearchOpen,
-    setCommandSearch,
-    setIsSearchOpen
+    isSearchOpen: workspaceUiState.isSearchOpen,
+    setCommandSearch: workspaceUiState.setCommandSearch,
+    setIsSearchOpen: workspaceUiState.setIsSearchOpen
   });
   useWorkspaceSearchRouteReset({
     closeWorkspaceSearch: uiHandlers.closeWorkspaceSearch,
     isReviewRoute,
-    isSearchOpen
+    isSearchOpen: workspaceUiState.isSearchOpen
   });
   useWorkspaceSearchFocus({
     isReviewRoute,
-    isSearchOpen,
+    isSearchOpen: workspaceUiState.isSearchOpen,
     searchInputRef
   });
   useInitialDiagnostics({
@@ -561,10 +573,10 @@ function App() {
   useProjectRestore({
     applyProjectContext,
     desktopRuntime,
-    hasAttemptedProjectRestore,
+    hasAttemptedProjectRestore: workspaceUiState.hasAttemptedProjectRestore,
     lastProjectPath: settingsState.lastProjectPath,
-    setHasAttemptedProjectRestore,
-    setIsProjectLoading,
+    setHasAttemptedProjectRestore: workspaceUiState.setHasAttemptedProjectRestore,
+    setIsProjectLoading: workspaceUiState.setIsProjectLoading,
     setLastProjectPath: settingsState.setLastProjectPath
   });
   useEffect(() => {
@@ -587,7 +599,7 @@ function App() {
           return;
         }
 
-        setProjectErrorMessage(
+        workspaceUiState.setProjectErrorMessage(
           error instanceof Error ? error.message : "Unable to load the selected chat topic."
         );
       });
@@ -595,12 +607,12 @@ function App() {
     return () => {
       isDisposed = true;
     };
-  }, [activeChatSession, activeSessionId, desktopRuntime, upsertSession]);
+  }, [activeChatSession, activeSessionId, desktopRuntime, upsertSession, workspaceUiState]);
 
   useEffect(() => {
     if (
       !desktopRuntime ||
-      !hasSavedProjectSettings ||
+      !workspaceUiState.hasSavedProjectSettings ||
       !isChatRoute ||
       chatSessions.length > 0
     ) {
@@ -623,7 +635,7 @@ function App() {
           return;
         }
 
-        setProjectErrorMessage(
+        workspaceUiState.setProjectErrorMessage(
           error instanceof Error ? error.message : "Unable to create the first chat topic."
         );
       });
@@ -634,10 +646,10 @@ function App() {
   }, [
     chatSessions.length,
     desktopRuntime,
-    hasSavedProjectSettings,
     isChatRoute,
     setActiveSessionId,
-    upsertSession
+    upsertSession,
+    workspaceUiState
   ]);
 
   useEffect(() => {
@@ -695,7 +707,7 @@ function App() {
     applyAgentEvent: agentState.applyEvent,
     fallbackTimerRef,
     projectSaveTimerRef,
-    setLatestDiff
+    setLatestDiff: workspaceUiState.setLatestDiff
   });
 
   const {
@@ -704,33 +716,20 @@ function App() {
     settingsScreenProps
   } = useAppScreenProps({
     agentState,
-    commandSearch,
     derivedState,
-    desktopRuntime,
     folderInputRef,
     handleApproveSpec,
+    handleOpenWorkspaceFileInEditor,
     handleOpenChat,
+    handleOpenRecentProject,
     handlePickProjectFolder,
-    hasSavedProjectSettings,
-    isImporting,
-    isProjectLoading,
-    isProjectSaving,
-    isSearchOpen,
     reviewVisibleDiff,
-    prdGenerationError,
-    prdGenerationPrompt,
-    projectErrorMessage,
-    projectRootName,
-    projectRootPath,
     projectSettingsHandlers,
     projectState,
-    projectStatusMessage,
     searchInputRef,
     settingsState,
-    specGenerationError,
-    specGenerationPrompt,
     uiHandlers,
-    workspaceNotice
+    workspaceUiState
   });
 
   const loadingState = (
@@ -739,15 +738,15 @@ function App() {
     </section>
   );
 
-  const reviewScreen = hasSavedProjectSettings ? (
+  const reviewScreen = workspaceUiState.hasSavedProjectSettings ? (
     <PrdScreen {...reviewScreenProps} />
-  ) : hasAttemptedProjectRestore ? (
+  ) : workspaceUiState.hasAttemptedProjectRestore ? (
     <Navigate replace to="/" />
   ) : (
     loadingState
   );
 
-  const chatScreen = hasSavedProjectSettings ? (
+  const chatScreen = workspaceUiState.hasSavedProjectSettings ? (
     <ChatScreen
       activeDraft={activeChatDraft}
       activeSession={activeChatSession}
@@ -755,6 +754,7 @@ function App() {
       cavemanMessage={cavemanMessage}
       cavemanReady={cavemanReady}
       configuredModelProviders={derivedState.configuredModelProviders}
+      cursorModels={workspaceUiState.cursorModels}
       onApprove={handleApproveChatSession}
       onAttachFile={handleAttachChatFile}
       onCreateSession={handleCreateChatSessionClick}
@@ -770,27 +770,74 @@ function App() {
       onStop={handleStopChatSession}
       sessions={chatSessions}
       workspaceEntries={settingsState.workspaceEntries}
-      workspaceRootName={projectRootName}
+      workspaceRootName={workspaceUiState.projectRootName}
     />
-  ) : hasAttemptedProjectRestore ? (
+  ) : workspaceUiState.hasAttemptedProjectRestore ? (
     <Navigate replace to="/" />
   ) : (
     loadingState
   );
 
-  const settingsScreen = hasSavedProjectSettings ? (
+  const settingsScreen = workspaceUiState.hasSavedProjectSettings ? (
     <SettingsScreen {...settingsScreenProps} />
-  ) : hasAttemptedProjectRestore ? (
+  ) : workspaceUiState.hasAttemptedProjectRestore ? (
     <Navigate replace to="/" />
   ) : (
     loadingState
   );
+  const createdDefaultsNotice = workspaceUiState.projectStatusMessage.startsWith(
+    "Created default SpecForge settings"
+  )
+    ? workspaceUiState.projectStatusMessage
+    : "";
+  const closeCreatedDefaultsNotice = () => workspaceUiState.setProjectStatusMessage("");
 
   return (
     <main className="flex h-screen min-h-0 w-full flex-col overflow-hidden">
-      <AppRail hasProjectConfigured={hasSavedProjectSettings} />
+      <Modal.Root
+        isOpen={Boolean(createdDefaultsNotice)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            closeCreatedDefaultsNotice();
+          }
+        }}
+      >
+        <Modal.Backdrop>
+          <Modal.Container placement="center" size="md">
+            <Modal.Dialog className="border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] text-[var(--text-main)]">
+              <Modal.Header className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
+                <Modal.Heading className="m-0 text-lg font-semibold">
+                  Project settings created
+                </Modal.Heading>
+                <Modal.CloseTrigger aria-label="Close" />
+              </Modal.Header>
+              <Modal.Body className="px-5 py-5">
+                <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
+                  {createdDefaultsNotice}
+                </p>
+              </Modal.Body>
+              <Modal.Footer className="flex justify-end gap-3 border-t border-[var(--border-soft)] px-5 py-4">
+                <Button className={SECONDARY_BUTTON_CLASS} onPress={closeCreatedDefaultsNotice}>
+                  Later
+                </Button>
+                <Button
+                  className={PRIMARY_BUTTON_CLASS}
+                  onPress={() => {
+                    closeCreatedDefaultsNotice();
+                    navigate("/settings");
+                  }}
+                >
+                  Open Settings
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal.Root>
 
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:ml-[72px]">
+      <AppRail hasProjectConfigured={workspaceUiState.hasSavedProjectSettings} />
+
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:ml-60">
         <input
           accept={desktopRuntime ? ".md,.pdf" : ".md"}
           className="hidden"
@@ -809,7 +856,12 @@ function App() {
             <Route element={reviewScreen} path="/review" />
             <Route element={settingsScreen} path="/settings" />
             <Route
-              element={<Navigate replace to={hasSavedProjectSettings ? "/chat" : "/"} />}
+              element={
+                <Navigate
+                  replace
+                  to={workspaceUiState.hasSavedProjectSettings ? "/review" : "/"}
+                />
+              }
               path="*"
             />
           </Routes>

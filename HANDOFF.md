@@ -1,20 +1,35 @@
 # Handoff
 
 ## Current Task
-- Capture the current task, branch, and the user-facing outcome here before clearing context.
+- Branch: `refactor/cursor-sdk`.
+- Refactor PRD/spec generation from Codex/Claude ACP-backed Rust commands to Cursor SDK-backed generation.
+- Current slice focuses on PRD/spec generation and settings, not chat migration.
 
 ## Key Decisions
-- List the decisions that would be expensive to rediscover.
+- `@cursor/sdk` cannot be bundled into the Vite webview because it imports Node/Bun runtime modules and native dependencies.
+- React composes Cursor PRD/spec prompts and drives the existing generation flow.
+- `src/cursorAgentRunner.ts` is the Bun-only SDK entry point; do not import it from webview code.
+- Rust delegates Cursor generation to the Bun runner, stores the Cursor API key via OS credential storage, and saves generated Markdown.
+- Cursor API keys are never written to `.specforge/settings.json` or localStorage.
+- Chat execution still has the legacy Codex/Claude CLI path and is outside this slice.
 
 ## Open Questions
-- List the questions that still need user input or follow-up implementation.
+- Packaged app strategy for the Bun runner and `@cursor/sdk` dependency still needs a deliberate follow-up.
+- Chat/execution migration to Cursor SDK remains pending.
 
 ## Files Modified
-- Record the files changed in the current slice of work.
+- Added Cursor SDK runtime files: `src/cursorAgentRunner.ts`, `src/lib/cursorAgentRuntime.ts`, `src-tauri/src/cursor_agent.rs`, `src-tauri/src/secrets.rs`.
+- Updated settings/project state, config screens, PRD/spec handlers, runtime bridge, Rust models/project normalization, docs, and dependency manifests.
 
 ## Verification
-- `bun run build`:
-- `cargo check --manifest-path .\src-tauri\Cargo.toml`:
+- `bun test`: passed, 77 tests.
+- `bunx tsc --noEmit`: passed.
+- `bun run lint`: passed with existing warnings.
+- `bun run build`: passed.
+- `cargo fmt --manifest-path .\src-tauri\Cargo.toml`: ran.
+- `cargo check --manifest-path .\src-tauri\Cargo.toml`: passed.
 
 ## Next Steps
-- List the next 1-3 concrete actions.
+- Decide how the Bun Cursor runner should be bundled for packaged desktop builds.
+- Migrate chat/execution off legacy Codex/Claude CLI runtime when ready.
+- Address existing Biome warnings separately if a clean lint output is desired.

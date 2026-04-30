@@ -1,9 +1,8 @@
 import {
-  type Dispatch,
   type MutableRefObject,
   type RefObject,
-  type SetStateAction, 
-  useEffect
+  useEffect,
+  useRef
 } from "react";
 
 import { clearFallbackTimer } from "../lib/appShell";
@@ -47,8 +46,8 @@ interface WorkspaceSearchShortcutsOptions {
   closeWorkspaceSearch: () => void;
   isReviewRoute: boolean;
   isSearchOpen: boolean;
-  setCommandSearch: Dispatch<SetStateAction<string>>;
-  setIsSearchOpen: Dispatch<SetStateAction<boolean>>;
+  setCommandSearch: (nextValue: string) => void;
+  setIsSearchOpen: (nextValue: boolean) => void;
 }
 
 export function useWorkspaceSearchShortcuts({
@@ -76,14 +75,13 @@ export function useWorkspaceSearchShortcuts({
         }
 
         event.preventDefault();
-        setIsSearchOpen((currentValue) => {
-          if (currentValue) {
-            setCommandSearch("");
-            return false;
-          }
+        if (isSearchOpen) {
+          setCommandSearch("");
+          setIsSearchOpen(false);
+          return;
+        }
 
-          return true;
-        });
+        setIsSearchOpen(true);
         return;
       }
 
@@ -190,6 +188,8 @@ export function useProjectRestore({
   setIsProjectLoading,
   setLastProjectPath
 }: ProjectRestoreOptions) {
+  const restoreStartedPathRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (hasAttemptedProjectRestore || !desktopRuntime) {
       return;
@@ -200,7 +200,13 @@ export function useProjectRestore({
       return;
     }
 
+    if (restoreStartedPathRef.current === lastProjectPath) {
+      return;
+    }
+
     let isDisposed = false;
+    restoreStartedPathRef.current = lastProjectPath;
+    setHasAttemptedProjectRestore(true);
     setIsProjectLoading(true);
 
     void loadProjectContext(lastProjectPath)
@@ -209,9 +215,7 @@ export function useProjectRestore({
           return;
         }
 
-        applyProjectContext(context, {
-          navigateToChat: context.hasSavedSettings
-        });
+        applyProjectContext(context);
       })
       .catch(() => {
         if (isDisposed) {
@@ -226,7 +230,6 @@ export function useProjectRestore({
         }
 
         setIsProjectLoading(false);
-        setHasAttemptedProjectRestore(true);
       });
 
     return () => {
@@ -248,7 +251,7 @@ interface AgentEventSubscriptionOptions {
   applyAgentEvent: (payload: AgentEventPayload) => void;
   fallbackTimerRef: MutableRefObject<number | null>;
   projectSaveTimerRef: MutableRefObject<number | null>;
-  setLatestDiff: Dispatch<SetStateAction<string>>;
+  setLatestDiff: (nextValue: string) => void;
 }
 
 export function useAgentEventSubscription({

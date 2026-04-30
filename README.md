@@ -1,8 +1,8 @@
 # SpecForge
 
-SpecForge is a Tauri desktop app for spec-driven development. It helps you load a PRD or technical spec from each document pane, review the source and generated documents side by side, inspect the workspace, and hand an approved spec off to an AI coding agent with configurable autonomy.
+SpecForge is a Tauri desktop app for spec-driven development. It helps you configure a project, generate and review PRD/spec documents with Cursor SDK agents, inspect the workspace, and keep approved implementation work visible through the desktop shell.
 
-The current codebase is an MVP shell built with React, Zustand, Tailwind, HeroUI, Tauri, and Rust. It includes a browser-safe demo path for the web UI and a desktop runtime path for real filesystem, git, and CLI access.
+The current codebase is an MVP shell built with React, Zustand, Tailwind, HeroUI, Tauri, and Rust. It includes a browser-safe demo path for the web UI and a desktop runtime path for real filesystem, git, secure Cursor API key storage, and document persistence.
 
 ## What It Does
 
@@ -10,7 +10,9 @@ The current codebase is an MVP shell built with React, Zustand, Tailwind, HeroUI
 - Bundles `docs/PRD.md` and `docs/SPEC.md` into the app as the default startup documents.
 - Scans a workspace folder while respecting `.gitignore`.
 - Lets you review and edit PRD/spec documents in a split workspace.
-- Shows environment health for Claude CLI, Codex CLI, and Git.
+- Saves the Cursor API key in the OS credential store, not in `.specforge/settings.json`.
+- Shows environment health for Cursor SDK key access and Git.
+- Generates PRD/spec Markdown with editable Cursor agent descriptions.
 - Streams agent output and supports stepped, milestone, and full-autonomy execution modes.
 - Surfaces git diff review data before approvals.
 - Falls back to simulated workspace and diff data when running outside the Tauri desktop shell.
@@ -39,7 +41,7 @@ The current codebase is an MVP shell built with React, Zustand, Tailwind, HeroUI
 - Rust toolchain
 - Tauri desktop prerequisites for your OS
 - Git
-- Optional: local `codex` and `claude` CLIs if you want environment detection and agent handoff to use real binaries
+- Cursor API key for PRD/spec generation
 
 ## Getting Started
 
@@ -64,7 +66,7 @@ bun run tauri dev
 Important:
 
 - `bun run dev` is useful for UI work, but it uses fallback workspace/diff behavior when Tauri is not present.
-- `bun run tauri dev` is required for real file access, workspace scanning, PDF parsing, git diffing, and CLI execution.
+- `bun run tauri dev` is required for real file access, workspace scanning, PDF parsing, git diffing, secure Cursor key storage, and document saving.
 
 ## Common Commands
 
@@ -87,7 +89,8 @@ bun install --force
 
 - The React app never talks to the shell or filesystem directly.
 - All desktop/runtime operations flow through `src/lib/runtime.ts`.
-- Rust commands in `src-tauri/src/lib.rs` own filesystem access, workspace walking, PDF parsing, git diffing, and CLI process control.
+- Rust commands in `src-tauri/src/lib.rs` own filesystem access, workspace walking, PDF parsing, git diffing, OS credential storage, and document saving.
+- PRD/spec generation is run through a Bun TypeScript runner using `@cursor/sdk`; Rust delegates to that runner and saves the generated Markdown after the frontend receives it.
 - Payloads crossing the Tauri boundary use camelCase.
 - The desktop app preserves a demo path in browser mode so the UI can still be explored without native services.
 
@@ -102,4 +105,4 @@ If you change the review flow, model options, import flow, or autonomy behavior,
 
 ## Current Status
 
-This repository is an active MVP. The review workspace, import flow, environment scan, diff preview, and simulated execution loop are implemented. Some product ideas documented in `docs/SPEC.md` are still aspirational and should be treated as roadmap material unless they are reflected in the current code.
+This repository is an active MVP. The review workspace, import flow, Cursor SDK PRD/spec generation path, environment scan, diff preview, and simulated execution loop are implemented. Chat execution still has legacy CLI runtime code and is intentionally outside the current Cursor SDK refactor scope.

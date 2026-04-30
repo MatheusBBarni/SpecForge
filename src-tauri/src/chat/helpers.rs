@@ -121,7 +121,11 @@ pub(super) fn upsert_chat_session_summary(
     index: &mut ChatSessionIndexPayload,
     summary: ChatSessionSummary,
 ) {
-    if let Some(existing_summary) = index.sessions.iter_mut().find(|entry| entry.id == summary.id) {
+    if let Some(existing_summary) = index
+        .sessions
+        .iter_mut()
+        .find(|entry| entry.id == summary.id)
+    {
         *existing_summary = summary;
     } else {
         index.sessions.push(summary);

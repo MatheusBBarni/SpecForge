@@ -7,46 +7,47 @@ import {
   DropdownRoot,
   DropdownTrigger,
   Input,
-  Label,
-  ListBox,
-  Select,
+  Modal,
   TextArea
 } from "@heroui/react";
 import {
-  ArrowRight,
   Attachment,
+  BubbleSearch,
   ChatBubble,
-  ChatLines,
   CheckCircle,
+  Code,
+  Copy,
   EditPencil,
+  MoreHoriz,
   Refresh,
   SendSolid,
-  Settings,
-  ThreePointsCircle,
+  Terminal,
   Trash,
   WarningCircle,
+  Xmark,
   XmarkCircle
 } from "iconoir-react";
-import { type Key, memo, useCallback, useMemo, useState } from "react";
-
-import { DiffPreview } from "../components/DiffPreview";
 import {
-  FIELD_LABEL_CLASS,
-  INPUT_CLASS,
-  LISTBOX_ITEM_CLASS,
-  PRIMARY_BUTTON_CLASS,
-  SECONDARY_BUTTON_CLASS,
-  SELECT_TRIGGER_CLASS,
-  SETTINGS_PANEL_CLASS,
-  TEXTAREA_CLASS
-} from "../components/SettingsPrimitives";
+  type MouseEvent,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
+
+import { ModelReasoningDropdown } from "../components/ModelReasoningDropdown";
+import { INPUT_CLASS } from "../components/SettingsPrimitives";
 import { getModelOptions, getReasoningOptions } from "../lib/agentConfig";
 import { isOpenableWorkspacePath } from "../lib/appShell";
 import type {
   AutonomyMode,
   ChatContextItem,
+  ChatMessage,
   ChatSession,
   ChatSessionSummary,
+  CursorModel,
   ModelProvider,
   WorkspaceEntry
 } from "../types";
@@ -58,6 +59,7 @@ interface ChatScreenProps {
   activeDraft: string;
   workspaceEntries: WorkspaceEntry[];
   configuredModelProviders: ModelProvider[];
+  cursorModels: CursorModel[];
   cavemanReady: boolean;
   cavemanMessage: string;
   cavemanChecking: boolean;
@@ -82,42 +84,22 @@ interface ChatScreenProps {
   onOpenReview: () => void;
 }
 
-const AUTONOMY_OPTIONS: AutonomyMode[] = ["stepped", "milestone", "god_mode"];
-
-const PANEL_CLASS = `${SETTINGS_PANEL_CLASS} rounded-[1.5rem]`;
-const PANEL_CONTENT_CLASS = "flex min-h-0 flex-1 flex-col gap-4 px-5 py-5";
-const EYEBROW_CLASS =
-  "m-0 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]";
-const PANEL_TITLE_CLASS = "m-0 text-lg font-semibold text-[var(--text-main)]";
+const CORE_BORDER = "border-[var(--border-strong)]";
+const TOP_BAR_CLASS = `flex min-h-[70px] items-center border-b ${CORE_BORDER} bg-[var(--bg-panel)] px-5`;
 const ICON_BUTTON_CLASS =
-  "inline-flex min-h-[3rem] min-w-[3rem] items-center justify-center rounded-[1rem] border border-[var(--border-soft)] bg-white/5 px-0 font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/8";
-const TOPIC_CARD_CLASS =
-  "border border-[var(--border-soft)] bg-[var(--bg-surface)] shadow-none transition";
-const TOPIC_CARD_ACTIVE_CLASS = "border-[var(--accent)] bg-white/10";
-const TOPIC_SELECT_BUTTON_CLASS =
-  "flex min-w-0 items-start justify-start rounded-[0.95rem] px-3 py-3 text-left transition hover:bg-white/[0.06]";
-const TOPIC_MENU_BUTTON_CLASS =
-  "inline-flex min-h-10 min-w-10 items-center justify-center rounded-[0.95rem] border border-[var(--border-soft)] bg-[rgba(255,184,108,0.08)] px-0 text-[var(--text-main)] transition hover:bg-[rgba(255,184,108,0.14)]";
-const TOPIC_MENU_POPOVER_CLASS =
-  "min-w-56 rounded-[1rem] border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)] backdrop-blur-xl";
-const TOPIC_MENU_ITEM_CLASS =
-  "cursor-pointer rounded-[0.9rem] px-3 py-3 text-[var(--text-main)] outline-none transition data-[focused=true]:bg-white/8";
-const TOPIC_MENU_DANGER_ITEM_CLASS =
-  "cursor-pointer rounded-[0.9rem] px-3 py-3 text-[var(--danger)] outline-none transition data-[focused=true]:bg-[rgba(255,85,85,0.14)]";
-const STATUS_BADGE_CLASS =
-  "shrink-0 rounded-full border border-[var(--border-soft)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-subtle)]";
-const WARNING_CARD_CLASS =
-  "border border-[rgba(255,184,108,0.25)] bg-[rgba(255,184,108,0.12)] shadow-none";
-const EMPTY_STATE_CARD_CLASS =
-  "border border-dashed border-[var(--border-soft)] bg-[var(--bg-surface)] shadow-none";
-const ATTACH_CARD_CLASS =
-  "border border-[var(--border-soft)] bg-[var(--bg-surface)] shadow-none";
-const LIST_ITEM_BUTTON_CLASS =
-  "flex w-full items-center justify-start gap-2 rounded-[0.9rem] px-3 py-2 text-left text-sm text-[var(--text-main)] transition hover:bg-white/8";
-const CONTEXT_CHIP_CLASS =
-  "inline-flex items-center gap-2 rounded-full border border-[var(--border-soft)] bg-white/[0.06] px-3 py-2 text-xs font-medium text-[var(--text-main)] transition hover:bg-white/[0.1]";
-const TERMINAL_CARD_CLASS =
-  "min-h-0 flex-1 border border-[var(--border-soft)] bg-black/20 shadow-none";
+  "grid size-10 shrink-0 place-items-center rounded border border-[var(--border-soft)] bg-transparent p-0 text-[var(--text-subtle)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";
+const TEXT_BUTTON_CLASS =
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-3 text-sm font-medium text-[var(--text-main)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";
+const PRIMARY_BUTTON_CLASS =
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded border border-[var(--accent)] bg-[var(--accent)] px-5 text-sm font-semibold text-[var(--bg-app)] transition hover:bg-[#d7baff]";
+const DANGER_BUTTON_CLASS =
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded border border-[rgba(255,85,85,0.38)] bg-[rgba(255,85,85,0.12)] px-3 text-sm font-semibold text-[var(--danger)] transition hover:bg-[rgba(255,85,85,0.18)]";
+const MENU_POPOVER_CLASS =
+  "min-w-52 rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)]";
+const MENU_ITEM_CLASS =
+  "cursor-pointer rounded px-3 py-2 text-sm text-[var(--text-main)] outline-none transition data-[focused=true]:bg-white/8";
+const MENU_DANGER_ITEM_CLASS =
+  "cursor-pointer rounded px-3 py-2 text-sm text-[var(--danger)] outline-none transition data-[focused=true]:bg-[rgba(255,85,85,0.14)]";
 
 export const ChatScreen = memo(function ChatScreen({
   workspaceRootName,
@@ -126,6 +108,7 @@ export const ChatScreen = memo(function ChatScreen({
   activeDraft,
   workspaceEntries,
   configuredModelProviders,
+  cursorModels,
   cavemanReady,
   cavemanMessage,
   cavemanChecking,
@@ -143,8 +126,12 @@ export const ChatScreen = memo(function ChatScreen({
   onAttachFile,
   onOpenReview
 }: ChatScreenProps) {
-  const [topicSearch, setTopicSearch] = useState("");
-  const [contextSearch, setContextSearch] = useState("");
+  const [sessionSearch, setSessionSearch] = useState("");
+  const [openSessionMenuId, setOpenSessionMenuId] = useState<string | null>(null);
+  const [renameSession, setRenameSession] = useState<ChatSessionSummary | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
+  const [deleteSession, setDeleteSession] = useState<ChatSessionSummary | null>(null);
+  const draftInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const mentionQuery = useMemo(() => {
     const match = activeDraft.match(/(?:^|\s)@([^\s@]*)$/);
@@ -156,9 +143,9 @@ export const ChatScreen = memo(function ChatScreen({
       sessions.filter((session) =>
         `${session.title} ${session.lastMessagePreview}`
           .toLowerCase()
-          .includes(topicSearch.trim().toLowerCase())
+          .includes(sessionSearch.trim().toLowerCase())
       ),
-    [sessions, topicSearch]
+    [sessions, sessionSearch]
   );
 
   const attachableFiles = useMemo(
@@ -169,9 +156,9 @@ export const ChatScreen = memo(function ChatScreen({
           isOpenableWorkspacePath(entry.path) &&
           `${entry.name} ${entry.path}`
             .toLowerCase()
-            .includes((mentionQuery || contextSearch).trim().toLowerCase())
+            .includes(mentionQuery.trim().toLowerCase())
       ),
-    [contextSearch, mentionQuery, workspaceEntries]
+    [mentionQuery, workspaceEntries]
   );
 
   const canSend = Boolean(
@@ -180,464 +167,750 @@ export const ChatScreen = memo(function ChatScreen({
       !activeSession.runtime.isBusy
   );
 
-  const handleRenameRequest = useCallback(
-    (session: ChatSessionSummary) => {
-      const nextTitle = window.prompt("Rename topic", session.title)?.trim();
-
-      if (nextTitle) {
-        onRenameSession(session.id, nextTitle);
-      }
-    },
-    [onRenameSession]
+  const modelOptions = useMemo(
+    () =>
+      getModelOptions(
+        configuredModelProviders.length === 1
+          ? configuredModelProviders[0]
+          : undefined,
+        cursorModels
+      ),
+    [configuredModelProviders, cursorModels]
   );
 
+  const reasoningOptions = useMemo(
+    () =>
+      activeSession
+        ? getReasoningOptions(activeSession.selectedModel, cursorModels)
+        : [],
+    [activeSession, cursorModels]
+  );
+
+  const handleRenameRequest = useCallback((session: ChatSessionSummary) => {
+    setRenameSession(session);
+    setRenameTitle(session.title);
+    setOpenSessionMenuId(null);
+  }, []);
+
+  const handleRenameSubmit = useCallback(() => {
+    const nextTitle = renameTitle.trim();
+
+    if (!renameSession || !nextTitle) {
+      return;
+    }
+
+    onRenameSession(renameSession.id, nextTitle);
+    setRenameSession(null);
+    setRenameTitle("");
+  }, [onRenameSession, renameSession, renameTitle]);
+
+  const handleDeleteRequest = useCallback((session: ChatSessionSummary) => {
+    setDeleteSession(session);
+    setOpenSessionMenuId(null);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (!deleteSession) {
+      return;
+    }
+
+    onDeleteSession(deleteSession.id);
+    setDeleteSession(null);
+  }, [deleteSession, onDeleteSession]);
+
+  useEffect(() => {
+    if (mentionQuery.length === 0) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      draftInputRef.current?.focus({ preventScroll: true });
+    });
+  }, [mentionQuery]);
+
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-4 lg:px-5 lg:pb-5">
-      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_340px]">
-        <Card className={PANEL_CLASS}>
-          <Card.Content className={PANEL_CONTENT_CLASS}>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className={EYEBROW_CLASS}>Topics</p>
-                <h1 className={PANEL_TITLE_CLASS}>{workspaceRootName}</h1>
-              </div>
-              <Button aria-label="Create new topic" className={PRIMARY_BUTTON_CLASS} onPress={onCreateSession}>
-                <ChatBubble className="size-4" />
-                New
-              </Button>
-            </div>
-
-            <Input
-              aria-label="Search topics"
-              className={INPUT_CLASS}
-              onChange={(event) => setTopicSearch(event.target.value)}
-              placeholder="Search topics"
-              value={topicSearch}
-            />
-
-            <div className="min-h-0 flex-1 space-y-2 overflow-auto pr-1">
-              {visibleSessions.map((session) => {
-                const isActive = session.id === activeSession?.id;
-
-                return (
-                  <Card
-                    className={`${TOPIC_CARD_CLASS} ${
-                      isActive ? TOPIC_CARD_ACTIVE_CLASS : ""
-                    }`}
-                    key={session.id}
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-panel)]">
+      <Modal.Root
+        isOpen={Boolean(renameSession)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setRenameSession(null);
+            setRenameTitle("");
+          }
+        }}
+      >
+        <Modal.Backdrop>
+          <Modal.Container placement="center" size="sm">
+            <Modal.Dialog className="border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] text-[var(--text-main)]">
+              <Modal.Header className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
+                <Modal.Heading className="m-0 text-lg font-semibold">
+                  Rename Topic
+                </Modal.Heading>
+                <Modal.CloseTrigger aria-label="Close rename topic modal" />
+              </Modal.Header>
+              <Modal.Body className="grid gap-3 px-5 py-5">
+                <div className="grid gap-2">
+                  <label
+                    className="text-sm font-medium text-[var(--text-main)]"
+                    htmlFor="chat-topic-rename-title"
                   >
-                    <Card.Content className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-3 py-3">
-                      <Button
-                        className={TOPIC_SELECT_BUTTON_CLASS}
-                        onPress={() => onSelectSession(session.id)}
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="truncate text-sm font-semibold text-[var(--text-main)]">
-                              {session.title}
-                            </span>
-                            <span className={STATUS_BADGE_CLASS}>
-                              {session.status.replace("_", " ")}
-                            </span>
-                          </div>
-                          <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[var(--text-subtle)]">
-                            {session.lastMessagePreview || "No messages yet."}
-                          </span>
-                        </div>
-                      </Button>
-
-                      <DropdownRoot>
-                        <DropdownTrigger>
-                          <Button className={TOPIC_MENU_BUTTON_CLASS}>
-                            <ThreePointsCircle className="size-4" />
-                          </Button>
-                        </DropdownTrigger>
-                        <DropdownPopover className={TOPIC_MENU_POPOVER_CLASS}>
-                          <DropdownMenu
-                            aria-label={`Actions for ${session.title}`}
-                            onAction={(key) => {
-                              if (key === "rename") {
-                                handleRenameRequest(session);
-                                return;
-                              }
-
-                              if (key === "delete") {
-                                onDeleteSession(session.id);
-                              }
-                            }}
-                          >
-                            <DropdownItem className={TOPIC_MENU_ITEM_CLASS} id="rename">
-                              <div className="flex items-center gap-2">
-                                <EditPencil className="size-4" />
-                                Rename
-                              </div>
-                            </DropdownItem>
-                            <DropdownItem
-                              className={TOPIC_MENU_DANGER_ITEM_CLASS}
-                              id="delete"
-                            >
-                              <div className="flex items-center gap-2">
-                                <Trash className="size-4" />
-                                Delete Conversation
-                              </div>
-                            </DropdownItem>
-                          </DropdownMenu>
-                        </DropdownPopover>
-                      </DropdownRoot>
-                    </Card.Content>
-                  </Card>
-                );
-              })}
-
-              {visibleSessions.length === 0 ? (
-                <Card className={EMPTY_STATE_CARD_CLASS}>
-                  <Card.Content className="grid min-h-40 place-items-center px-6 py-8 text-center text-sm leading-7 text-[var(--text-subtle)]">
-                    No topics match your search.
-                  </Card.Content>
-                </Card>
-              ) : null}
-            </div>
-          </Card.Content>
-        </Card>
-
-        <Card className={PANEL_CLASS}>
-          <Card.Content className={PANEL_CONTENT_CLASS}>
-            <header className="flex items-center justify-between gap-4 border-b border-[var(--border-strong)] pb-4">
-              <div className="min-w-0">
-                <p className={EYEBROW_CLASS}>Agent Chat</p>
-                <h2 className="m-0 truncate text-xl font-semibold text-[var(--text-main)]">
-                  {activeSession?.title ?? "No topic selected"}
-                </h2>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button className={SECONDARY_BUTTON_CLASS} onPress={onOpenReview}>
-                  Review
-                  <ArrowRight className="size-4" />
-                </Button>
-                <Button aria-label="Refresh diagnostics" className={ICON_BUTTON_CLASS} onPress={onRefresh}>
-                  <Refresh className="size-4" />
-                </Button>
-              </div>
-            </header>
-
-            {!cavemanReady ? (
-              <Card className={WARNING_CARD_CLASS}>
-                <Card.Content className="flex items-start gap-3 px-4 py-3 text-sm text-[var(--text-main)]">
-                  <WarningCircle className="mt-0.5 size-5 shrink-0 text-[var(--warning)]" />
-                  <div>{cavemanChecking ? "Verifying Caveman skill..." : cavemanMessage}</div>
-                </Card.Content>
-              </Card>
-            ) : null}
-
-            <div className="min-h-0 flex-1 overflow-auto pr-1">
-              {activeSession ? (
-                <div className="flex flex-col gap-4">
-                  {activeSession.messages.map((message) => (
-                    <Card
-                      className={`shadow-none ${
-                        message.role === "assistant"
-                          ? "mr-0 border border-[var(--border-soft)] bg-[var(--bg-surface)] md:mr-12"
-                          : "ml-0 border border-[var(--accent)] bg-[linear-gradient(135deg,rgba(189,147,249,0.16),rgba(139,233,253,0.08))] md:ml-12"
-                      }`}
-                      key={message.id}
-                    >
-                      <Card.Content className="px-4 py-4">
-                        <div className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
-                          {message.role}
-                        </div>
-                        <div className="whitespace-pre-wrap text-sm leading-7 text-[var(--text-main)]">
-                          {message.content}
-                        </div>
-                      </Card.Content>
-                    </Card>
-                  ))}
-
-                  {activeSession.messages.length === 0 ? (
-                    <Card className={EMPTY_STATE_CARD_CLASS}>
-                      <Card.Content className="grid min-h-56 place-items-center px-8 py-8 text-center text-sm leading-7 text-[var(--text-subtle)]">
-                        Start a topic. PRD, SPEC, supporting docs, and the workspace tree are
-                        already attached to the first turn.
-                      </Card.Content>
-                    </Card>
-                  ) : null}
-                </div>
-              ) : (
-                <Card className={EMPTY_STATE_CARD_CLASS}>
-                  <Card.Content className="grid min-h-56 place-items-center px-8 py-8 text-center text-sm leading-7 text-[var(--text-subtle)]">
-                    Create a topic to start the agent chat workspace.
-                  </Card.Content>
-                </Card>
-              )}
-            </div>
-
-            <footer className="border-t border-[var(--border-strong)] pt-4">
-              <TextArea
-                aria-label="Chat message draft"
-                className={TEXTAREA_CLASS}
-                onChange={(event) => onDraftChange(event.target.value)}
-                placeholder="Ask the agent anything about this topic. Type @ to attach a workspace file."
-                value={activeDraft}
-              />
-
-              {mentionQuery.length > 0 ? (
-                <Card className={`${ATTACH_CARD_CLASS} mt-3`}>
-                  <Card.Content className="max-h-44 overflow-auto px-2 py-2">
-                    {attachableFiles.length > 0 ? (
-                      attachableFiles.slice(0, 8).map((entry) => (
-                        <Button
-                          className={LIST_ITEM_BUTTON_CLASS}
-                          key={entry.path}
-                          onPress={() => onAttachFile(entry.path)}
-                        >
-                          <Attachment className="size-4" />
-                          <span className="truncate">{entry.path}</span>
-                        </Button>
-                      ))
-                    ) : (
-                      <div className="px-3 py-2 text-sm text-[var(--text-subtle)]">
-                        No matching files.
-                      </div>
-                    )}
-                  </Card.Content>
-                </Card>
-              ) : null}
-
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-subtle)]">
-                  <ChatLines className="size-4 text-[var(--accent-2)]" />
-                  {activeSession?.runtime.executionSummary ?? "Ready for the next prompt."}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {activeSession?.runtime.awaitingApproval ? (
-                    <Button aria-label="Approve current execution" className={PRIMARY_BUTTON_CLASS} onPress={onApprove}>
-                      <CheckCircle className="size-4" />
-                      Approve
-                    </Button>
-                  ) : null}
-                  {activeSession?.runtime.isBusy ? (
-                    <Button
-                      aria-label="Stop current execution"
-                      className="inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[rgba(255,85,85,0.32)] bg-[rgba(255,85,85,0.16)] px-4 py-3 font-medium text-[var(--danger)] transition hover:-translate-y-0.5"
-                      onPress={onStop}
-                    >
-                      <XmarkCircle className="size-4" />
-                      Stop
-                    </Button>
-                  ) : null}
-                  <Button
-                    aria-label="Send message"
-                    className={PRIMARY_BUTTON_CLASS}
-                    isDisabled={!canSend}
-                    onPress={onSend}
-                  >
-                    <SendSolid className="size-4" />
-                    Send
-                  </Button>
-                </div>
-              </div>
-            </footer>
-          </Card.Content>
-        </Card>
-
-        <Card className={PANEL_CLASS}>
-          <Card.Content className={PANEL_CONTENT_CLASS}>
-            <div className="flex items-center gap-3">
-              <Settings className="size-5 text-[var(--accent-2)]" />
-              <h2 className={PANEL_TITLE_CLASS}>Context & Artifacts</h2>
-            </div>
-
-            {activeSession ? (
-              <>
-                <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-1">
-                  <SelectField
-                    label="Model"
-                    onChange={(selectedModel) =>
-                      onSaveSessionConfig({
-                        sessionId: activeSession.id,
-                        selectedModel,
-                        selectedReasoning: activeSession.selectedReasoning,
-                        autonomyMode: activeSession.autonomyMode,
-                        contextItems: activeSession.contextItems
-                      })
-                    }
-                    options={getModelOptions(
-                      configuredModelProviders.length === 1
-                        ? configuredModelProviders[0]
-                        : undefined
-                    )}
-                    value={activeSession.selectedModel}
-                  />
-                  <SelectField
-                    label="Reasoning"
-                    onChange={(selectedReasoning) =>
-                      onSaveSessionConfig({
-                        sessionId: activeSession.id,
-                        selectedModel: activeSession.selectedModel,
-                        selectedReasoning,
-                        autonomyMode: activeSession.autonomyMode,
-                        contextItems: activeSession.contextItems
-                      })
-                    }
-                    options={getReasoningOptions(activeSession.selectedModel)}
-                    value={activeSession.selectedReasoning}
-                  />
-                  <SelectField
-                    label="Autonomy"
-                    onChange={(autonomyMode) =>
-                      onSaveSessionConfig({
-                        sessionId: activeSession.id,
-                        selectedModel: activeSession.selectedModel,
-                        selectedReasoning: activeSession.selectedReasoning,
-                        autonomyMode,
-                        contextItems: activeSession.contextItems
-                      })
-                    }
-                    options={AUTONOMY_OPTIONS.map((value) => ({
-                      value,
-                      label: value.replace("_", " ")
-                    }))}
-                    value={activeSession.autonomyMode}
-                  />
-                </div>
-
-                <div className="grid gap-3">
-                  <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-subtle)]">
-                    Attached Context
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {activeSession.contextItems.map((item) => (
-                      <Button
-                        className={CONTEXT_CHIP_CLASS}
-                        key={item.id}
-                        onPress={() => onRemoveContextItem(item.id)}
-                      >
-                        {item.label}
-                        <span className="text-[var(--text-muted)]">x</span>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid gap-3">
-                  <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-subtle)]">
-                    Attach Files
-                  </div>
+                    Topic name
+                  </label>
                   <Input
-                    aria-label="Search workspace files"
+                    autoFocus
                     className={INPUT_CLASS}
-                    onChange={(event) => setContextSearch(event.target.value)}
-                    placeholder="Attach workspace files"
-                    value={contextSearch}
+                    id="chat-topic-rename-title"
+                    onChange={(event) => setRenameTitle(event.target.value)}
+                    placeholder="Topic name"
+                    value={renameTitle}
                   />
-                  <Card className={ATTACH_CARD_CLASS}>
-                    <Card.Content className="max-h-48 overflow-auto px-2 py-2">
-                      {attachableFiles.length > 0 ? (
-                        attachableFiles.slice(0, 18).map((entry) => (
-                          <Button
-                            className={LIST_ITEM_BUTTON_CLASS}
-                            key={entry.path}
-                            onPress={() => onAttachFile(entry.path)}
-                          >
-                            <Attachment className="size-4" />
-                            <span className="truncate">{entry.path}</span>
-                          </Button>
-                        ))
-                      ) : (
-                        <div className="px-3 py-2 text-sm text-[var(--text-subtle)]">
-                          No matching files.
-                        </div>
-                      )}
-                    </Card.Content>
-                  </Card>
                 </div>
+              </Modal.Body>
+              <Modal.Footer className="flex justify-end gap-3 border-t border-[var(--border-soft)] px-5 py-4">
+                <Button
+                  className={TEXT_BUTTON_CLASS}
+                  onPress={() => {
+                    setRenameSession(null);
+                    setRenameTitle("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className={PRIMARY_BUTTON_CLASS}
+                  isDisabled={!renameTitle.trim()}
+                  onPress={handleRenameSubmit}
+                >
+                  Rename
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal.Root>
 
-                <div className="grid gap-3">
-                  <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-subtle)]">
-                    Current Diff
-                  </div>
-                  <DiffPreview diff={activeSession.runtime.pendingDiff ?? "No diff captured yet."} />
-                </div>
+      <Modal.Root
+        isOpen={Boolean(deleteSession)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setDeleteSession(null);
+          }
+        }}
+      >
+        <Modal.Backdrop>
+          <Modal.Container placement="center" size="sm">
+            <Modal.Dialog className="border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] text-[var(--text-main)]">
+              <Modal.Header className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
+                <Modal.Heading className="m-0 text-lg font-semibold">
+                  Delete Topic
+                </Modal.Heading>
+                <Modal.CloseTrigger aria-label="Close delete topic modal" />
+              </Modal.Header>
+              <Modal.Body className="px-5 py-5">
+                <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
+                  Delete {deleteSession?.title ? `"${deleteSession.title}"` : "this topic"}? This
+                  removes the saved chat session from this project.
+                </p>
+              </Modal.Body>
+              <Modal.Footer className="flex justify-end gap-3 border-t border-[var(--border-soft)] px-5 py-4">
+                <Button className={TEXT_BUTTON_CLASS} onPress={() => setDeleteSession(null)}>
+                  Cancel
+                </Button>
+                <Button className={DANGER_BUTTON_CLASS} onPress={handleDeleteConfirm}>
+                  Delete
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal.Root>
 
-                <Card className={TERMINAL_CARD_CLASS}>
-                  <Card.Content className="grid min-h-0 gap-2 overflow-auto px-3 py-3 font-[var(--font-mono)] text-xs leading-6 text-[var(--text-main)]">
-                    {activeSession.runtime.terminalOutput.length === 0 ? (
-                      <div className="text-[var(--text-subtle)]">
-                        Terminal output will appear here for the active topic.
+      <header className={TOP_BAR_CLASS}>
+        <div className="relative w-full max-w-[320px]">
+          <BubbleSearch className="-translate-y-1/2 pointer-events-none absolute left-3 top-1/2 size-5 text-[var(--text-muted)]" />
+          <Input
+            aria-label="Search workspace sessions"
+            className={`${INPUT_CLASS} h-10 rounded pl-10`}
+            onChange={(event) => setSessionSearch(event.target.value)}
+            placeholder="Search workspace..."
+            value={sessionSearch}
+          />
+        </div>
+      </header>
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[320px_minmax(0,1fr)]">
+        <aside className={`min-h-0 border-r ${CORE_BORDER} bg-[var(--bg-panel)]`}>
+          <div className={`flex h-20 items-center justify-between border-b ${CORE_BORDER} px-5`}>
+            <h1 className="m-0 text-xl font-semibold text-[var(--text-main)]">
+              Active Sessions
+            </h1>
+            <Button
+              aria-label="Create new session"
+              className="grid size-9 place-items-center rounded bg-transparent p-0 text-[var(--accent)] transition hover:bg-white/8"
+              onPress={onCreateSession}
+            >
+              <span className="text-2xl leading-none">+</span>
+            </Button>
+          </div>
+
+          <div className="min-h-0 overflow-auto px-3 py-3">
+            {visibleSessions.map((session) => {
+              const isActive = session.id === activeSession?.id;
+              const isMenuOpen = session.id === openSessionMenuId;
+
+              return (
+                <article
+                  className={`group border-l-4 px-3 py-3 transition ${
+                    isActive
+                      ? "border-[var(--accent)] bg-white/[0.06]"
+                      : "border-transparent hover:bg-white/[0.04]"
+                  }`}
+                  key={session.id}
+                >
+                  <div className="flex items-start gap-2">
+                    <button
+                      className="min-w-0 flex-1 text-left"
+                      onClick={() => onSelectSession(session.id)}
+                      type="button"
+                    >
+                      <div className="flex min-w-0 items-baseline justify-between gap-3">
+                        <h2
+                          className={`m-0 truncate text-sm font-semibold ${
+                            isActive
+                              ? "text-[var(--accent)]"
+                              : "text-[var(--text-main)]"
+                          }`}
+                        >
+                          {session.title}
+                        </h2>
+                        <span className="shrink-0 text-[11px] text-[var(--text-muted)]">
+                          {formatRelativeTime(session.updatedAt)}
+                        </span>
                       </div>
-                    ) : (
-                      activeSession.runtime.terminalOutput.map((line, index) => (
-                        <div key={`${line}-${index}`}>{line}</div>
-                      ))
-                    )}
+                      <p className="mb-0 mt-2 line-clamp-2 text-sm leading-5 text-[var(--text-subtle)]">
+                        {session.lastMessagePreview || "No messages yet."}
+                      </p>
+                    </button>
+
+                    <DropdownRoot
+                      isOpen={isMenuOpen}
+                      onOpenChange={(isOpen) => {
+                        setOpenSessionMenuId(isOpen ? session.id : null);
+                      }}
+                    >
+                      <DropdownTrigger>
+                        <Button
+                          aria-label={`Actions for ${session.title}`}
+                          className={`grid size-8 shrink-0 place-items-center rounded bg-transparent p-0 transition hover:bg-white/8 hover:text-[var(--text-main)] ${
+                            isActive || isMenuOpen
+                              ? "text-[var(--text-main)] opacity-100"
+                              : "text-[var(--text-muted)] opacity-0 group-hover:opacity-100"
+                          }`}
+                        >
+                          <MoreHoriz className="size-5" />
+                        </Button>
+                      </DropdownTrigger>
+                      <DropdownPopover className={MENU_POPOVER_CLASS}>
+                        <DropdownMenu
+                          aria-label={`Actions for ${session.title}`}
+                          onAction={(key) => {
+                            if (key === "rename") {
+                              handleRenameRequest(session);
+                              return;
+                            }
+
+                            if (key === "delete") {
+                              handleDeleteRequest(session);
+                            }
+                          }}
+                        >
+                          <DropdownItem className={MENU_ITEM_CLASS} id="rename">
+                            <div className="flex items-center gap-2">
+                              <EditPencil className="size-4" />
+                              Rename
+                            </div>
+                          </DropdownItem>
+                          <DropdownItem className={MENU_DANGER_ITEM_CLASS} id="delete">
+                            <div className="flex items-center gap-2">
+                              <Trash className="size-4" />
+                              Delete Session
+                            </div>
+                          </DropdownItem>
+                        </DropdownMenu>
+                      </DropdownPopover>
+                    </DropdownRoot>
+                  </div>
+                </article>
+              );
+            })}
+
+            {visibleSessions.length === 0 ? (
+              <div className="grid min-h-40 place-items-center px-4 text-center text-sm leading-6 text-[var(--text-subtle)]">
+                No sessions match your search.
+              </div>
+            ) : null}
+          </div>
+        </aside>
+
+        <main className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden bg-[var(--bg-panel)]">
+          <div className="min-h-0 overflow-auto px-5 py-10 lg:px-8">
+            <div className="mx-auto flex max-w-[920px] flex-col gap-7">
+              <DateDivider />
+
+              {!cavemanReady ? (
+                <Card className="border border-[rgba(255,184,108,0.25)] bg-[rgba(255,184,108,0.12)] shadow-none">
+                  <Card.Content className="flex items-start gap-3 px-4 py-3 text-sm text-[var(--text-main)]">
+                    <WarningCircle className="mt-0.5 size-5 shrink-0 text-[var(--warning)]" />
+                    <div>{cavemanChecking ? "Verifying Caveman skill..." : cavemanMessage}</div>
                   </Card.Content>
                 </Card>
-              </>
-            ) : (
-              <Card className={EMPTY_STATE_CARD_CLASS}>
-                <Card.Content className="grid min-h-56 place-items-center px-8 py-8 text-center text-sm leading-7 text-[var(--text-subtle)]">
-                  Select a topic to inspect context, diff, and terminal output.
-                </Card.Content>
-              </Card>
-            )}
-          </Card.Content>
-        </Card>
+              ) : null}
+
+              <ConversationMessages
+                activeSession={activeSession}
+                workspaceRootName={workspaceRootName}
+              />
+            </div>
+          </div>
+
+          <footer className={`border-t ${CORE_BORDER} bg-[var(--bg-panel)] px-5 py-5 lg:px-6`}>
+            <div className="mx-auto max-w-[960px]">
+              <div className="relative rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)]">
+                <MentionSuggestionsPanel
+                  activeDraft={activeDraft}
+                  attachableFiles={attachableFiles}
+                  isOpen={mentionQuery.length > 0}
+                  onAttachFile={onAttachFile}
+                  onDraftChange={onDraftChange}
+                />
+                <TextArea
+                  aria-label="Chat message draft"
+                  className="min-h-24 w-full resize-none border-0 bg-transparent px-5 py-5 text-base leading-7 text-[var(--text-main)] outline-none placeholder:text-[var(--text-muted)]"
+                  onChange={(event) => onDraftChange(event.target.value)}
+                  placeholder="Message SpecForge or type '/' for commands..."
+                  ref={draftInputRef}
+                  value={activeDraft}
+                />
+
+                {activeSession?.contextItems.length ? (
+                  <ContextChips
+                    items={activeSession.contextItems}
+                    onRemoveContextItem={onRemoveContextItem}
+                  />
+                ) : null}
+
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-soft)] px-4 py-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
+                    <Button
+                      aria-label="Attach file with @ mention"
+                      className={ICON_BUTTON_CLASS}
+                      onPress={() =>
+                        onDraftChange(
+                          `${activeDraft}${activeDraft.endsWith(" ") || activeDraft.length === 0 ? "" : " "}@`
+                        )
+                      }
+                    >
+                      <Attachment className="size-4" />
+                    </Button>
+                    <Button
+                      aria-label="Open review"
+                      className={ICON_BUTTON_CLASS}
+                      onPress={onOpenReview}
+                    >
+                      <Code className="size-4" />
+                    </Button>
+                    <span className="hidden h-6 w-px bg-[var(--border-soft)] sm:block" />
+                    <span className="truncate">
+                      Context: {activeSession?.contextItems[0]?.path ?? workspaceRootName}
+                    </span>
+                    {activeSession ? (
+                      <ChatConfigControls
+                        activeSession={activeSession}
+                        cursorModels={cursorModels}
+                        modelOptions={modelOptions}
+                        onSaveSessionConfig={onSaveSessionConfig}
+                        reasoningOptions={reasoningOptions}
+                      />
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      aria-label="Refresh chat runtime"
+                      className={ICON_BUTTON_CLASS}
+                      onPress={onRefresh}
+                    >
+                      <Refresh className="size-4" />
+                    </Button>
+                    {activeSession?.runtime.awaitingApproval ? (
+                      <Button className={TEXT_BUTTON_CLASS} onPress={onApprove}>
+                        <CheckCircle className="size-4" />
+                        Approve
+                      </Button>
+                    ) : null}
+                    {activeSession?.runtime.isBusy ? (
+                      <Button className={DANGER_BUTTON_CLASS} onPress={onStop}>
+                        <XmarkCircle className="size-4" />
+                        Stop
+                      </Button>
+                    ) : null}
+                    <Button
+                      aria-label="Send message"
+                      className={PRIMARY_BUTTON_CLASS}
+                      isDisabled={!canSend}
+                      onPress={onSend}
+                    >
+                      Send
+                      <SendSolid className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <p className="mb-0 mt-3 text-center font-[var(--font-mono)] text-[11px] text-[var(--text-muted)]">
+                SpecForge can make mistakes. Consider verifying critical code.
+              </p>
+            </div>
+          </footer>
+        </main>
       </div>
     </section>
   );
 });
 
-function SelectField<Value extends string>({
-  label,
-  options,
-  value,
-  onChange
-}: {
-  label: string;
-  options: Array<{ value: Value; label: string; hint?: string }>;
-  value: Value;
-  onChange: (value: Value) => void;
-}) {
-  const handleSelectionChange = useCallback(
-    (key: Key | null) => {
-      if (key !== null) {
-        onChange(String(key) as Value);
-      }
-    },
-    [onChange]
-  );
+function MessageBlock({ message }: { message: ChatMessage }) {
+  const isUser = message.role === "user";
+
+  if (isUser) {
+    return (
+      <div className="grid grid-cols-[minmax(0,1fr)_40px] gap-5">
+        <div>
+          <div className="rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-5 py-4 text-base leading-7 text-[var(--text-main)]">
+            <MessageContent content={message.content} />
+          </div>
+          <div className="mt-2 text-right font-[var(--font-mono)] text-[11px] text-[var(--text-muted)]">
+            {formatMessageTime(message.createdAt)}
+          </div>
+        </div>
+        <Avatar label="You" />
+      </div>
+    );
+  }
 
   return (
-    <Select
-      className="flex w-full min-w-0 flex-col gap-2"
-      onSelectionChange={handleSelectionChange}
-      selectedKey={value}
-    >
-      <Label className={FIELD_LABEL_CLASS}>{label}</Label>
-      <Select.Trigger className={SELECT_TRIGGER_CLASS}>
-        <Select.Value className="min-w-0 flex-1 truncate text-left text-[15px] text-[var(--text-main)]" />
-        <Select.Indicator className="size-4 shrink-0 text-[var(--text-subtle)]" />
-      </Select.Trigger>
-      <Select.Popover className="min-w-56 rounded-[1.15rem] border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)] backdrop-blur-xl">
-        <ListBox className="outline-none">
-          {options.map((option) => (
-            <ListBox.Item
-              className={LISTBOX_ITEM_CLASS}
-              id={option.value}
-              key={option.value}
-              textValue={option.label}
-            >
-              <div className="flex flex-col gap-1">
-                <span>{option.label}</span>
-                {option.hint ? (
-                  <small className="text-sm leading-5 text-[var(--text-subtle)]">
-                    {option.hint}
-                  </small>
-                ) : null}
-              </div>
-            </ListBox.Item>
-          ))}
-        </ListBox>
-      </Select.Popover>
-    </Select>
+    <div className="grid grid-cols-[40px_minmax(0,1fr)] gap-5">
+      <div className="grid size-10 place-items-center rounded border border-[var(--accent)] bg-[rgba(189,147,249,0.18)] text-[var(--accent)]">
+        <Terminal className="size-5" />
+      </div>
+      <div className="min-w-0">
+        <div className="mb-2 flex items-center gap-2">
+          <span className="font-semibold text-[var(--accent)]">SpecForge Agent</span>
+          <span className="font-[var(--font-mono)] text-[11px] text-[var(--text-muted)]">
+            {formatMessageTime(message.createdAt)}
+          </span>
+        </div>
+        <div className="text-base leading-7 text-[var(--text-main)]">
+          <MessageContent content={message.content} />
+        </div>
+      </div>
+    </div>
   );
+}
+
+function ConversationMessages({
+  activeSession,
+  workspaceRootName
+}: {
+  activeSession: ChatSession | null;
+  workspaceRootName: string;
+}) {
+  if (!activeSession || activeSession.messages.length === 0) {
+    return <EmptyConversation workspaceRootName={workspaceRootName} />;
+  }
+
+  return activeSession.messages.map((message) => (
+    <MessageBlock key={message.id} message={message} />
+  ));
+}
+
+function MessageContent({ content }: { content: string }) {
+  const parts = parseCodeBlocks(content);
+
+  return (
+    <>
+      {parts.map((part) =>
+        part.kind === "code" ? (
+          <CodeBlock
+            code={part.content}
+            key={part.id}
+            language={part.language}
+          />
+        ) : (
+          <p
+            className="my-0 whitespace-pre-wrap text-base leading-7"
+            key={part.id}
+          >
+            {part.content}
+          </p>
+        )
+      )}
+    </>
+  );
+}
+
+function CodeBlock({ code, language }: { code: string; language: string }) {
+  return (
+    <div className="my-5 overflow-hidden rounded border border-[var(--border-soft)] bg-[var(--bg-surface)]">
+      <div className="flex min-h-12 items-center justify-between border-b border-[var(--border-soft)] px-4 font-[var(--font-mono)] text-xs text-[var(--text-muted)]">
+        <span>{language || "code"}</span>
+        <Copy className="size-4" />
+      </div>
+      <pre className="m-0 overflow-auto p-5 font-[var(--font-mono)] text-sm leading-7 text-[var(--text-main)]">
+        <code>{code.trimEnd()}</code>
+      </pre>
+    </div>
+  );
+}
+
+function EmptyConversation({ workspaceRootName }: { workspaceRootName: string }) {
+  return (
+    <div className="grid min-h-[360px] place-items-center rounded border border-dashed border-[var(--border-soft)] px-8 text-center">
+      <div className="max-w-md">
+        <ChatBubble className="mx-auto size-9 text-[var(--accent)]" />
+        <h2 className="mb-0 mt-4 text-xl font-semibold text-[var(--text-main)]">
+          Start a SpecForge session
+        </h2>
+        <p className="mb-0 mt-3 text-sm leading-6 text-[var(--text-subtle)]">
+          PRD, SPEC, supporting docs, and the {workspaceRootName} workspace tree are
+          available as context for the first turn.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function DateDivider() {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
+      <div className="h-px bg-[var(--border-soft)]" />
+      <span className="font-[var(--font-mono)] text-[11px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
+        Today
+      </span>
+      <div className="h-px bg-[var(--border-soft)]" />
+    </div>
+  );
+}
+
+function Avatar({ label }: { label: string }) {
+  return (
+    <div
+      className="grid size-10 place-items-center rounded border border-[var(--border-soft)] bg-[linear-gradient(135deg,rgba(80,250,123,0.2),rgba(139,233,253,0.18))] text-sm font-bold text-[var(--text-main)]"
+      title={label}
+    >
+      {label.slice(0, 1)}
+    </div>
+  );
+}
+
+function ContextChips({
+  items,
+  onRemoveContextItem
+}: {
+  items: ChatContextItem[];
+  onRemoveContextItem: (itemId: string) => void;
+}) {
+  return (
+    <div className="flex min-h-11 flex-wrap gap-2 border-t border-[var(--border-soft)] px-4 py-2">
+      {items.map((item) => (
+        <Button
+          aria-label={`Remove ${item.label} from chat context`}
+          className="group min-h-7 rounded border border-[var(--border-soft)] bg-white/[0.04] px-2 text-xs text-[var(--text-subtle)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+          key={item.id}
+          onPress={() => onRemoveContextItem(item.id)}
+        >
+          <span className="max-w-52 truncate">{item.label}</span>
+          <Xmark className="hidden size-3.5 group-hover:block" />
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+function MentionSuggestionsPanel({
+  activeDraft,
+  attachableFiles,
+  isOpen,
+  onAttachFile,
+  onDraftChange
+}: {
+  activeDraft: string;
+  attachableFiles: WorkspaceEntry[];
+  isOpen: boolean;
+  onAttachFile: (path: string) => void;
+  onDraftChange: (value: string) => void;
+}) {
+  const handleAttachRequest = useCallback(
+    (path: string, event: MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      onAttachFile(path);
+      onDraftChange(removeTrailingMention(activeDraft));
+    },
+    [activeDraft, onAttachFile, onDraftChange]
+  );
+
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <div className="absolute bottom-[calc(100%+0.5rem)] left-0 z-20 max-h-48 w-[min(34rem,100%)] overflow-auto rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)]">
+      {attachableFiles.length > 0 ? (
+        attachableFiles.slice(0, 8).map((entry) => (
+          <button
+            className="flex w-full min-w-0 items-center gap-2 rounded px-3 py-2 text-left text-sm text-[var(--text-main)] outline-none transition hover:bg-[var(--accent)] hover:text-[var(--bg-app)]"
+            key={entry.path}
+            onClick={(event) => handleAttachRequest(entry.path, event)}
+            onMouseDown={(event) => event.preventDefault()}
+            type="button"
+          >
+            <Attachment className="size-4 shrink-0" />
+            <span className="truncate">{entry.path}</span>
+          </button>
+        ))
+      ) : (
+        <div className="rounded px-3 py-2 text-sm text-[var(--text-subtle)]">
+          No matching files.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChatConfigControls({
+  activeSession,
+  cursorModels,
+  modelOptions,
+  onSaveSessionConfig,
+  reasoningOptions
+}: {
+  activeSession: ChatSession;
+  cursorModels: CursorModel[];
+  modelOptions: Array<{ value: ChatSession["selectedModel"]; label: string; hint?: string }>;
+  onSaveSessionConfig: ChatScreenProps["onSaveSessionConfig"];
+  reasoningOptions: Array<{
+    value: ChatSession["selectedReasoning"];
+    label: string;
+    hint?: string;
+  }>;
+}) {
+  return (
+    <ModelReasoningDropdown
+      cursorModels={cursorModels}
+      modelOptions={modelOptions}
+      onChange={({ selectedModel, selectedReasoning }) => {
+      onSaveSessionConfig({
+        sessionId: activeSession.id,
+        selectedModel,
+        selectedReasoning,
+        autonomyMode: activeSession.autonomyMode,
+        contextItems: activeSession.contextItems
+      });
+      }}
+      reasoningOptions={reasoningOptions}
+      selectedModel={activeSession.selectedModel}
+      selectedReasoning={activeSession.selectedReasoning}
+    />
+  );
+}
+
+function removeTrailingMention(value: string) {
+  return value.replace(/(?:^|\s)@[^\s@]*$/, "").trimEnd();
+}
+
+function formatRelativeTime(value: string) {
+  const timestamp = Date.parse(value);
+
+  if (Number.isNaN(timestamp)) {
+    return "";
+  }
+
+  const diffMs = Date.now() - timestamp;
+  const diffMinutes = Math.max(1, Math.round(diffMs / 60_000));
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m ago`;
+  }
+
+  const diffHours = Math.round(diffMinutes / 60);
+
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
+
+  const diffDays = Math.round(diffHours / 24);
+
+  if (diffDays === 1) {
+    return "Yesterday";
+  }
+
+  return `${diffDays}d ago`;
+}
+
+function formatMessageTime(value: string) {
+  const timestamp = Date.parse(value);
+
+  if (Number.isNaN(timestamp)) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(timestamp);
+}
+
+function parseCodeBlocks(content: string) {
+  const blocks: Array<{
+    id: string;
+    kind: "text" | "code";
+    content: string;
+    language: string;
+  }> = [];
+  const matcher = /```(\w+)?\n([\s\S]*?)```/g;
+  let cursor = 0;
+  let match = matcher.exec(content);
+
+  while (match !== null) {
+    if (match.index > cursor) {
+      const text = content.slice(cursor, match.index).trim();
+
+      blocks.push({
+        id: `text-${cursor}-${text.length}`,
+        kind: "text",
+        content: text,
+        language: ""
+      });
+    }
+
+    blocks.push({
+      id: `code-${match.index}-${matcher.lastIndex}`,
+      kind: "code",
+      content: match[2] ?? "",
+      language: match[1] ?? ""
+    });
+    cursor = matcher.lastIndex;
+    match = matcher.exec(content);
+  }
+
+  if (cursor < content.length) {
+    const text = content.slice(cursor).trim();
+
+    blocks.push({
+      id: `text-${cursor}-${text.length}`,
+      kind: "text",
+      content: text,
+      language: ""
+    });
+  }
+
+  return blocks.filter((block) => block.content.length > 0);
 }

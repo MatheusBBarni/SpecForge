@@ -20,6 +20,8 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 git2 = { version = "0.20", default-features = false, features = ["vendored-libgit2"] }
 ignore = "0.4"
+keyring = "4.0.0"
+keyring-core = "1.0.0"
 lopdf = "0.36"
 rfd = "0.15"
 serde = { version = "1", features = ["derive"] }

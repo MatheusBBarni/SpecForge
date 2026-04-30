@@ -1,18 +1,6 @@
-export type ModelId =
-  | "gpt-5.4"
-  | "gpt-5.4-mini"
-  | "gpt-5.3-codex"
-  | "gpt-5.2"
-  | "claude-opus-4-1-20250805"
-  | "claude-opus-4-20250514"
-  | "claude-sonnet-4-20250514"
-  | "claude-3-7-sonnet-20250219"
-  | "claude-3-5-sonnet-20241022"
-  | "claude-3-5-sonnet-20240620"
-  | "claude-3-5-haiku-20241022"
-  | "claude-3-haiku-20240307";
-export type ModelProvider = "claude" | "codex";
-export type ReasoningProfileId = "low" | "medium" | "high" | "max";
+export type ModelId = string;
+export type ModelProvider = "cursor";
+export type ReasoningProfileId = string;
 export type AutonomyMode = "stepped" | "milestone" | "god_mode";
 export type ThemeMode = "dracula" | "light" | "system";
 export type WorkspaceBaseTab = "review" | "execute";
@@ -68,8 +56,7 @@ export interface CliStatus {
 
 export interface EnvironmentStatus {
   scannedAt: string;
-  claude: CliStatus;
-  codex: CliStatus;
+  cursor: CliStatus;
   git: CliStatus;
 }
 
@@ -86,11 +73,36 @@ export interface WorkspaceDocument {
   fileName: string;
 }
 
+export interface ExternalEditor {
+  id: string;
+  label: string;
+  executablePath: string;
+}
+
+export interface CursorModelParameterValue {
+  value: string;
+  label: string;
+}
+
+export interface CursorModelParameter {
+  id: string;
+  label: string;
+  values: CursorModelParameterValue[];
+}
+
+export interface CursorModel {
+  id: string;
+  label: string;
+  description?: string;
+  parameters?: CursorModelParameter[];
+}
+
 export interface ProjectSettings {
   selectedModel: ModelId;
   selectedReasoning: ReasoningProfileId;
-  prdPrompt: string;
-  specPrompt: string;
+  prdAgentDescription: string;
+  specAgentDescription: string;
+  executionAgentDescription: string;
   prdPath: string;
   specPath: string;
   supportingDocumentPaths: string[];

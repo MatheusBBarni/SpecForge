@@ -14,7 +14,7 @@ export function WorkspaceTabBar({
   onEditorTabClose
 }: WorkspaceTabBarProps) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto border-b border-[var(--border-strong)] px-3 py-3">
+    <div className="flex min-h-14 items-center gap-2 overflow-x-auto overflow-y-hidden border-b border-[var(--border-strong)] px-3 py-2">
       <WorkspaceBaseTab
         activeTab={activeTab}
         label="Review"
@@ -33,15 +33,15 @@ export function WorkspaceTabBar({
 
         return (
           <div
-            className={`inline-flex max-w-[18rem] flex-none items-center gap-1 rounded-full border px-1 py-1 ${
+            className={`inline-flex max-w-[18rem] flex-none items-center gap-1 rounded border px-1 py-1 ${
               isActive
-                ? "border-[var(--border-soft)] bg-white/8"
-                : "border-transparent bg-white/4"
+                ? "border-[var(--border-soft)] bg-[var(--bg-panel-strong)]"
+                : "border-transparent bg-[var(--bg-surface)]"
             }`}
             key={tab.id}
           >
             <button
-              className={`max-w-[14rem] truncate rounded-full px-3 py-2 text-sm transition hover:bg-white/8 ${
+              className={`max-w-[14rem] truncate rounded px-3 py-2 text-sm transition hover:bg-[var(--bg-nav-active)] ${
                 isActive ? "text-[var(--text-main)]" : "text-[var(--text-subtle)]"
               }`}
               onClick={() => onActiveTabChange(tab.id)}
@@ -51,7 +51,7 @@ export function WorkspaceTabBar({
             </button>
             <button
               aria-label={`Close ${tab.title}`}
-              className={`grid size-8 place-items-center rounded-full border border-white/10 text-sm font-bold uppercase transition hover:bg-white/8 ${
+              className={`grid size-6 place-items-center rounded border border-[var(--border-soft)] text-xs font-bold uppercase transition hover:bg-[var(--bg-nav-active)] ${
                 isActive ? "text-[var(--text-main)]" : "text-[var(--text-subtle)]"
               }`}
               onClick={() => onEditorTabClose(tab.path)}
@@ -78,10 +78,10 @@ function WorkspaceBaseTab({ tabId, label, activeTab, onClick }: WorkspaceBaseTab
 
   return (
     <button
-      className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+      className={`rounded px-4 py-2 text-sm font-medium transition ${
         isActive
-          ? "bg-[linear-gradient(135deg,rgba(189,147,249,0.22),rgba(139,233,253,0.16))] text-[var(--text-main)]"
-          : "text-[var(--text-subtle)] hover:-translate-y-0.5 hover:bg-white/6"
+          ? "bg-[var(--bg-panel-strong)] text-[var(--accent)]"
+          : "text-[var(--text-subtle)] hover:bg-[var(--bg-nav-active)]"
       }`}
       onClick={onClick}
       type="button"

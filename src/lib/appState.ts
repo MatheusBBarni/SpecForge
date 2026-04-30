@@ -17,10 +17,11 @@ import {
 interface BuildCurrentProjectSettingsOptions {
   configuredPrdPath: string;
   configuredSpecPath: string;
-  prdPromptTemplate: string;
+  prdAgentDescription: string;
   selectedModel: ModelId;
   selectedReasoning: ReasoningProfileId;
-  specPromptTemplate: string;
+  specAgentDescription: string;
+  executionAgentDescription: string;
   supportingDocumentPaths: string[];
 }
 
@@ -31,7 +32,7 @@ interface GenerationHelperTextOptions {
   generationPrompt: string;
   projectRootPath: string;
   selectedModel: ModelId;
-  selectedProviderStatus: EnvironmentStatus["claude"];
+  selectedProviderStatus: EnvironmentStatus["cursor"];
 }
 
 interface SpecGenerationHelperTextOptions extends GenerationHelperTextOptions {
@@ -49,12 +50,8 @@ export function buildConfiguredModelProviders(
 ): ModelProvider[] {
   const providers: ModelProvider[] = [];
 
-  if (environment.claude.status === "found") {
-    providers.push("claude");
-  }
-
-  if (environment.codex.status === "found") {
-    providers.push("codex");
+  if (environment.cursor.status === "found") {
+    providers.push("cursor");
   }
 
   return providers;
@@ -63,14 +60,9 @@ export function buildConfiguredModelProviders(
 export function buildMcpItems(environment: EnvironmentStatus): McpListItem[] {
   return [
     {
-      name: environment.codex.name,
-      detail: environment.codex.detail,
-      status: environment.codex.status
-    },
-    {
-      name: environment.claude.name,
-      detail: environment.claude.detail,
-      status: environment.claude.status
+      name: environment.cursor.name,
+      detail: environment.cursor.detail,
+      status: environment.cursor.status
     },
     {
       name: environment.git.name,
@@ -83,17 +75,19 @@ export function buildMcpItems(environment: EnvironmentStatus): McpListItem[] {
 export function buildCurrentProjectSettings({
   configuredPrdPath,
   configuredSpecPath,
-  prdPromptTemplate,
+  prdAgentDescription,
   selectedModel,
   selectedReasoning,
-  specPromptTemplate,
+  specAgentDescription,
+  executionAgentDescription,
   supportingDocumentPaths
 }: BuildCurrentProjectSettingsOptions) {
   return normalizeProjectSettings({
     selectedModel,
     selectedReasoning,
-    prdPrompt: prdPromptTemplate,
-    specPrompt: specPromptTemplate,
+    prdAgentDescription,
+    specAgentDescription,
+    executionAgentDescription,
     prdPath: configuredPrdPath || DEFAULT_PROJECT_PRD_PATH,
     specPath: configuredSpecPath || DEFAULT_PROJECT_SPEC_PATH,
     supportingDocumentPaths
@@ -141,10 +135,10 @@ export function getPrdGenerationHelperText({
   }
 
   if (selectedProviderStatus.status !== "found") {
-    return `${selectedProviderStatus.name} is not currently marked ready. Update its path in Settings and refresh if generation fails.`;
+    return "Save a Cursor API key in Settings before generating a PRD.";
   }
 
-  return `This appends your note after the saved PRD prompt from ${configPathDisplay}, runs ${getModelLabel(selectedModel)}, and writes markdown to ${configuredDocumentPath}.`;
+  return `This appends your note after the saved PRD agent description from ${configPathDisplay}, runs ${getModelLabel(selectedModel)} through Cursor SDK, and writes markdown to ${configuredDocumentPath}.`;
 }
 
 export function getSpecGenerationHelperText({
@@ -181,23 +175,15 @@ export function getSpecGenerationHelperText({
   }
 
   if (selectedProviderStatus.status !== "found") {
-    return `${selectedProviderStatus.name} is not currently marked ready. Update its path in Settings and refresh if generation fails.`;
+    return "Save a Cursor API key in Settings before generating a spec.";
   }
 
-  return `This appends your note after the saved spec prompt from ${configPathDisplay}, includes the current PRD content, and writes markdown to ${configuredDocumentPath}.`;
+  return `This appends your note after the saved spec agent description from ${configPathDisplay}, includes the current PRD content, and writes markdown to ${configuredDocumentPath}.`;
 }
 
 export function buildWorkspaceNotice(context: ProjectContext) {
-  const loadedDocuments = [
-    context.prdDocument?.fileName ? `PRD: ${context.prdDocument.fileName}` : null,
-    context.specDocument?.fileName ? `SPEC: ${context.specDocument.fileName}` : null
-  ].filter((value): value is string => value !== null);
-
-  if (loadedDocuments.length === 0) {
-    return `${context.rootName} is configured. No document exists yet at ${context.settings.prdPath} or ${context.settings.specPath}.`;
-  }
-
-  return `${context.rootName} is configured. Loaded ${loadedDocuments.join(" and ")} from the saved project paths.`;
+  void context;
+  return "";
 }
 
 export function waitForNextPaint(): Promise<void> {

@@ -9,10 +9,12 @@ interface PrdEmptyStateProps {
   helperText: string;
   isGenerating: boolean;
   canGenerate: boolean;
+  canGrill: boolean;
   templatePrompt: string;
   configPath: string;
   onPromptChange: (value: string) => void;
   onGenerate: () => void;
+  onGrill: () => void;
 }
 
 export const PrdEmptyState = memo(function PrdEmptyState({
@@ -21,14 +23,18 @@ export const PrdEmptyState = memo(function PrdEmptyState({
   helperText,
   isGenerating,
   canGenerate,
+  canGrill,
   templatePrompt,
   configPath,
   onPromptChange,
-  onGenerate
+  onGenerate,
+  onGrill
 }: PrdEmptyStateProps) {
   return (
     <DocumentEmptyState
-      description="Load an existing PRD, switch to Edit to draft manually, or generate a first-pass PRD from the saved project prompt plus your note."
+      bodyClassName="w-full"
+      className="h-full w-full"
+      description="Load an existing PRD or generate a first-pass PRD from the saved project prompt plus your note."
       heading="No PRD file detected"
       icon={<Page className="size-6" />}
     >
@@ -49,17 +55,27 @@ export const PrdEmptyState = memo(function PrdEmptyState({
         </pre>
       </div>
 
-      <div className="flex flex-col items-start gap-3">
+      <div className="mt-auto flex flex-col items-start gap-3">
         <p className="m-0 text-sm leading-6 text-[var(--text-subtle)]">{helperText}</p>
-        <button
-          className={`${PRIMARY_BUTTON_CLASS} ${!canGenerate ? "cursor-not-allowed opacity-50 hover:translate-y-0" : ""}`}
-          disabled={!canGenerate}
-          onClick={onGenerate}
-          type="button"
-        >
-          <Page className="size-5" />
-          {isGenerating ? "Generating..." : "Generate PRD"}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            className={`${PRIMARY_BUTTON_CLASS} ${!canGenerate ? "cursor-not-allowed opacity-50 hover:translate-y-0" : ""}`}
+            disabled={!canGenerate}
+            onClick={onGenerate}
+            type="button"
+          >
+            <Page className="size-5" />
+            {isGenerating ? "Generating..." : "Generate PRD"}
+          </button>
+          <button
+            className={`${SECONDARY_BUTTON_CLASS} ${!canGrill ? "cursor-not-allowed opacity-50" : ""}`}
+            disabled={!canGrill}
+            onClick={onGrill}
+            type="button"
+          >
+            Grill PRD
+          </button>
+        </div>
       </div>
 
       {error ? <p className="m-0 text-sm leading-6 text-[var(--danger)]">{error}</p> : null}
@@ -69,3 +85,6 @@ export const PrdEmptyState = memo(function PrdEmptyState({
 
 const PRIMARY_BUTTON_CLASS =
   "inline-flex items-center justify-center gap-2 rounded-[1rem] border-0 bg-[linear-gradient(135deg,var(--accent),#ff79c6)] px-4 py-3 font-semibold text-[#15131c] transition hover:-translate-y-0.5 hover:opacity-95";
+
+const SECONDARY_BUTTON_CLASS =
+  "inline-flex items-center justify-center rounded-[1rem] border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3 font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";

@@ -108,9 +108,9 @@ export function SettingsSectionHeader({
 }: SettingsSectionHeaderProps) {
   return (
     <div className="flex min-w-0 items-start gap-3 text-[var(--text-main)]">
-      <span className="mt-0.5 shrink-0 text-[var(--accent-2)]">{icon}</span>
+      <span className="mt-0.5 shrink-0 text-[var(--accent)]">{icon}</span>
       <div className="min-w-0">
-        <h2 className="m-0 text-sm font-semibold uppercase tracking-[0.08em] text-[var(--text-main)]">
+        <h2 className="m-0 text-xl font-semibold leading-7 text-[var(--text-main)]">
           {title}
         </h2>
         {description ? (
@@ -122,28 +122,33 @@ export function SettingsSectionHeader({
 }
 
 export const SETTINGS_PANEL_CLASS =
-  "border border-[var(--border-strong)] bg-[var(--bg-panel)] shadow-[var(--shadow)] backdrop-blur-[30px]";
+  "overflow-hidden border border-[var(--border-strong)] bg-[var(--bg-panel)] shadow-none";
+
+export const SETTINGS_CARD_HEADER_CLASS =
+  "border-b border-[var(--border-strong)] bg-[var(--bg-panel-strong)] px-5 py-3.5";
+
+export const SETTINGS_CARD_BODY_CLASS = "grid content-start gap-5 px-5 py-5";
 
 export const SETTINGS_SURFACE_CLASS =
-  "rounded-[1rem] border border-[var(--border-soft)] bg-[var(--bg-surface)]/85";
+  "rounded border border-[var(--border-soft)] bg-[var(--bg-surface)]";
 
 export const FIELD_LABEL_CLASS =
-  "text-sm font-medium leading-6 text-[var(--text-subtle)]";
+  "text-xs font-semibold uppercase leading-5 tracking-[0.08em] text-[var(--text-subtle)]";
 
 export const INPUT_CLASS =
-  "w-full rounded-[1rem] border border-[var(--border-soft)] bg-black/15 px-4 py-3 text-[15px] text-[var(--text-main)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]";
+  "w-full rounded border border-[var(--border-soft)] bg-[#090b14] px-4 py-3 text-[15px] text-[var(--text-main)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:shadow-[var(--focus-ring)]";
 
 export const TEXTAREA_CLASS =
-  "min-h-[10rem] w-full resize-y rounded-[1rem] border border-[var(--border-soft)] bg-black/15 px-4 py-4 font-[var(--font-mono)] text-[15px] leading-6 text-[var(--text-main)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]";
+  "min-h-[10rem] w-full resize-y rounded border border-[var(--border-soft)] bg-[#090b14] px-4 py-4 font-[var(--font-mono)] text-[15px] leading-6 text-[var(--text-main)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:shadow-[var(--focus-ring)]";
 
 export const SELECT_TRIGGER_CLASS =
-  "min-h-[3rem] rounded-[1rem] border border-[var(--border-soft)] bg-black/15 px-4 text-[var(--text-main)] transition focus:border-[var(--accent)]";
+  "min-h-[3rem] rounded border border-[var(--border-soft)] bg-[#090b14] px-4 text-[var(--text-main)] transition focus:border-[var(--accent)] focus:shadow-[var(--focus-ring)]";
 
 export const LISTBOX_ITEM_CLASS =
-  "cursor-pointer rounded-[0.95rem] px-3 py-3 text-[var(--text-main)] outline-none transition data-[focused=true]:bg-white/8";
+  "cursor-pointer rounded px-3 py-3 text-[var(--text-main)] outline-none transition data-[focused=true]:bg-[var(--bg-nav-active)]";
 
 export const SECONDARY_BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-[1rem] border border-[var(--border-soft)] bg-white/5 px-4 py-3 font-medium text-[var(--text-main)] transition hover:-translate-y-0.5 hover:bg-white/8";
+  "inline-flex items-center justify-center gap-2 rounded border border-[var(--border-soft)] bg-transparent px-4 py-3 font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";
 
 export const PRIMARY_BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-[1rem] border-0 bg-[linear-gradient(135deg,var(--accent),#ff79c6)] px-4 py-3 font-semibold text-[#15131c] transition hover:-translate-y-0.5 hover:opacity-95";
+  "inline-flex items-center justify-center gap-2 rounded border border-[var(--accent)] bg-[var(--accent)] px-4 py-3 font-semibold text-[var(--bg-app)] transition hover:bg-[#d7baff]";

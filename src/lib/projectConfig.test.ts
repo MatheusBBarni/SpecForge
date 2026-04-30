@@ -106,17 +106,18 @@ describe("parseSupportingDocumentPaths", () => {
 describe("buildDefaultProjectSettings", () => {
   it("returns expected default values", () => {
     const settings = buildDefaultProjectSettings();
-    expect(settings.selectedModel).toBe("gpt-5.4");
+    expect(settings.selectedModel).toBe("composer-2");
     expect(settings.selectedReasoning).toBe("medium");
     expect(settings.prdPath).toBe("docs/PRD.md");
     expect(settings.specPath).toBe("docs/SPEC.md");
     expect(settings.supportingDocumentPaths).toEqual([]);
   });
 
-  it("returns prompts that are non-empty strings", () => {
+  it("returns agent descriptions that are non-empty strings", () => {
     const settings = buildDefaultProjectSettings();
-    expect(settings.prdPrompt.length).toBeGreaterThan(0);
-    expect(settings.specPrompt.length).toBeGreaterThan(0);
+    expect(settings.prdAgentDescription.length).toBeGreaterThan(0);
+    expect(settings.specAgentDescription.length).toBeGreaterThan(0);
+    expect(settings.executionAgentDescription.length).toBeGreaterThan(0);
   });
 });
 
@@ -135,29 +136,45 @@ describe("normalizeProjectSettings", () => {
 
   it("preserves valid overrides", () => {
     const result = normalizeProjectSettings({
-      selectedModel: "claude-opus-4-20250514",
+      selectedModel: "composer-2",
       selectedReasoning: "high",
       prdPath: "custom/PRD.md",
       specPath: "custom/SPEC.md"
     });
-    expect(result.selectedModel).toBe("claude-opus-4-20250514");
+    expect(result.selectedModel).toBe("composer-2");
     expect(result.selectedReasoning).toBe("high");
     expect(result.prdPath).toBe("custom/PRD.md");
     expect(result.specPath).toBe("custom/SPEC.md");
   });
 
-  it("normalizes invalid model to default", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = normalizeProjectSettings({ selectedModel: "bad-model" as any });
-    expect(result.selectedModel).toBe("gpt-5.4");
+  it("preserves account-specific Cursor model ids", () => {
+    const result = normalizeProjectSettings({ selectedModel: "account-model" });
+    expect(result.selectedModel).toBe("account-model");
   });
 
-  it("normalizes reasoning profile that is invalid for the model", () => {
+  it("preserves account-specific reasoning values for dynamic Cursor models", () => {
     const result = normalizeProjectSettings({
-      selectedModel: "claude-3-5-sonnet-20241022",
-      selectedReasoning: "max"
+      selectedModel: "account-model",
+      selectedReasoning: "thinking"
     });
-    expect(result.selectedReasoning).toBe("low");
+    expect(result.selectedModel).toBe("account-model");
+    expect(result.selectedReasoning).toBe("thinking");
+  });
+
+  it("migrates legacy prompt fields into agent descriptions", () => {
+    const result = normalizeProjectSettings({
+      prdPrompt: "Legacy PRD prompt",
+      specPrompt: "Legacy spec prompt"
+    });
+    expect(result.prdAgentDescription).toBe("Legacy PRD prompt");
+    expect(result.specAgentDescription).toBe("Legacy spec prompt");
+  });
+
+  it("preserves execution agent description overrides", () => {
+    const result = normalizeProjectSettings({
+      executionAgentDescription: "Execute from the approved spec only."
+    });
+    expect(result.executionAgentDescription).toBe("Execute from the approved spec only.");
   });
 });
 

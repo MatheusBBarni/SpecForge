@@ -1,18 +1,15 @@
 use crate::models::{CliStatus, EnvironmentStatus};
 use crate::paths::resolve_override_path;
+use crate::secrets::cursor_key_status;
 use std::path::Path;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[tauri::command]
-pub(crate) fn run_environment_scan(
-    claude_path: Option<String>,
-    codex_path: Option<String>,
-) -> Result<EnvironmentStatus, String> {
+pub(crate) fn run_environment_scan() -> Result<EnvironmentStatus, String> {
     Ok(EnvironmentStatus {
         scanned_at: current_timestamp(),
-        claude: inspect_binary("Claude CLI", "claude", claude_path.as_deref()),
-        codex: inspect_binary("Codex CLI", "codex", codex_path.as_deref()),
+        cursor: cursor_key_status(),
         git: inspect_binary("Git", "git", None),
     })
 }
