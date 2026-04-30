@@ -249,18 +249,22 @@ export const ChatScreen = memo(function ChatScreen({
                 <Modal.CloseTrigger aria-label="Close rename topic modal" />
               </Modal.Header>
               <Modal.Body className="grid gap-3 px-5 py-5">
-                <label className="grid gap-2">
-                  <span className="text-sm font-medium text-[var(--text-main)]">
+                <div className="grid gap-2">
+                  <label
+                    className="text-sm font-medium text-[var(--text-main)]"
+                    htmlFor="chat-topic-rename-title"
+                  >
                     Topic name
-                  </span>
+                  </label>
                   <Input
                     autoFocus
                     className={INPUT_CLASS}
+                    id="chat-topic-rename-title"
                     onChange={(event) => setRenameTitle(event.target.value)}
                     placeholder="Topic name"
                     value={renameTitle}
                   />
-                </label>
+                </div>
               </Modal.Body>
               <Modal.Footer className="flex justify-end gap-3 border-t border-[var(--border-soft)] px-5 py-4">
                 <Button
