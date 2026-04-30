@@ -13,6 +13,7 @@ import { ControlColumn } from "../components/ControlColumn";
 import { FloatingSearch } from "../components/FloatingSearch";
 import { InspectorColumn } from "../components/InspectorColumn";
 import { MainWorkspace } from "../components/MainWorkspace";
+import { ModelReasoningDropdown } from "../components/ModelReasoningDropdown";
 import { StatusPill } from "../components/StatusPill";
 import { getModelOptions, getReasoningOptions } from "../lib/agentConfig";
 import { useAgentStore } from "../store/useAgentStore";
@@ -110,22 +111,26 @@ function ReviewTopBar({
 
       <div className="flex min-w-0 items-center justify-end gap-2">
         <StatusPill status={agentStatus} />
-        <TopBarSelect
-          label="Model"
-          onChange={controlColumnProps.onModelChange}
-          options={getModelOptions(
+        <ModelReasoningDropdown
+          cursorModels={cursorModels}
+          modelOptions={getModelOptions(
             controlColumnProps.configuredModelProviders.length === 1
               ? controlColumnProps.configuredModelProviders[0]
               : undefined,
             cursorModels,
           )}
-          value={selectedModel}
-        />
-        <TopBarSelect
-          label="Reasoning"
-          onChange={controlColumnProps.onReasoningChange}
-          options={getReasoningOptions(selectedModel, cursorModels)}
-          value={selectedReasoning}
+          onChange={({ selectedModel: nextModel, selectedReasoning: nextReasoning }) => {
+            if (nextModel !== selectedModel) {
+              controlColumnProps.onModelChange(nextModel);
+            }
+
+            if (nextReasoning !== selectedReasoning) {
+              controlColumnProps.onReasoningChange(nextReasoning);
+            }
+          }}
+          reasoningOptions={getReasoningOptions(selectedModel, cursorModels)}
+          selectedModel={selectedModel}
+          selectedReasoning={selectedReasoning}
         />
         <TopBarSelect
           label="Mode"

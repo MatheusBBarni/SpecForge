@@ -6,7 +6,8 @@
   "packageManager": "bun@1.3.6",
   "scripts": {
     "dev": "vite",
-    "tauri:dev": "tauri dev",
+    "sidecar:build": "bun scripts/build-cursor-sidecar.ts",
+    "tauri:dev": "bun run sidecar:build && tauri dev",
     "build": "tsc && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

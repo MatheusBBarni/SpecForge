@@ -111,7 +111,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     setCursorApiKeyInput: (cursorApiKeyInput) => set({ cursorApiKeyInput }),
     setLastProjectPath: (lastProjectPath) => setAndPersist({ lastProjectPath }),
     rememberRecentProject: (project) => {
-      const normalizedPath = project.path.trim();
+      const normalizedPath = normalizeStoredProjectPath(project.path.trim());
 
       if (!normalizedPath) {
         return;
@@ -149,18 +149,13 @@ function normalizeRecentProjects(value: unknown): RecentProject[] {
   const seenPaths = new Set<string>();
 
   for (const entry of value) {
-    if (!entry || typeof entry !== "object") {
+    const candidate = parseRecentProject(entry);
+
+    if (!candidate) {
       continue;
     }
 
-    const candidate = entry as Partial<RecentProject>;
-    const path = typeof candidate.path === "string" ? candidate.path.trim() : "";
-
-    if (!path) {
-      continue;
-    }
-
-    const normalizedPath = normalizePathForComparison(path);
+    const normalizedPath = normalizePathForComparison(candidate.path);
 
     if (seenPaths.has(normalizedPath)) {
       continue;
@@ -168,13 +163,7 @@ function normalizeRecentProjects(value: unknown): RecentProject[] {
 
     seenPaths.add(normalizedPath);
     projects.push({
-      name: typeof candidate.name === "string" && candidate.name.trim()
-        ? candidate.name.trim()
-        : path,
-      path,
-      lastOpenedAt: typeof candidate.lastOpenedAt === "string"
-        ? candidate.lastOpenedAt
-        : ""
+      ...candidate
     });
 
     if (projects.length >= 8) {
@@ -185,6 +174,37 @@ function normalizeRecentProjects(value: unknown): RecentProject[] {
   return projects;
 }
 
+function parseRecentProject(value: unknown): RecentProject | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<RecentProject>;
+  const path = typeof candidate.path === "string"
+    ? normalizeStoredProjectPath(candidate.path.trim())
+    : "";
+
+  if (!path) {
+    return null;
+  }
+
+  return {
+    name: typeof candidate.name === "string" && candidate.name.trim()
+      ? candidate.name.trim()
+      : path,
+    path,
+    lastOpenedAt: typeof candidate.lastOpenedAt === "string"
+      ? candidate.lastOpenedAt
+      : ""
+  };
+}
+
 function normalizePathForComparison(path: string) {
   return path.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+}
+
+export function normalizeStoredProjectPath(path: string) {
+  return path
+    .replace(/^\\\\\?\\UNC\\/i, "\\\\")
+    .replace(/^\\\\\?\\/i, "");
 }

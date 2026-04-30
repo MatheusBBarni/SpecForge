@@ -13,12 +13,10 @@ import {
   Attachment,
   BubbleSearch,
   ChatBubble,
-  Check,
   CheckCircle,
   Code,
   Copy,
   EditPencil,
-  NavArrowDown,
   Refresh,
   SendSolid,
   Terminal,
@@ -38,6 +36,7 @@ import {
   useState
 } from "react";
 
+import { ModelReasoningDropdown } from "../components/ModelReasoningDropdown";
 import { INPUT_CLASS } from "../components/SettingsPrimitives";
 import { getModelOptions, getReasoningOptions } from "../lib/agentConfig";
 import { isOpenableWorkspacePath } from "../lib/appShell";
@@ -100,8 +99,6 @@ const MENU_ITEM_CLASS =
   "cursor-pointer rounded px-3 py-2 text-sm text-[var(--text-main)] outline-none transition data-[focused=true]:bg-white/8";
 const MENU_DANGER_ITEM_CLASS =
   "cursor-pointer rounded px-3 py-2 text-sm text-[var(--danger)] outline-none transition data-[focused=true]:bg-[rgba(255,85,85,0.14)]";
-const CONFIG_MENU_ITEM_CLASS =
-  "cursor-pointer rounded px-3 py-2 text-sm text-[var(--text-main)] outline-none transition data-[focused=true]:bg-white/10";
 
 export const ChatScreen = memo(function ChatScreen({
   workspaceRootName,
@@ -674,15 +671,11 @@ function ChatConfigControls({
     hint?: string;
   }>;
 }) {
-  const handleModelChange = useCallback(
-    (selectedModel: ChatSession["selectedModel"]) => {
-      const nextReasoningOptions = getReasoningOptions(selectedModel, cursorModels);
-      const selectedReasoning = nextReasoningOptions.some(
-        (option) => option.value === activeSession.selectedReasoning
-      )
-        ? activeSession.selectedReasoning
-        : nextReasoningOptions[0]?.value ?? activeSession.selectedReasoning;
-
+  return (
+    <ModelReasoningDropdown
+      cursorModels={cursorModels}
+      modelOptions={modelOptions}
+      onChange={({ selectedModel, selectedReasoning }) => {
       onSaveSessionConfig({
         sessionId: activeSession.id,
         selectedModel,
@@ -690,115 +683,16 @@ function ChatConfigControls({
         autonomyMode: activeSession.autonomyMode,
         contextItems: activeSession.contextItems
       });
-    },
-    [activeSession, cursorModels, onSaveSessionConfig]
-  );
-
-  const handleReasoningChange = useCallback(
-    (selectedReasoning: ChatSession["selectedReasoning"]) => {
-      onSaveSessionConfig({
-        sessionId: activeSession.id,
-        selectedModel: activeSession.selectedModel,
-        selectedReasoning,
-        autonomyMode: activeSession.autonomyMode,
-        contextItems: activeSession.contextItems
-      });
-    },
-    [activeSession, onSaveSessionConfig]
-  );
-
-  return (
-    <DropdownRoot>
-      <DropdownTrigger>
-        <Button
-          aria-label="Chat model and reasoning"
-          className="inline-flex min-h-9 max-w-56 items-center gap-2 rounded-full border border-transparent bg-white/[0.06] px-3 text-sm font-medium text-[var(--text-main)] transition hover:bg-white/[0.1]"
-        >
-          <span className="truncate">
-            {formatCompactModelLabel(
-              modelOptions.find((option) => option.value === activeSession.selectedModel)
-                ?.label ?? activeSession.selectedModel
-            )}
-          </span>
-          <span className="truncate text-[var(--text-subtle)]">
-            {reasoningOptions.find(
-              (option) => option.value === activeSession.selectedReasoning
-            )?.label ?? activeSession.selectedReasoning}
-          </span>
-          <NavArrowDown className="size-3.5 shrink-0 text-[var(--text-subtle)]" />
-        </Button>
-      </DropdownTrigger>
-      <DropdownPopover
-        className="w-64 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)]"
-        placement="top start"
-      >
-        <DropdownMenu
-          aria-label="Chat model and reasoning options"
-          onAction={(key) => {
-            const [kind, value] = String(key).split(":");
-
-            if (kind === "reasoning") {
-              handleReasoningChange(value);
-              return;
-            }
-
-            if (kind === "model") {
-              handleModelChange(value);
-            }
-          }}
-        >
-          <DropdownItem className="px-3 pb-1 pt-2 text-xs font-semibold text-[var(--text-muted)]" id="reasoning-label" isDisabled>
-            Intelligence
-          </DropdownItem>
-          {reasoningOptions.map((option) => (
-            <DropdownItem
-              className={CONFIG_MENU_ITEM_CLASS}
-              id={`reasoning:${option.value}`}
-              key={option.value}
-              textValue={option.label}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span>{option.label}</span>
-                {option.value === activeSession.selectedReasoning ? (
-                  <Check className="size-4 text-[var(--text-main)]" />
-                ) : null}
-              </div>
-            </DropdownItem>
-          ))}
-          <DropdownItem className="mt-1 border-t border-[var(--border-soft)] px-3 pb-1 pt-3 text-xs font-semibold text-[var(--text-muted)]" id="model-label" isDisabled>
-            Model
-          </DropdownItem>
-          {modelOptions.map((option) => (
-            <DropdownItem
-              className={CONFIG_MENU_ITEM_CLASS}
-              id={`model:${option.value}`}
-              key={option.value}
-              textValue={option.label}
-            >
-              <div className="flex min-w-0 items-center justify-between gap-3">
-                <span className="truncate">{option.label}</span>
-                {option.value === activeSession.selectedModel ? (
-                  <Check className="size-4 shrink-0 text-[var(--text-main)]" />
-                ) : null}
-              </div>
-            </DropdownItem>
-          ))}
-        </DropdownMenu>
-      </DropdownPopover>
-    </DropdownRoot>
+      }}
+      reasoningOptions={reasoningOptions}
+      selectedModel={activeSession.selectedModel}
+      selectedReasoning={activeSession.selectedReasoning}
+    />
   );
 }
 
 function removeTrailingMention(value: string) {
   return value.replace(/(?:^|\s)@[^\s@]*$/, "").trimEnd();
-}
-
-function formatCompactModelLabel(label: string) {
-  return label
-    .replace(/^GPT-/, "")
-    .replace(/^Claude /, "")
-    .replace(/^Gemini /, "")
-    .replace(/^Composer /, "Composer ");
 }
 
 function formatRelativeTime(value: string) {

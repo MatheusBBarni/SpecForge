@@ -17,6 +17,7 @@ import {
   saveProjectSettings
 } from "../lib/runtime";
 import { useProjectStore } from "../store/useProjectStore";
+import { normalizeStoredProjectPath } from "../store/useSettingsStore";
 import type { ChatSessionSummary, ProjectContext } from "../types";
 import type {
   ProjectStoreSlice,
@@ -299,7 +300,7 @@ export function useProjectHandlers({
       workspaceUiState.setIsProjectLoading(true);
 
       try {
-        const nextProjectContext = await loadProjectContext(path);
+        const nextProjectContext = await loadProjectContext(normalizeStoredProjectPath(path));
         applyProjectContext(nextProjectContext);
         navigate("/");
       } catch (error) {

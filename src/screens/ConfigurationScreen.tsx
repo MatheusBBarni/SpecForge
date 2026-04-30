@@ -117,10 +117,10 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
   );
   const canContinue = desktopRuntime && workspaceRootPath.length > 0 && !isSaving;
   const folderActionLabel = isProjectLoading
-    ? "Opening..."
-    : hasSavedSettings
-      ? "Open New Folder"
-      : "Select Folder";
+    ? workspaceRootPath.length > 0
+      ? "Opening..."
+      : "Open"
+    : "Open";
 
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-auto px-5 pb-5 pt-5">
@@ -221,9 +221,6 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
             <h2 className="m-0 text-xl font-semibold text-[var(--text-main)]">
               Recent Projects
             </h2>
-            <span className="text-xs font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">
-              Stored in this browser
-            </span>
           </div>
 
           {recentProjects.length > 0 ? (
