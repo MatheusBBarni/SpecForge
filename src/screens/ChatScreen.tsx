@@ -7,6 +7,9 @@ import {
   DropdownRoot,
   DropdownTrigger,
   Input,
+  Label,
+  ListBox,
+  Select,
   TextArea
 } from "@heroui/react";
 import {
@@ -23,11 +26,13 @@ import {
   ThreePointsCircle,
   Trash,
   WarningCircle,
+  Xmark,
   XmarkCircle
 } from "iconoir-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { type Key, memo, useCallback, useMemo, useState } from "react";
 
 import { INPUT_CLASS } from "../components/SettingsPrimitives";
+import { getModelOptions, getReasoningOptions } from "../lib/agentConfig";
 import { isOpenableWorkspacePath } from "../lib/appShell";
 import type {
   AutonomyMode,
@@ -96,6 +101,8 @@ export const ChatScreen = memo(function ChatScreen({
   activeSession,
   activeDraft,
   workspaceEntries,
+  configuredModelProviders,
+  cursorModels,
   cavemanReady,
   cavemanMessage,
   cavemanChecking,
@@ -105,6 +112,7 @@ export const ChatScreen = memo(function ChatScreen({
   onRefresh,
   onRemoveContextItem,
   onRenameSession,
+  onSaveSessionConfig,
   onSelectSession,
   onSend,
   onStop,
@@ -146,6 +154,25 @@ export const ChatScreen = memo(function ChatScreen({
     activeSession &&
       activeDraft.trim() &&
       !activeSession.runtime.isBusy
+  );
+
+  const modelOptions = useMemo(
+    () =>
+      getModelOptions(
+        configuredModelProviders.length === 1
+          ? configuredModelProviders[0]
+          : undefined,
+        cursorModels
+      ),
+    [configuredModelProviders, cursorModels]
+  );
+
+  const reasoningOptions = useMemo(
+    () =>
+      activeSession
+        ? getReasoningOptions(activeSession.selectedModel, cursorModels)
+        : [],
+    [activeSession, cursorModels]
   );
 
   const handleRenameRequest = useCallback(
@@ -292,17 +319,10 @@ export const ChatScreen = memo(function ChatScreen({
                 </Card>
               ) : null}
 
-              {activeSession ? (
-                activeSession.messages.length > 0 ? (
-                  activeSession.messages.map((message) => (
-                    <MessageBlock key={message.id} message={message} />
-                  ))
-                ) : (
-                  <EmptyConversation workspaceRootName={workspaceRootName} />
-                )
-              ) : (
-                <EmptyConversation workspaceRootName={workspaceRootName} />
-              )}
+              <ConversationMessages
+                activeSession={activeSession}
+                workspaceRootName={workspaceRootName}
+              />
             </div>
           </div>
 
@@ -341,17 +361,10 @@ export const ChatScreen = memo(function ChatScreen({
                 ) : null}
 
                 {activeSession?.contextItems.length ? (
-                  <div className="flex flex-wrap gap-2 border-t border-[var(--border-soft)] px-4 py-3">
-                    {activeSession.contextItems.map((item) => (
-                      <Button
-                        className="min-h-8 rounded border border-[var(--border-soft)] bg-white/[0.04] px-2 text-xs text-[var(--text-subtle)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                        key={item.id}
-                        onPress={() => onRemoveContextItem(item.id)}
-                      >
-                        {item.label}
-                      </Button>
-                    ))}
-                  </div>
+                  <ContextChips
+                    items={activeSession.contextItems}
+                    onRemoveContextItem={onRemoveContextItem}
+                  />
                 ) : null}
 
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-soft)] px-4 py-3">
@@ -374,6 +387,15 @@ export const ChatScreen = memo(function ChatScreen({
                     <span className="truncate">
                       Context: {activeSession?.contextItems[0]?.path ?? workspaceRootName}
                     </span>
+                    {activeSession ? (
+                      <ChatConfigControls
+                        activeSession={activeSession}
+                        cursorModels={cursorModels}
+                        modelOptions={modelOptions}
+                        onSaveSessionConfig={onSaveSessionConfig}
+                        reasoningOptions={reasoningOptions}
+                      />
+                    ) : null}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
@@ -458,6 +480,22 @@ function MessageBlock({ message }: { message: ChatMessage }) {
   );
 }
 
+function ConversationMessages({
+  activeSession,
+  workspaceRootName
+}: {
+  activeSession: ChatSession | null;
+  workspaceRootName: string;
+}) {
+  if (!activeSession || activeSession.messages.length === 0) {
+    return <EmptyConversation workspaceRootName={workspaceRootName} />;
+  }
+
+  return activeSession.messages.map((message) => (
+    <MessageBlock key={message.id} message={message} />
+  ));
+}
+
 function MessageContent({ content }: { content: string }) {
   const parts = parseCodeBlocks(content);
 
@@ -534,6 +572,162 @@ function Avatar({ label }: { label: string }) {
     >
       {label.slice(0, 1)}
     </div>
+  );
+}
+
+function ContextChips({
+  items,
+  onRemoveContextItem
+}: {
+  items: ChatContextItem[];
+  onRemoveContextItem: (itemId: string) => void;
+}) {
+  return (
+    <div className="flex min-h-11 flex-wrap gap-2 border-t border-[var(--border-soft)] px-4 py-2">
+      {items.map((item) => (
+        <Button
+          aria-label={`Remove ${item.label} from chat context`}
+          className="group min-h-7 rounded border border-[var(--border-soft)] bg-white/[0.04] px-2 text-xs text-[var(--text-subtle)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+          key={item.id}
+          onPress={() => onRemoveContextItem(item.id)}
+        >
+          <span className="max-w-52 truncate">{item.label}</span>
+          <Xmark className="hidden size-3.5 group-hover:block" />
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+function ChatConfigControls({
+  activeSession,
+  cursorModels,
+  modelOptions,
+  onSaveSessionConfig,
+  reasoningOptions
+}: {
+  activeSession: ChatSession;
+  cursorModels: CursorModel[];
+  modelOptions: Array<{ value: ChatSession["selectedModel"]; label: string; hint?: string }>;
+  onSaveSessionConfig: ChatScreenProps["onSaveSessionConfig"];
+  reasoningOptions: Array<{
+    value: ChatSession["selectedReasoning"];
+    label: string;
+    hint?: string;
+  }>;
+}) {
+  const handleModelChange = useCallback(
+    (selectedModel: ChatSession["selectedModel"]) => {
+      const nextReasoningOptions = getReasoningOptions(selectedModel, cursorModels);
+      const selectedReasoning = nextReasoningOptions.some(
+        (option) => option.value === activeSession.selectedReasoning
+      )
+        ? activeSession.selectedReasoning
+        : nextReasoningOptions[0]?.value ?? activeSession.selectedReasoning;
+
+      onSaveSessionConfig({
+        sessionId: activeSession.id,
+        selectedModel,
+        selectedReasoning,
+        autonomyMode: activeSession.autonomyMode,
+        contextItems: activeSession.contextItems
+      });
+    },
+    [activeSession, cursorModels, onSaveSessionConfig]
+  );
+
+  const handleReasoningChange = useCallback(
+    (selectedReasoning: ChatSession["selectedReasoning"]) => {
+      onSaveSessionConfig({
+        sessionId: activeSession.id,
+        selectedModel: activeSession.selectedModel,
+        selectedReasoning,
+        autonomyMode: activeSession.autonomyMode,
+        contextItems: activeSession.contextItems
+      });
+    },
+    [activeSession, onSaveSessionConfig]
+  );
+
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-2">
+      <CompactSelect
+        ariaLabel="Chat model"
+        label="Model"
+        onChange={handleModelChange}
+        options={modelOptions}
+        value={activeSession.selectedModel}
+      />
+      <CompactSelect
+        ariaLabel="Chat reasoning"
+        label="Reasoning"
+        onChange={handleReasoningChange}
+        options={reasoningOptions}
+        value={activeSession.selectedReasoning}
+      />
+    </div>
+  );
+}
+
+function CompactSelect<Value extends string>({
+  ariaLabel,
+  label,
+  options,
+  value,
+  onChange
+}: {
+  ariaLabel: string;
+  label: string;
+  options: Array<{ value: Value; label: string; hint?: string }>;
+  value: Value;
+  onChange: (value: Value) => void;
+}) {
+  const handleSelectionChange = useCallback(
+    (key: Key | null) => {
+      if (key !== null) {
+        onChange(String(key) as Value);
+      }
+    },
+    [onChange]
+  );
+
+  return (
+    <Select
+      aria-label={ariaLabel}
+      className="w-36 min-w-0"
+      onSelectionChange={handleSelectionChange}
+      selectedKey={value}
+    >
+      <Label className="sr-only">{label}</Label>
+      <Select.Trigger className="min-h-8 rounded border border-[var(--border-soft)] bg-white/[0.04] px-2 text-[var(--text-subtle)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
+        <span className="mr-1 shrink-0 text-[10px] uppercase tracking-[0.08em] text-[var(--text-muted)]">
+          {label}
+        </span>
+        <Select.Value className="min-w-0 flex-1 truncate text-left text-xs text-[var(--text-main)]" />
+        <Select.Indicator className="size-3 shrink-0 text-[var(--text-muted)]" />
+      </Select.Trigger>
+      <Select.Popover className="min-w-64 rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)]">
+        <ListBox className="outline-none">
+          {options.map((option) => (
+            <ListBox.Item
+              className="cursor-pointer rounded px-3 py-2 text-sm text-[var(--text-main)] outline-none transition data-[focused=true]:bg-white/8"
+              id={option.value}
+              key={option.value}
+              textValue={option.label}
+            >
+              <div className="flex flex-col gap-1">
+                <span>{option.label}</span>
+                {option.hint ? (
+                  <small className="text-xs leading-5 text-[var(--text-subtle)]">
+                    {option.hint}
+                  </small>
+                ) : null}
+              </div>
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
   );
 }
 
