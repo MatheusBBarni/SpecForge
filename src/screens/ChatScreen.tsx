@@ -29,7 +29,15 @@ import {
   Xmark,
   XmarkCircle
 } from "iconoir-react";
-import { type Key, memo, useCallback, useMemo, useState } from "react";
+import {
+  type Key,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 
 import { INPUT_CLASS } from "../components/SettingsPrimitives";
 import { getModelOptions, getReasoningOptions } from "../lib/agentConfig";
@@ -87,7 +95,6 @@ const PRIMARY_BUTTON_CLASS =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded border border-[var(--accent)] bg-[var(--accent)] px-5 text-sm font-semibold text-[var(--bg-app)] transition hover:bg-[#d7baff]";
 const DANGER_BUTTON_CLASS =
   "inline-flex min-h-10 items-center justify-center gap-2 rounded border border-[rgba(255,85,85,0.38)] bg-[rgba(255,85,85,0.12)] px-3 text-sm font-semibold text-[var(--danger)] transition hover:bg-[rgba(255,85,85,0.18)]";
-const SURFACE_CLASS = "border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] shadow-none";
 const MENU_POPOVER_CLASS =
   "min-w-52 rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)]";
 const MENU_ITEM_CLASS =
@@ -121,6 +128,7 @@ export const ChatScreen = memo(function ChatScreen({
   onOpenReview
 }: ChatScreenProps) {
   const [sessionSearch, setSessionSearch] = useState("");
+  const draftInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const mentionQuery = useMemo(() => {
     const match = activeDraft.match(/(?:^|\s)@([^\s@]*)$/);
@@ -185,6 +193,16 @@ export const ChatScreen = memo(function ChatScreen({
     },
     [onRenameSession]
   );
+
+  useEffect(() => {
+    if (mentionQuery.length === 0) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      draftInputRef.current?.focus({ preventScroll: true });
+    });
+  }, [mentionQuery]);
 
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-panel)]">
@@ -334,31 +352,9 @@ export const ChatScreen = memo(function ChatScreen({
                   className="min-h-24 w-full resize-none border-0 bg-transparent px-5 py-5 text-base leading-7 text-[var(--text-main)] outline-none placeholder:text-[var(--text-muted)]"
                   onChange={(event) => onDraftChange(event.target.value)}
                   placeholder="Message SpecForge or type '/' for commands..."
+                  ref={draftInputRef}
                   value={activeDraft}
                 />
-
-                {mentionQuery.length > 0 ? (
-                  <Card className={`${SURFACE_CLASS} mx-4 mb-3`}>
-                    <Card.Content className="max-h-44 overflow-auto px-2 py-2">
-                      {attachableFiles.length > 0 ? (
-                        attachableFiles.slice(0, 8).map((entry) => (
-                          <Button
-                            className="flex w-full items-center justify-start gap-2 rounded px-3 py-2 text-left text-sm text-[var(--text-main)] transition hover:bg-white/8"
-                            key={entry.path}
-                            onPress={() => onAttachFile(entry.path)}
-                          >
-                            <Attachment className="size-4" />
-                            <span className="truncate">{entry.path}</span>
-                          </Button>
-                        ))
-                      ) : (
-                        <div className="px-3 py-2 text-sm text-[var(--text-subtle)]">
-                          No matching files.
-                        </div>
-                      )}
-                    </Card.Content>
-                  </Card>
-                ) : null}
 
                 {activeSession?.contextItems.length ? (
                   <ContextChips
@@ -369,13 +365,13 @@ export const ChatScreen = memo(function ChatScreen({
 
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-soft)] px-4 py-3">
                   <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-                    <Button
-                      aria-label="Attach file with @ mention"
-                      className={ICON_BUTTON_CLASS}
-                      onPress={() => onDraftChange(`${activeDraft}${activeDraft.endsWith(" ") || activeDraft.length === 0 ? "" : " "}@`)}
-                    >
-                      <Attachment className="size-4" />
-                    </Button>
+                    <MentionSuggestionsDropdown
+                      activeDraft={activeDraft}
+                      attachableFiles={attachableFiles}
+                      isOpen={mentionQuery.length > 0}
+                      onAttachFile={onAttachFile}
+                      onDraftChange={onDraftChange}
+                    />
                     <Button
                       aria-label="Open review"
                       className={ICON_BUTTON_CLASS}
@@ -599,6 +595,89 @@ function ContextChips({
   );
 }
 
+function MentionSuggestionsDropdown({
+  activeDraft,
+  attachableFiles,
+  isOpen,
+  onAttachFile,
+  onDraftChange
+}: {
+  activeDraft: string;
+  attachableFiles: WorkspaceEntry[];
+  isOpen: boolean;
+  onAttachFile: (path: string) => void;
+  onDraftChange: (value: string) => void;
+}) {
+  const handleAttachRequest = useCallback(
+    (key: Key) => {
+      const path = String(key);
+
+      if (!path) {
+        return;
+      }
+
+      onAttachFile(path);
+      onDraftChange(removeTrailingMention(activeDraft));
+    },
+    [activeDraft, onAttachFile, onDraftChange]
+  );
+
+  const handleTriggerPress = useCallback(() => {
+    onDraftChange(
+      `${activeDraft}${activeDraft.endsWith(" ") || activeDraft.length === 0 ? "" : " "}@`
+    );
+  }, [activeDraft, onDraftChange]);
+
+  return (
+    <DropdownRoot isOpen={isOpen}>
+      <DropdownTrigger>
+        <Button
+          aria-label="Attach file with @ mention"
+          className={ICON_BUTTON_CLASS}
+          onPress={handleTriggerPress}
+        >
+          <Attachment className="size-4" />
+        </Button>
+      </DropdownTrigger>
+      <DropdownPopover
+        className="max-h-48 w-[min(34rem,calc(100vw-4rem))] overflow-auto rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)]"
+        offset={132}
+        placement="top start"
+        shouldFlip={false}
+      >
+        <DropdownMenu
+          aria-label="Attach workspace file"
+          onAction={handleAttachRequest}
+        >
+          {attachableFiles.length > 0 ? (
+            attachableFiles.slice(0, 8).map((entry) => (
+              <DropdownItem
+                className="cursor-pointer rounded px-3 py-2 text-sm text-[var(--text-main)] outline-none transition data-[focused=true]:bg-[var(--accent)] data-[focused=true]:text-[var(--bg-app)]"
+                id={entry.path}
+                key={entry.path}
+                textValue={entry.path}
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <Attachment className="size-4 shrink-0" />
+                  <span className="truncate">{entry.path}</span>
+                </div>
+              </DropdownItem>
+            ))
+          ) : (
+            <DropdownItem
+              className="rounded px-3 py-2 text-sm text-[var(--text-subtle)]"
+              id="no-matching-files"
+              isDisabled
+            >
+              No matching files.
+            </DropdownItem>
+          )}
+        </DropdownMenu>
+      </DropdownPopover>
+    </DropdownRoot>
+  );
+}
+
 function ChatConfigControls({
   activeSession,
   cursorModels,
@@ -650,7 +729,7 @@ function ChatConfigControls({
   );
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2">
+    <div className="flex min-w-0 flex-wrap items-end gap-3">
       <CompactSelect
         ariaLabel="Chat model"
         label="Model"
@@ -694,17 +773,16 @@ function CompactSelect<Value extends string>({
   return (
     <Select
       aria-label={ariaLabel}
-      className="w-36 min-w-0"
+      className="flex w-52 min-w-0 flex-col gap-1.5"
       onSelectionChange={handleSelectionChange}
       selectedKey={value}
     >
-      <Label className="sr-only">{label}</Label>
-      <Select.Trigger className="min-h-8 rounded border border-[var(--border-soft)] bg-white/[0.04] px-2 text-[var(--text-subtle)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
-        <span className="mr-1 shrink-0 text-[10px] uppercase tracking-[0.08em] text-[var(--text-muted)]">
-          {label}
-        </span>
-        <Select.Value className="min-w-0 flex-1 truncate text-left text-xs text-[var(--text-main)]" />
-        <Select.Indicator className="size-3 shrink-0 text-[var(--text-muted)]" />
+      <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-subtle)]">
+        {label}
+      </Label>
+      <Select.Trigger className="min-h-11 rounded border border-[var(--border-soft)] bg-white/[0.04] px-3 text-[var(--text-main)] transition hover:border-[var(--accent)] hover:bg-white/[0.07] focus:border-[var(--accent)] focus:shadow-[var(--focus-ring)]">
+        <Select.Value className="min-w-0 flex-1 truncate text-left text-sm font-medium text-[var(--text-main)]" />
+        <Select.Indicator className="ml-1 size-3 shrink-0 text-[var(--text-muted)]" />
       </Select.Trigger>
       <Select.Popover className="min-w-64 rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)]">
         <ListBox className="outline-none">
@@ -729,6 +807,10 @@ function CompactSelect<Value extends string>({
       </Select.Popover>
     </Select>
   );
+}
+
+function removeTrailingMention(value: string) {
+  return value.replace(/(?:^|\s)@[^\s@]*$/, "").trimEnd();
 }
 
 function formatRelativeTime(value: string) {
