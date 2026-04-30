@@ -24,8 +24,8 @@ The product combines five responsibilities in one desktop shell:
 2. **Choose the project folder:** SpecForge scans the workspace, creates `.specforge/settings.json` from defaults when it is missing, restores saved project settings, restores the most recent chat topic when available, and opens the review workspace.
 3. **Review Settings when needed:** If default project settings were created, SpecForge prompts the user to open Settings. Cursor API key, model/reasoning defaults, editable PRD/spec/execution agent descriptions, PRD/spec paths, and optional supporting documents are configured from `/settings`.
 4. **Connect Cursor:** The user saves a Cursor API key through the desktop runtime. The key is stored in the OS credential store and never in `.specforge/settings.json`.
-5. **Generate a PRD:** The user keeps the existing PRD prompt flow; SpecForge sends the PRD agent description plus the user prompt to Cursor SDK, then asks Rust to save the generated Markdown.
-6. **Generate a spec:** The user keeps the existing spec prompt flow; SpecForge sends the spec agent description, user prompt, and chosen PRD content to Cursor SDK, then asks Rust to save the generated Markdown.
+5. **Refine or generate a PRD:** The user can run the built-in Grill PRD action to ask one focused follow-up question with a recommended answer, or generate the PRD directly. PRD generation sends the PRD agent description plus the user prompt to Cursor SDK, then asks Rust to save the generated Markdown.
+6. **Refine or generate a spec:** The user can run the built-in Grill Spec action against the current PRD and spec brief to ask one focused follow-up question with a recommended answer, or generate the spec directly. Spec generation sends the spec agent description, user prompt, and chosen PRD content to Cursor SDK, then asks Rust to save the generated Markdown.
 7. **Review output:** The `/review` screen remains available for PRD/spec/file editing and diff visibility.
 8. **Continue in chat when needed:** `/chat` remains available below review in navigation, but chat execution is outside the current Cursor SDK refactor scope.
 
@@ -50,6 +50,7 @@ The product combines five responsibilities in one desktop shell:
 * **Existing UX preservation:** The user flow for choosing a PRD and generating a spec must remain unchanged except for the underlying Cursor SDK runtime.
 * **PRD agent:** PRD generation must send the editable PRD agent description and the user's PRD prompt.
 * **Spec agent:** Spec generation must send the editable spec agent description, the user's spec prompt, and the selected PRD content.
+* **Built-in Grill Me:** PRD and spec empty states must expose secondary Grill actions that run the same Cursor SDK model with SpecForge's built-in grill-me instruction, ask exactly one next question, include a recommended answer, and append the response back into the generation prompt for user editing.
 * **Execution agent description:** Settings must expose the execution agent description now, even though execution migration is not part of this slice.
 
 ### 4.3. Chat Workspace

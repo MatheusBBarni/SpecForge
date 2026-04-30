@@ -104,6 +104,8 @@ PRD/spec generation now runs in the TypeScript layer with `@cursor/sdk`, isolate
 * Rust validates the workspace root and Markdown output path through `save_workspace_document`, strips wrapping Markdown code fences, creates parent directories, and writes the generated document.
 * The PRD agent receives the editable PRD agent description plus the user's PRD prompt.
 * The spec agent receives the editable spec agent description, the user's spec prompt, and the selected PRD content.
+* `buildCursorPrdGrillPrompt` and `buildCursorSpecGrillPrompt` prepend SpecForge's built-in grill-me workflow to the editable PRD/spec agent descriptions. These prompts ask exactly one next question, include a recommended answer, infer answers already present in supplied context, and explicitly avoid drafting the final document.
+* `useDocumentHandlers` exposes Grill PRD and Grill Spec handlers. The handlers reuse the Cursor SDK runner, stream events into the review terminal, and append the returned grill question block into the relevant generation textarea for the user to answer or edit before generating the document.
 * The execution agent description is persisted in project settings for the upcoming execution migration.
 
 ## 6. Tauri Command Surface
@@ -149,6 +151,7 @@ The main sidebar follows the full-height review-screen pattern from the Stitch d
 * PRD/spec editing
 * workspace file browsing
 * PRD/spec generation
+* PRD/spec grill-me refinement before generation
 
 Its execute panel is now a read-only mirror of the active chat topic:
 

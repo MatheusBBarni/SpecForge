@@ -38,6 +38,18 @@ export function buildCursorPrdPrompt({
   return buildPromptWithOperatorContext(agentDescription, userPrompt);
 }
 
+export function buildCursorPrdGrillPrompt({
+  agentDescription,
+  userPrompt
+}: BuildCursorPrdPromptOptions) {
+  return buildGrillPrompt({
+    documentKind: "Product Requirements Document (PRD)",
+    agentDescription,
+    userPrompt,
+    attachedContext: ""
+  });
+}
+
 export function buildCursorSpecPrompt({
   agentDescription,
   userPrompt,
@@ -49,6 +61,19 @@ export function buildCursorSpecPrompt({
 
 Attached Product Requirements Document (PRD):
 ${prdContent.trim()}`;
+}
+
+export function buildCursorSpecGrillPrompt({
+  agentDescription,
+  userPrompt,
+  prdContent
+}: BuildCursorSpecPromptOptions) {
+  return buildGrillPrompt({
+    documentKind: "Technical Specification",
+    agentDescription,
+    userPrompt,
+    attachedContext: `Attached Product Requirements Document (PRD):\n${prdContent.trim()}`
+  });
 }
 
 export async function runCursorAgentPrompt({
@@ -83,6 +108,33 @@ Additional operator context:
 --- BEGIN OPERATOR CONTEXT ---
 ${userPrompt.trim()}
 --- END OPERATOR CONTEXT ---`;
+}
+
+function buildGrillPrompt({
+  documentKind,
+  agentDescription,
+  userPrompt,
+  attachedContext
+}: {
+  documentKind: string;
+  agentDescription: string;
+  userPrompt: string;
+  attachedContext: string;
+}) {
+  return `${agentDescription.trim()}
+
+SpecForge built-in grill-me workflow:
+- Interview the operator relentlessly about the ${documentKind} until the plan is clear.
+- Ask exactly one next question.
+- Include your recommended answer for that question.
+- If a question can be answered from the supplied context, infer the answer and move to the next unresolved question.
+- Do not draft the ${documentKind} yet.
+- Return concise Markdown with the headings "Question" and "Recommended answer".
+
+Additional operator context:
+--- BEGIN OPERATOR CONTEXT ---
+${userPrompt.trim() || "No additional operator context was provided."}
+--- END OPERATOR CONTEXT ---${attachedContext.trim() ? `\n\n${attachedContext.trim()}` : ""}`;
 }
 
 export function extractCursorRunText(

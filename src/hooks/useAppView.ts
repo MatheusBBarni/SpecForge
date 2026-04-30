@@ -142,6 +142,23 @@ export function useAppDerivedState({
       workspaceUiState.specGenerationPrompt
     ]
   );
+  const canGrillSpec = useMemo(
+    () =>
+      desktopRuntime &&
+      !isGeneratingSpec &&
+      settingsState.environment.cursor.status === "found" &&
+      workspaceUiState.projectRootPath.trim().length > 0 &&
+      projectState.prdContent.trim().length > 0 &&
+      projectState.configuredSpecPath.trim().length > 0,
+    [
+      desktopRuntime,
+      isGeneratingSpec,
+      projectState.configuredSpecPath,
+      projectState.prdContent,
+      settingsState.environment.cursor.status,
+      workspaceUiState.projectRootPath
+    ]
+  );
   const prdGenerationHelperText = useMemo(
     () =>
       getPrdGenerationHelperText({
@@ -203,6 +220,7 @@ export function useAppDerivedState({
     supportingDocumentsValue,
     canGeneratePrd,
     canGenerateSpec,
+    canGrillSpec,
     prdGenerationHelperText,
     specGenerationHelperText
   };

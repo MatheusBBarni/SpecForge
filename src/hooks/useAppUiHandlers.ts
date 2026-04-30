@@ -22,6 +22,8 @@ interface UseAppUiHandlersOptions {
   handleEmergencyStop: () => Promise<void>;
   handleGeneratePrd: () => Promise<void>;
   handleGenerateSpec: () => Promise<void>;
+  handleGrillPrd: () => Promise<void>;
+  handleGrillSpec: () => Promise<void>;
   handleOpenImportFile: (target: DocumentTarget) => Promise<void>;
   handleStartBuild: () => Promise<void>;
   handleWorkspaceFileOpen: (path: string) => Promise<void>;
@@ -37,6 +39,8 @@ export function useAppUiHandlers({
   handleEmergencyStop,
   handleGeneratePrd,
   handleGenerateSpec,
+  handleGrillPrd,
+  handleGrillSpec,
   handleOpenImportFile,
   handleStartBuild,
   handleWorkspaceFileOpen,
@@ -202,6 +206,14 @@ export function useAppUiHandlers({
     void handleGenerateSpec();
   }, [handleGenerateSpec]);
 
+  const handleGrillPrdClick = useCallback(() => {
+    void handleGrillPrd();
+  }, [handleGrillPrd]);
+
+  const handleGrillSpecClick = useCallback(() => {
+    void handleGrillSpec();
+  }, [handleGrillSpec]);
+
   return {
     handlePrdContentChange,
     handleSpecContentChange,
@@ -221,7 +233,9 @@ export function useAppUiHandlers({
     handleWorkspaceFolderSelection,
     handleWorkspaceFileOpenClick,
     handleGeneratePrdClick,
-    handleGenerateSpecClick
+    handleGenerateSpecClick,
+    handleGrillPrdClick,
+    handleGrillSpecClick
   };
 }
 

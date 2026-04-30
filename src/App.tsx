@@ -251,7 +251,9 @@ function App() {
   const {
     handleOpenImportFile,
     handleFileSelection,
+    handleGrillPrd,
     handleGeneratePrd,
+    handleGrillSpec,
     handleGenerateSpec
   } = useDocumentHandlers({
     agentState,
@@ -533,6 +535,8 @@ function App() {
     handleEmergencyStop,
     handleGeneratePrd,
     handleGenerateSpec,
+    handleGrillPrd,
+    handleGrillSpec,
     handleOpenImportFile,
     handleStartBuild,
     handleWorkspaceFileOpen,

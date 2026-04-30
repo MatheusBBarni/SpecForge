@@ -9,10 +9,12 @@ interface SpecEmptyStateProps {
   helperText: string;
   isGenerating: boolean;
   canGenerate: boolean;
+  canGrill: boolean;
   templatePrompt: string;
   configPath: string;
   onPromptChange: (value: string) => void;
   onGenerate: () => void;
+  onGrill: () => void;
 }
 
 export const SpecEmptyState = memo(function SpecEmptyState({
@@ -21,10 +23,12 @@ export const SpecEmptyState = memo(function SpecEmptyState({
   helperText,
   isGenerating,
   canGenerate,
+  canGrill,
   templatePrompt,
   configPath,
   onPromptChange,
-  onGenerate
+  onGenerate,
+  onGrill
 }: SpecEmptyStateProps) {
   return (
     <DocumentEmptyState
@@ -51,15 +55,25 @@ export const SpecEmptyState = memo(function SpecEmptyState({
 
       <div className="flex flex-col items-start gap-3">
         <p className="m-0 text-sm leading-6 text-[var(--text-subtle)]">{helperText}</p>
-        <button
-          className={`${PRIMARY_BUTTON_CLASS} ${!canGenerate ? "cursor-not-allowed opacity-50 hover:translate-y-0" : ""}`}
-          disabled={!canGenerate}
-          onClick={onGenerate}
-          type="button"
-        >
-          <Spark className="size-5" />
-          {isGenerating ? "Generating..." : "Generate Spec"}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            className={`${PRIMARY_BUTTON_CLASS} ${!canGenerate ? "cursor-not-allowed opacity-50 hover:translate-y-0" : ""}`}
+            disabled={!canGenerate}
+            onClick={onGenerate}
+            type="button"
+          >
+            <Spark className="size-5" />
+            {isGenerating ? "Generating..." : "Generate Spec"}
+          </button>
+          <button
+            className={`${SECONDARY_BUTTON_CLASS} ${!canGrill ? "cursor-not-allowed opacity-50" : ""}`}
+            disabled={!canGrill}
+            onClick={onGrill}
+            type="button"
+          >
+            Grill Spec
+          </button>
+        </div>
       </div>
 
       {error ? <p className="m-0 text-sm leading-6 text-[var(--danger)]">{error}</p> : null}
@@ -69,3 +83,6 @@ export const SpecEmptyState = memo(function SpecEmptyState({
 
 const PRIMARY_BUTTON_CLASS =
   "inline-flex items-center justify-center gap-2 rounded-[1rem] border-0 bg-[linear-gradient(135deg,var(--accent),#ff79c6)] px-4 py-3 font-semibold text-[#15131c] transition hover:-translate-y-0.5 hover:opacity-95";
+
+const SECONDARY_BUTTON_CLASS =
+  "inline-flex items-center justify-center rounded-[1rem] border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3 font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";

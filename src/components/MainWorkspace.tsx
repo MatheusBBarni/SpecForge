@@ -41,11 +41,13 @@ interface MainWorkspaceProps {
   specPaneMode: PaneMode;
   isSpecApproved: boolean;
   canGeneratePrd: boolean;
+  canGrillPrd: boolean;
   isGeneratingPrd: boolean;
   prdGenerationPrompt: string;
   prdGenerationError: string;
   prdGenerationHelperText: string;
   canGenerateSpec: boolean;
+  canGrillSpec: boolean;
   isGeneratingSpec: boolean;
   specGenerationPrompt: string;
   specGenerationError: string;
@@ -69,8 +71,10 @@ interface MainWorkspaceProps {
   onApproveSpec: () => void;
   onPrdGenerationPromptChange: (value: string) => void;
   onGeneratePrd: () => void;
+  onGrillPrd: () => void;
   onSpecGenerationPromptChange: (value: string) => void;
   onGenerateSpec: () => void;
+  onGrillSpec: () => void;
   onSpecSelect: (event: ChangeEvent<HTMLTextAreaElement>) => void;
   onEditorTabClose: (path: string) => void;
   onOpenEditorTabExternally: (path: string, editorId: string) => void;
@@ -90,11 +94,13 @@ export const MainWorkspace = memo(function MainWorkspace({
   specPaneMode,
   isSpecApproved,
   canGeneratePrd,
+  canGrillPrd,
   isGeneratingPrd,
   prdGenerationPrompt,
   prdGenerationError,
   prdGenerationHelperText,
   canGenerateSpec,
+  canGrillSpec,
   isGeneratingSpec,
   specGenerationPrompt,
   specGenerationError,
@@ -118,8 +124,10 @@ export const MainWorkspace = memo(function MainWorkspace({
   onApproveSpec,
   onPrdGenerationPromptChange,
   onGeneratePrd,
+  onGrillPrd,
   onSpecGenerationPromptChange,
   onGenerateSpec,
+  onGrillSpec,
   onSpecSelect,
   onEditorTabClose,
   onOpenEditorTabExternally,
@@ -213,11 +221,13 @@ export const MainWorkspace = memo(function MainWorkspace({
             {showPrdEmptyState ? (
               <PrdEmptyState
                 canGenerate={canGeneratePrd}
+                canGrill={canGrillPrd}
                 configPath={configPath}
                 error={prdGenerationError}
                 helperText={prdGenerationHelperText}
                 isGenerating={isGeneratingPrd}
                 onGenerate={onGeneratePrd}
+                onGrill={onGrillPrd}
                 onPromptChange={onPrdGenerationPromptChange}
                 prompt={prdGenerationPrompt}
                 templatePrompt={prdPromptTemplate}
@@ -270,11 +280,13 @@ export const MainWorkspace = memo(function MainWorkspace({
             ) : (
               <SpecEmptyState
                 canGenerate={canGenerateSpec}
+                canGrill={canGrillSpec}
                 configPath={configPath}
                 error={specGenerationError}
                 helperText={specGenerationHelperText}
                 isGenerating={isGeneratingSpec}
                 onGenerate={onGenerateSpec}
+                onGrill={onGrillSpec}
                 onPromptChange={onSpecGenerationPromptChange}
                 prompt={specGenerationPrompt}
                 templatePrompt={specPromptTemplate}

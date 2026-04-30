@@ -8,7 +8,9 @@ import { getModelLabel, getReasoningLabel } from "../lib/agentConfig";
 import { type DocumentTarget, stampLog } from "../lib/appShell";
 import { waitForNextPaint } from "../lib/appState";
 import {
+  buildCursorPrdGrillPrompt,
   buildCursorPrdPrompt,
+  buildCursorSpecGrillPrompt,
   buildCursorSpecPrompt,
   runCursorAgentPrompt
 } from "../lib/cursorAgentRuntime";
@@ -192,6 +194,56 @@ export function useDocumentHandlers({
     workspaceUiState
   ]);
 
+  const handleGrillPrd = useCallback(async () => {
+    const trimmedPrompt = workspaceUiState.prdGenerationPrompt.trim();
+    const validationError = getPrdGenerationValidationError({
+      currentProjectSettings: derivedState.currentProjectSettings,
+      desktopRuntime,
+      environmentCursorStatus: settingsState.environment.cursor.status,
+      projectRootPath: workspaceUiState.projectRootPath,
+      trimmedPrompt
+    });
+
+    if (validationError) {
+      workspaceUiState.setPrdGenerationError(validationError);
+      return;
+    }
+
+    workspaceUiState.setPrdGenerationError("");
+    agentState.setStatus("generating_prd");
+    agentState.appendTerminalOutput(stampLog("prd", "Running grill-me against the PRD brief."));
+
+    try {
+      await waitForNextPaint();
+      const grillResponse = await runCursorAgentPrompt({
+        workspaceRoot: workspaceUiState.projectRootPath,
+        model: projectState.selectedModel,
+        reasoning: projectState.selectedReasoning,
+        prompt: buildCursorPrdGrillPrompt({
+          agentDescription: derivedState.currentProjectSettings.prdAgentDescription,
+          userPrompt: trimmedPrompt
+        }),
+        onEvent: (line) => agentState.appendTerminalOutput(stampLog("cursor", line))
+      });
+
+      workspaceUiState.setPrdGenerationPrompt(appendGrillResponse(trimmedPrompt, grillResponse));
+      agentState.setStatus("idle");
+      agentState.appendTerminalOutput(stampLog("prd", "Grill-me question added to the PRD prompt."));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to grill the PRD brief.";
+      workspaceUiState.setPrdGenerationError(message);
+      agentState.setStatus("error");
+      agentState.appendTerminalOutput(stampLog("error", message));
+    }
+  }, [
+    agentState,
+    derivedState.currentProjectSettings,
+    desktopRuntime,
+    projectState,
+    settingsState,
+    workspaceUiState
+  ]);
+
   const handleGenerateSpec = useCallback(async () => {
     const trimmedPrompt = workspaceUiState.specGenerationPrompt.trim();
     const validationError = getSpecGenerationValidationError({
@@ -265,11 +317,66 @@ export function useDocumentHandlers({
     workspaceUiState
   ]);
 
+  const handleGrillSpec = useCallback(async () => {
+    const trimmedPrompt = workspaceUiState.specGenerationPrompt.trim();
+    const validationError = getSpecGenerationValidationError({
+      currentProjectSettings: derivedState.currentProjectSettings,
+      desktopRuntime,
+      environmentCursorStatus: settingsState.environment.cursor.status,
+      prdContent: projectState.prdContent,
+      projectRootPath: workspaceUiState.projectRootPath,
+      requirePrompt: false,
+      trimmedPrompt
+    });
+
+    if (validationError) {
+      workspaceUiState.setSpecGenerationError(validationError);
+      return;
+    }
+
+    workspaceUiState.setSpecGenerationError("");
+    agentState.setStatus("generating_spec");
+    agentState.appendTerminalOutput(stampLog("spec", "Running grill-me against the spec brief."));
+
+    try {
+      await waitForNextPaint();
+      const grillResponse = await runCursorAgentPrompt({
+        workspaceRoot: workspaceUiState.projectRootPath,
+        model: projectState.selectedModel,
+        reasoning: projectState.selectedReasoning,
+        prompt: buildCursorSpecGrillPrompt({
+          agentDescription: derivedState.currentProjectSettings.specAgentDescription,
+          userPrompt: trimmedPrompt,
+          prdContent: projectState.prdContent
+        }),
+        onEvent: (line) => agentState.appendTerminalOutput(stampLog("cursor", line))
+      });
+
+      workspaceUiState.setSpecGenerationPrompt(appendGrillResponse(trimmedPrompt, grillResponse));
+      agentState.setStatus("idle");
+      agentState.appendTerminalOutput(stampLog("spec", "Grill-me question added to the spec prompt."));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to grill the spec brief.";
+      workspaceUiState.setSpecGenerationError(message);
+      agentState.setStatus("error");
+      agentState.appendTerminalOutput(stampLog("error", message));
+    }
+  }, [
+    agentState,
+    derivedState.currentProjectSettings,
+    desktopRuntime,
+    projectState,
+    settingsState,
+    workspaceUiState
+  ]);
+
   return {
     assignDocument,
     handleOpenImportFile,
     handleFileSelection,
+    handleGrillPrd,
     handleGeneratePrd,
+    handleGrillSpec,
     handleGenerateSpec
   };
 }
@@ -330,6 +437,7 @@ function getSpecGenerationValidationError({
   environmentCursorStatus,
   prdContent,
   projectRootPath,
+  requirePrompt = true,
   trimmedPrompt
 }: {
   currentProjectSettings: ProjectSettings;
@@ -337,6 +445,7 @@ function getSpecGenerationValidationError({
   environmentCursorStatus: CliHealth;
   prdContent: string;
   projectRootPath: string;
+  requirePrompt?: boolean;
   trimmedPrompt: string;
 }) {
   if (!desktopRuntime) {
@@ -355,11 +464,25 @@ function getSpecGenerationValidationError({
     return "Configure the spec path as a Markdown file before generating.";
   }
 
-  if (!trimmedPrompt) {
+  if (requirePrompt && !trimmedPrompt) {
     return "Add the technical guidance you want the AI to consider.";
   }
 
   return environmentCursorStatus === "found"
     ? ""
     : "Save a Cursor API key in Settings before generating a spec.";
+}
+
+function appendGrillResponse(currentPrompt: string, grillResponse: string) {
+  const trimmedCurrentPrompt = currentPrompt.trim();
+  const trimmedResponse = grillResponse.trim();
+  const nextBlock = `Grill-me follow-up:
+${trimmedResponse}
+
+My answer:
+`;
+
+  return trimmedCurrentPrompt
+    ? `${trimmedCurrentPrompt}\n\n${nextBlock}`
+    : nextBlock;
 }
