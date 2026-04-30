@@ -12,12 +12,12 @@ The webview never writes workspace files directly. All desktop data access conti
 
 ## 2. Routes
 
-* `/` is the Projects / Workspace Initialization screen and project configuration flow.
+* `/` is the Projects / Workspace Initialization screen for local workspace selection, recent project reopening, and the disabled clone placeholder.
 * `/review` is the primary post-setup document and file editing workspace.
 * `/chat` is the secondary agent conversation workspace.
 * `/settings` holds project-scoped and local runtime configuration.
 
-After setup completion, the app routes to `/review` by default. During automatic last-project restore, the app does not redirect away from `/`, so Projects remains available with the active project loaded. Chat remains available from the sidebar below Review.
+After setup completion or a manual project open from Projects, the app routes to `/review` by default. During automatic last-project restore, the app does not redirect away from `/`, so Projects remains available with the active project loaded. Chat remains available from the sidebar below Review.
 
 ## 3. State Model
 
@@ -163,6 +163,10 @@ This prevents review from launching a second execution engine that could diverge
 The setup screen includes a presentational Git clone card beside the local folder picker. The repository URL input and Clone button are disabled and must not call Git, Tauri commands, filesystem writes, or network operations until a dedicated clone implementation is added.
 
 The Projects screen also persists up to eight recently opened project folders in the `recentProjects` field of the `specforge.settings` `localStorage` record. Opening a recent project calls the existing `load_project_context` Tauri command for that saved path; React still does not perform filesystem access directly.
+
+When a picked or recent project has no `.specforge/settings.json`, the React handler immediately calls `save_project_settings` with the default settings returned by `load_project_context`, reloads the project context, and shows a HeroUI modal asking the user to review project defaults in Settings.
+
+The Projects screen does not render workspace configuration controls. Cursor API key management, model/reasoning defaults, agent descriptions, document paths, and supporting document configuration are owned by `/settings`.
 
 ## 10. Known Limits
 

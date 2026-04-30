@@ -139,7 +139,7 @@ export const MainWorkspace = memo(function MainWorkspace({
   );
   const hasPrdContent = prdContent.trim().length > 0;
   const hasSpecContent = specContent.trim().length > 0;
-  const showPrdEmptyState = !hasPrdContent && prdPaneMode === "preview";
+  const showPrdEmptyState = !hasPrdContent;
   const showSpecPreviewState = !hasSpecContent && specPaneMode === "preview";
   const approveSpecButton = (
     <button
@@ -206,6 +206,7 @@ export const MainWorkspace = memo(function MainWorkspace({
                 mode={prdPaneMode}
                 onLoad={onLoadPrd}
                 onModeChange={onPrdPaneModeChange}
+                showModeButtons={hasPrdContent}
               />
             </div>
             {showPrdEmptyState ? (

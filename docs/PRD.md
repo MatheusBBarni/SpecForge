@@ -20,10 +20,10 @@ The product combines five responsibilities in one desktop shell:
 
 ## 3. Primary User Flow
 
-1. **Open Projects:** The app starts on the Projects / Workspace Initialization screen until a workspace is chosen and `.specforge/settings.json` exists.
-2. **Choose the project folder:** SpecForge scans the workspace, restores saved project settings, and restores the most recent chat topic when available.
-3. **Connect Cursor:** The user saves a Cursor API key through the desktop runtime. The key is stored in the OS credential store and never in `.specforge/settings.json`.
-4. **Save configuration:** The user sets Cursor model/reasoning defaults, editable PRD/spec/execution agent descriptions, PRD/spec paths, and optional supporting documents, then lands in the review workspace.
+1. **Open Projects:** The app starts on the Projects / Workspace Initialization screen until a workspace is chosen. The Projects screen is limited to workspace selection, recent projects, and the disabled clone placeholder.
+2. **Choose the project folder:** SpecForge scans the workspace, creates `.specforge/settings.json` from defaults when it is missing, restores saved project settings, restores the most recent chat topic when available, and opens the review workspace.
+3. **Review Settings when needed:** If default project settings were created, SpecForge prompts the user to open Settings. Cursor API key, model/reasoning defaults, editable PRD/spec/execution agent descriptions, PRD/spec paths, and optional supporting documents are configured from `/settings`.
+4. **Connect Cursor:** The user saves a Cursor API key through the desktop runtime. The key is stored in the OS credential store and never in `.specforge/settings.json`.
 5. **Generate a PRD:** The user keeps the existing PRD prompt flow; SpecForge sends the PRD agent description plus the user prompt to Cursor SDK, then asks Rust to save the generated Markdown.
 6. **Generate a spec:** The user keeps the existing spec prompt flow; SpecForge sends the spec agent description, user prompt, and chosen PRD content to Cursor SDK, then asks Rust to save the generated Markdown.
 7. **Review output:** The `/review` screen remains available for PRD/spec/file editing and diff visibility.
@@ -33,14 +33,14 @@ The product combines five responsibilities in one desktop shell:
 
 ### 4.1. Project Setup And Persistence
 
-* **Project-scoped settings:** Saving setup must create or update `.specforge/settings.json` inside the selected workspace.
+* **Project-scoped settings:** Opening a workspace without `.specforge/settings.json` must create that file from default settings, and saving setup must update it inside the selected workspace.
 * **Secret separation:** Cursor API keys must be stored through the OS credential store and must not be written to `.specforge/settings.json`.
 * **Editable agent descriptions:** Settings must persist user-editable descriptions for PRD, spec, and execution agents.
 * **Cursor defaults:** Model and reasoning defaults must use Cursor SDK-compatible options.
 * **Project-scoped sessions:** Chat metadata must be stored in `.specforge/sessions/index.json`.
 * **Per-topic snapshots:** Each topic must be persisted in `.specforge/sessions/<sessionId>.json`.
 * **Last-active restore:** Reopening the app should restore the last active project and the last active topic when available.
-* **Recent projects:** The Projects screen must show recently opened project folders from browser `localStorage` and allow reopening them through the desktop runtime.
+* **Recent projects:** The Projects screen must show recently opened project folders from browser `localStorage` and allow reopening them through the desktop runtime. Reopening a project without `.specforge/settings.json` must create default settings and prompt the user to review Settings.
 * **Git clone placeholder:** Setup may show a repository URL clone option as a disabled/presentational control. It must not invoke Git or write files until the desktop clone flow is implemented.
 
 ### 4.2. PRD And Spec Generation
@@ -86,7 +86,8 @@ The product combines five responsibilities in one desktop shell:
 * **Projects remains available:** `/` must remain accessible after a project is configured and must not auto-redirect away during last-project restore.
 * **Top-bar model controls:** Review must expose model, reasoning, and approval mode controls in the top app bar beside the File/Edit/Selection/Terminal/Help menu, not in a separate left control column.
 * **Read-only execution mirror:** The execute panel in review must reflect the active chat topic runtime and diff, but must not start, approve, or stop a separate execution engine.
-* **Settings remain project-scoped:** Model/reasoning defaults, agent descriptions, document paths, and supporting docs remain editable from setup and settings.
+* **Projects is selection-only:** Workspace configuration controls must live in Settings, not on the Projects screen.
+* **Settings remain project-scoped:** Model/reasoning defaults, agent descriptions, document paths, and supporting docs remain editable from Settings.
 
 ## 5. Non-Goals
 

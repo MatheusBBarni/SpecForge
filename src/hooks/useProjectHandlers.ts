@@ -53,6 +53,22 @@ export function useProjectHandlers({
   const pendingProjectReloadRef = useRef(false);
   const projectSaveTimerRef = useRef<number | null>(null);
 
+  const ensureProjectSettings = useCallback(async (context: ProjectContext) => {
+    if (context.hasSavedSettings) {
+      return { context, createdDefaults: false };
+    }
+
+    await saveProjectSettings({
+      folderPath: context.rootPath,
+      settings: context.settings
+    });
+
+    return {
+      context: await loadProjectContext(context.rootPath),
+      createdDefaults: true
+    };
+  }, []);
+
   const applyProjectContext = useCallback(
     (context: ProjectContext, options?: { navigateToChat?: boolean }) => {
       const {
@@ -273,8 +289,20 @@ export function useProjectHandlers({
         return;
       }
 
-      applyProjectContext(nextProjectContext);
-      navigate("/");
+      const {
+        context,
+        createdDefaults
+      } = await ensureProjectSettings(nextProjectContext);
+
+      applyProjectContext(context);
+
+      if (createdDefaults) {
+        workspaceUiState.setProjectStatusMessage(
+          `Created default SpecForge settings for ${context.rootName}. Configure project defaults in Settings.`
+        );
+      }
+
+      navigate("/review");
     } catch (error) {
       workspaceUiState.setProjectErrorMessage(
         error instanceof Error ? error.message : "Unable to open the selected project folder."
@@ -282,7 +310,7 @@ export function useProjectHandlers({
     } finally {
       workspaceUiState.setIsProjectLoading(false);
     }
-  }, [applyProjectContext, desktopRuntime, navigate, workspaceUiState]);
+  }, [applyProjectContext, desktopRuntime, ensureProjectSettings, navigate, workspaceUiState]);
 
   const handleOpenRecentProject = useCallback(
     async (path: string) => {
@@ -301,8 +329,20 @@ export function useProjectHandlers({
 
       try {
         const nextProjectContext = await loadProjectContext(normalizeStoredProjectPath(path));
-        applyProjectContext(nextProjectContext);
-        navigate("/");
+        const {
+          context,
+          createdDefaults
+        } = await ensureProjectSettings(nextProjectContext);
+
+        applyProjectContext(context);
+
+        if (createdDefaults) {
+          workspaceUiState.setProjectStatusMessage(
+            `Created default SpecForge settings for ${context.rootName}. Configure project defaults in Settings.`
+          );
+        }
+
+        navigate("/review");
       } catch (error) {
         workspaceUiState.setProjectErrorMessage(
           error instanceof Error ? error.message : "Unable to open the selected recent project."
@@ -314,6 +354,7 @@ export function useProjectHandlers({
     [
       applyProjectContext,
       desktopRuntime,
+      ensureProjectSettings,
       navigate,
       workspaceUiState
     ]

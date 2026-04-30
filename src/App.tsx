@@ -1,3 +1,4 @@
+import { Button, Modal } from "@heroui/react";
 import {
   lazy,
   Suspense,
@@ -16,6 +17,10 @@ import {
 import { useShallow } from "zustand/react/shallow";
 
 import { AppRail } from "./components/AppRail";
+import {
+  PRIMARY_BUTTON_CLASS,
+  SECONDARY_BUTTON_CLASS
+} from "./components/SettingsPrimitives";
 import {
   useAgentEventSubscription,
   useDocumentTheme,
@@ -708,7 +713,6 @@ function App() {
   } = useAppScreenProps({
     agentState,
     derivedState,
-    desktopRuntime,
     folderInputRef,
     handleApproveSpec,
     handleOpenWorkspaceFileInEditor,
@@ -777,9 +781,56 @@ function App() {
   ) : (
     loadingState
   );
+  const createdDefaultsNotice = workspaceUiState.projectStatusMessage.startsWith(
+    "Created default SpecForge settings"
+  )
+    ? workspaceUiState.projectStatusMessage
+    : "";
+  const closeCreatedDefaultsNotice = () => workspaceUiState.setProjectStatusMessage("");
 
   return (
     <main className="flex h-screen min-h-0 w-full flex-col overflow-hidden">
+      <Modal.Root
+        isOpen={Boolean(createdDefaultsNotice)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            closeCreatedDefaultsNotice();
+          }
+        }}
+      >
+        <Modal.Backdrop>
+          <Modal.Container placement="center" size="md">
+            <Modal.Dialog className="border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] text-[var(--text-main)]">
+              <Modal.Header className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
+                <Modal.Heading className="m-0 text-lg font-semibold">
+                  Project settings created
+                </Modal.Heading>
+                <Modal.CloseTrigger aria-label="Close" />
+              </Modal.Header>
+              <Modal.Body className="px-5 py-5">
+                <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
+                  {createdDefaultsNotice}
+                </p>
+              </Modal.Body>
+              <Modal.Footer className="flex justify-end gap-3 border-t border-[var(--border-soft)] px-5 py-4">
+                <Button className={SECONDARY_BUTTON_CLASS} onPress={closeCreatedDefaultsNotice}>
+                  Later
+                </Button>
+                <Button
+                  className={PRIMARY_BUTTON_CLASS}
+                  onPress={() => {
+                    closeCreatedDefaultsNotice();
+                    navigate("/settings");
+                  }}
+                >
+                  Open Settings
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal.Root>
+
       <AppRail hasProjectConfigured={workspaceUiState.hasSavedProjectSettings} />
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:ml-60">

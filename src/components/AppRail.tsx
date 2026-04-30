@@ -5,23 +5,35 @@ import {
   Settings
 } from "iconoir-react";
 import { NavLink } from "react-router-dom";
+import { useShallow } from "zustand/react/shallow";
+
+import appIconUrl from "../../src-tauri/icons/icon.png";
+import { useWorkspaceUiStore } from "../store/useWorkspaceUiStore";
 
 interface AppRailProps {
   hasProjectConfigured: boolean;
 }
 
 export function AppRail({ hasProjectConfigured }: AppRailProps) {
+  const { workspaceRootName, workspaceRootPath } = useWorkspaceUiStore(
+    useShallow((state) => ({
+      workspaceRootName: state.projectRootName,
+      workspaceRootPath: state.projectRootPath
+    }))
+  );
+  const projectLabel = workspaceRootName || "No project selected";
+
   return (
     <aside className="sticky top-0 z-30 flex items-center gap-3 border-b border-[var(--border-strong)] bg-[var(--bg-nav)] px-4 py-3 lg:fixed lg:inset-y-0 lg:left-0 lg:w-60 lg:flex-col lg:items-stretch lg:border-r lg:border-b-0 lg:px-3 lg:py-6">
       <div className="flex min-w-0 items-center gap-3 lg:mb-5 lg:px-3">
-        <div className="grid size-8 shrink-0 place-items-center rounded bg-[var(--accent)] text-sm font-bold text-[var(--bg-app)]">
-          S
-        </div>
+        <img alt="" className="size-8 shrink-0 rounded-md object-contain" src={appIconUrl} />
         <div className="hidden min-w-0 lg:block">
           <div className="truncate text-lg font-bold text-[var(--accent)]">
             SpecForge
           </div>
-          <div className="text-xs text-[var(--text-muted)]">Agent Workspace</div>
+          <div className="truncate text-xs text-[var(--text-muted)]" title={workspaceRootPath || projectLabel}>
+            {projectLabel}
+          </div>
         </div>
       </div>
 

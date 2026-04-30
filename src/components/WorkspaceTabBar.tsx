@@ -51,7 +51,7 @@ export function WorkspaceTabBar({
             </button>
             <button
               aria-label={`Close ${tab.title}`}
-              className={`grid size-8 place-items-center rounded border border-[var(--border-soft)] text-sm font-bold uppercase transition hover:bg-[var(--bg-nav-active)] ${
+              className={`grid size-6 place-items-center rounded border border-[var(--border-soft)] text-xs font-bold uppercase transition hover:bg-[var(--bg-nav-active)] ${
                 isActive ? "text-[var(--text-main)]" : "text-[var(--text-subtle)]"
               }`}
               onClick={() => onEditorTabClose(tab.path)}

@@ -1,15 +1,8 @@
-import {
-  Button,
-  Card,
-  Input
-} from "@heroui/react";
-import { Folder, GitSolid, NavArrowRight, Refresh, Terminal } from "iconoir-react";
+import { Button, Card, Input } from "@heroui/react";
+import { Folder, GitSolid, NavArrowRight, Refresh } from "iconoir-react";
 import { memo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
-import { CliHealthCard } from "../components/CliHealthCard";
-import { ProjectAiSettingsCard } from "../components/ProjectAiSettingsCard";
-import { ProjectDocumentsCard } from "../components/ProjectDocumentsCard";
 import {
   FIELD_LABEL_CLASS,
   INPUT_CLASS,
@@ -18,104 +11,38 @@ import {
   SETTINGS_PANEL_CLASS,
   SETTINGS_SURFACE_CLASS
 } from "../components/SettingsPrimitives";
-import { buildConfigPathDisplay } from "../lib/appState";
-import { formatSupportingDocumentPaths } from "../lib/projectConfig";
-import { useProjectStore } from "../store/useProjectStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useWorkspaceUiStore } from "../store/useWorkspaceUiStore";
-import type { ModelId, ReasoningProfileId } from "../types";
 
 interface ConfigurationScreenProps {
-  desktopRuntime: boolean;
   onPickFolder: () => void;
   onOpenRecentProject: (path: string) => void;
   onRefresh: () => void;
-  onContinue: () => void;
-  onCursorApiKeyInputChange: (value: string) => void;
-  onSaveCursorApiKey: () => void;
-  onDeleteCursorApiKey: () => void;
-  onModelChange: (model: ModelId) => void;
-  onReasoningChange: (reasoning: ReasoningProfileId) => void;
-  onPrdPromptChange: (value: string) => void;
-  onSpecPromptChange: (value: string) => void;
-  onExecutionAgentDescriptionChange: (value: string) => void;
-  onPrdPathChange: (value: string) => void;
-  onSpecPathChange: (value: string) => void;
-  onSupportingDocumentsChange: (value: string) => void;
 }
 
 export const ConfigurationScreen = memo(function ConfigurationScreen({
-  desktopRuntime,
   onPickFolder,
   onOpenRecentProject,
-  onRefresh,
-  onContinue,
-  onCursorApiKeyInputChange,
-  onSaveCursorApiKey,
-  onDeleteCursorApiKey,
-  onModelChange,
-  onReasoningChange,
-  onPrdPromptChange,
-  onSpecPromptChange,
-  onExecutionAgentDescriptionChange,
-  onPrdPathChange,
-  onSpecPathChange,
-  onSupportingDocumentsChange
+  onRefresh
 }: ConfigurationScreenProps) {
-  const {
-    cursorApiKeyInput,
-    environment,
-    recentProjects
-  } = useSettingsStore(
+  const { recentProjects } = useSettingsStore(
     useShallow((state) => ({
-      cursorApiKeyInput: state.cursorApiKeyInput,
-      environment: state.environment,
       recentProjects: state.recentProjects
     }))
   );
   const {
-    executionAgentDescription,
-    prdPath,
-    prdPrompt,
-    selectedModel,
-    selectedReasoning,
-    specPath,
-    specPrompt,
-    supportingDocumentsValue
-  } = useProjectStore(
-    useShallow((state) => ({
-      executionAgentDescription: state.executionAgentDescription,
-      prdPath: state.configuredPrdPath,
-      prdPrompt: state.prdPromptTemplate,
-      selectedModel: state.selectedModel,
-      selectedReasoning: state.selectedReasoning,
-      specPath: state.configuredSpecPath,
-      specPrompt: state.specPromptTemplate,
-      supportingDocumentsValue: formatSupportingDocumentPaths(state.supportingDocumentPaths)
-    }))
-  );
-  const {
-    cursorModels,
     errorMessage,
-    hasSavedSettings,
     isProjectLoading,
-    isSaving,
-    settingsPath,
     workspaceRootName,
     workspaceRootPath
   } = useWorkspaceUiStore(
     useShallow((state) => ({
-      cursorModels: state.cursorModels,
       errorMessage: state.projectErrorMessage,
-      hasSavedSettings: state.hasSavedProjectSettings,
       isProjectLoading: state.isProjectLoading || state.isImporting,
-      isSaving: state.isProjectSaving,
-      settingsPath: buildConfigPathDisplay(state.projectConfigPath, state.projectRootName),
       workspaceRootName: state.projectRootName,
       workspaceRootPath: state.projectRootPath
     }))
   );
-  const canContinue = desktopRuntime && workspaceRootPath.length > 0 && !isSaving;
   const folderActionLabel = isProjectLoading
     ? workspaceRootPath.length > 0
       ? "Opening..."
@@ -166,7 +93,7 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
                 </h2>
                 <p className="mx-auto mb-0 mt-2 max-w-md text-sm leading-6 text-[var(--text-subtle)]">
                   Browse your local file system to load a project directory into SpecForge.
-                  Settings are saved under `.specforge/settings.json`.
+                  Missing project settings are created automatically.
                 </p>
               </div>
 
@@ -177,10 +104,11 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
                 </Button>
               </div>
 
-              <div className={`${SETTINGS_SURFACE_CLASS} grid w-full max-w-2xl gap-2 px-4 py-4 text-left font-[var(--font-mono)] text-sm text-[var(--text-main)]`}>
+              <div
+                className={`${SETTINGS_SURFACE_CLASS} grid w-full max-w-2xl gap-2 px-4 py-4 text-left font-[var(--font-mono)] text-sm text-[var(--text-main)]`}
+              >
                 <div>Workspace: {workspaceRootName || "No folder selected yet"}</div>
                 <div>Path: {workspaceRootPath || "Pick a folder to begin"}</div>
-                <div>Settings file: {settingsPath || ".specforge/settings.json"}</div>
               </div>
             </Card.Content>
           </Card>
@@ -198,7 +126,7 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
                 Connect securely to your remote Git repository via SSH or enterprise credentials.
                 Cloning is not wired yet.
               </p>
-              <label className="relative z-10 mt-auto grid gap-2">
+              <div className="relative z-10 mt-auto grid gap-2">
                 <span className={FIELD_LABEL_CLASS}>Repository URL</span>
                 <div className="flex gap-2">
                   <Input
@@ -211,7 +139,7 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
                     Clone
                   </Button>
                 </div>
-              </label>
+              </div>
             </Card.Content>
           </Card>
         </div>
@@ -278,125 +206,6 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
             </Card>
           )}
         </section>
-
-        <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-2">
-          <h2 className="m-0 text-xl font-semibold text-[var(--text-main)]">
-            Workspace Configuration
-          </h2>
-          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">
-            Project-scoped defaults
-          </span>
-        </div>
-
-        <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
-          <Card.Content className="grid gap-4 px-5 py-5">
-            <StepHeading
-              number="2"
-              title="Connect Cursor"
-              description="SpecForge keeps the Cursor API key in the OS credential store, not in project settings."
-            />
-
-            <div className="grid gap-4 xl:grid-cols-2">
-              <CliHealthCard entry={environment.cursor} />
-              <CliHealthCard entry={environment.git} />
-            </div>
-
-            <div className="grid gap-4">
-              <label className="grid gap-2">
-                <span className={FIELD_LABEL_CLASS}>Cursor API key</span>
-                <Input
-                  className={INPUT_CLASS}
-                  onChange={(event) => onCursorApiKeyInputChange(event.target.value)}
-                  placeholder="key_..."
-                  type="password"
-                  value={cursorApiKeyInput}
-                />
-              </label>
-
-              <div className="flex flex-wrap gap-3">
-                <Button className={PRIMARY_BUTTON_CLASS} onPress={onSaveCursorApiKey}>
-                  Save Cursor Key
-                </Button>
-                <Button className={SECONDARY_BUTTON_CLASS} onPress={onDeleteCursorApiKey}>
-                  Clear Cursor Key
-                </Button>
-              </div>
-            </div>
-          </Card.Content>
-        </Card>
-
-        <div className="grid gap-4 xl:grid-cols-2">
-          <div className="grid gap-4">
-            <StepHeading
-              number="3"
-              title="Set AI Defaults"
-              description="These prompt templates, model preferences, and reasoning defaults are saved per project."
-            />
-            <ProjectAiSettingsCard
-              configPath={settingsPath}
-              cursorModels={cursorModels}
-              onModelChange={onModelChange}
-              onExecutionAgentDescriptionChange={onExecutionAgentDescriptionChange}
-              onPrdPromptChange={onPrdPromptChange}
-              onReasoningChange={onReasoningChange}
-              onSpecPromptChange={onSpecPromptChange}
-              prdPrompt={prdPrompt}
-              selectedModel={selectedModel}
-              selectedReasoning={selectedReasoning}
-              specPrompt={specPrompt}
-              executionAgentDescription={executionAgentDescription}
-              workspaceRootName={workspaceRootName}
-            />
-          </div>
-
-          <div className="grid gap-4">
-            <StepHeading
-              number="4"
-              title="Point To The Project Documents"
-              description="Store the PRD, SPEC, and any supporting references relative to the selected workspace."
-            />
-            <ProjectDocumentsCard
-              configPath={settingsPath}
-              onPrdPathChange={onPrdPathChange}
-              onSpecPathChange={onSpecPathChange}
-              onSupportingDocumentsChange={onSupportingDocumentsChange}
-              prdPath={prdPath}
-              specPath={specPath}
-              supportingDocumentsValue={supportingDocumentsValue}
-              workspaceRootName={workspaceRootName}
-            />
-          </div>
-        </div>
-
-        <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
-          <Card.Content className="flex flex-wrap items-center justify-between gap-4 px-5 py-5">
-            <div className="max-w-2xl">
-              <div className="flex items-center gap-3 text-[var(--text-main)]">
-                <Terminal className="size-5 text-[var(--accent-2)]" />
-                <span className="text-sm font-semibold uppercase tracking-[0.08em]">
-                  Ready To Continue
-                </span>
-              </div>
-              <p className="mb-0 mt-3 text-sm leading-7 text-[var(--text-subtle)]">
-                {desktopRuntime
-                  ? "Save the current project settings into `.specforge/settings.json` and continue into the review workspace."
-                  : "The desktop runtime is required to create `.specforge/settings.json` inside the selected project folder."}
-              </p>
-            </div>
-
-            <Button
-              className={`${PRIMARY_BUTTON_CLASS} ${!canContinue ? "cursor-not-allowed opacity-50 hover:translate-y-0" : ""}`}
-              isDisabled={!canContinue}
-              onPress={onContinue}
-            >
-              {isSaving
-                ? "Saving..."
-                : hasSavedSettings
-                  ? "Save Changes and Continue"
-                  : "Create .specforge and Continue"}
-            </Button>
-          </Card.Content>
-        </Card>
       </div>
     </section>
   );
@@ -418,26 +227,4 @@ function formatRecentProjectDate(value: string) {
     day: "numeric",
     year: "numeric"
   })}`;
-}
-
-function StepHeading({
-  number,
-  title,
-  description
-}: {
-  number: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex items-start gap-4">
-      <span className="grid size-10 shrink-0 place-items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-surface)] font-semibold text-[var(--text-main)]">
-        {number}
-      </span>
-      <div>
-        <h2 className="m-0 text-lg font-semibold text-[var(--text-main)]">{title}</h2>
-        <p className="mb-0 mt-2 text-sm leading-7 text-[var(--text-subtle)]">{description}</p>
-      </div>
-    </div>
-  );
 }

@@ -15,7 +15,6 @@ import type { ProjectSettingsHandlers } from "./useProjectSettingsHandlers";
 interface UseAppScreenPropsOptions {
   agentState: AgentStoreSlice;
   derivedState: AppDerivedState;
-  desktopRuntime: boolean;
   folderInputRef: RefObject<HTMLInputElement | null>;
   handleApproveSpec: () => void;
   handleOpenWorkspaceFileInEditor: (path: string, editorId: string) => Promise<void>;
@@ -34,7 +33,6 @@ interface UseAppScreenPropsOptions {
 export function useAppScreenProps({
   agentState,
   derivedState,
-  desktopRuntime,
   folderInputRef,
   handleApproveSpec,
   handleOpenWorkspaceFileInEditor,
@@ -205,32 +203,11 @@ export function useAppScreenProps({
 
   const configurationScreenProps = useMemo<ComponentProps<typeof ConfigurationScreen>>(
     () => ({
-      desktopRuntime,
-      onCursorApiKeyInputChange: settingsState.setCursorApiKeyInput,
-      onDeleteCursorApiKey: uiHandlers.handleDeleteCursorApiKeyClick,
-      onContinue: projectSettingsHandlers.handleSaveConfigurationAndContinue,
-      onExecutionAgentDescriptionChange:
-        projectSettingsHandlers.handleExecutionAgentDescriptionChange,
-      onModelChange: projectSettingsHandlers.handleProjectModelChange,
       onOpenRecentProject: handleOpenRecentProject,
       onPickFolder: handlePickProjectFolder,
-      onPrdPathChange: projectSettingsHandlers.handleConfiguredPrdPathChange,
-      onPrdPromptChange: projectSettingsHandlers.handlePrdPromptTemplateChange,
-      onReasoningChange: projectSettingsHandlers.handleProjectReasoningChange,
-      onRefresh: uiHandlers.handleRefresh,
-      onSpecPathChange: projectSettingsHandlers.handleConfiguredSpecPathChange,
-      onSpecPromptChange: projectSettingsHandlers.handleSpecPromptTemplateChange,
-      onSaveCursorApiKey: uiHandlers.handleSaveCursorApiKeyClick,
-      onSupportingDocumentsChange: projectSettingsHandlers.handleSupportingDocumentsChange
+      onRefresh: uiHandlers.handleRefresh
     }),
-    [
-      desktopRuntime,
-      handleOpenRecentProject,
-      handlePickProjectFolder,
-      projectSettingsHandlers,
-      settingsState.setCursorApiKeyInput,
-      uiHandlers
-    ]
+    [handleOpenRecentProject, handlePickProjectFolder, uiHandlers.handleRefresh]
   );
 
   return {
