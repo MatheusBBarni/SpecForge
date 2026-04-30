@@ -182,16 +182,8 @@ export function getSpecGenerationHelperText({
 }
 
 export function buildWorkspaceNotice(context: ProjectContext) {
-  const loadedDocuments = [
-    context.prdDocument?.fileName ? `PRD: ${context.prdDocument.fileName}` : null,
-    context.specDocument?.fileName ? `SPEC: ${context.specDocument.fileName}` : null
-  ].filter((value): value is string => value !== null);
-
-  if (loadedDocuments.length === 0) {
-    return `${context.rootName} is configured. No document exists yet at ${context.settings.prdPath} or ${context.settings.specPath}.`;
-  }
-
-  return `${context.rootName} is configured. Loaded ${loadedDocuments.join(" and ")} from the saved project paths.`;
+  void context;
+  return "";
 }
 
 export function waitForNextPaint(): Promise<void> {

@@ -53,7 +53,7 @@ pub(crate) fn cursor_key_status() -> CliStatus {
     }
 }
 
-fn read_cursor_api_key() -> Result<Option<String>, String> {
+pub(crate) fn read_cursor_api_key() -> Result<Option<String>, String> {
     match cursor_key_entry()?.get_password() {
         Ok(value) if value.trim().is_empty() => Ok(None),
         Ok(value) => Ok(Some(value)),

@@ -81,6 +81,38 @@ pub(crate) struct WorkspaceDocument {
     pub(crate) file_name: String,
 }
 
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ExternalEditor {
+    pub(crate) id: String,
+    pub(crate) label: String,
+    pub(crate) executable_path: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CursorModelParameterValue {
+    pub(crate) value: String,
+    pub(crate) label: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CursorModelParameter {
+    pub(crate) id: String,
+    pub(crate) label: String,
+    pub(crate) values: Vec<CursorModelParameterValue>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CursorModel {
+    pub(crate) id: String,
+    pub(crate) label: String,
+    pub(crate) description: Option<String>,
+    pub(crate) parameters: Option<Vec<CursorModelParameter>>,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ProjectSettings {

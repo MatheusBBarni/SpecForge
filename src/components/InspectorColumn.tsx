@@ -46,45 +46,31 @@ export const InspectorColumn = memo(function InspectorColumn({
   hasWorkspaceEntries,
   emptyStateMessage,
   workspaceRootName,
-  workspaceRootPath,
   workspaceNotice,
   folderInputRef,
   onOpenFolder,
   onFolderChange,
   onFileOpen
 }: InspectorColumnProps) {
-  const workspaceTree = useMemo(() => buildWorkspaceTree(workspaceEntries), [workspaceEntries]);
-  const directoryPaths = useMemo(
-    () => collectDirectoryPaths(workspaceTree),
-    [workspaceTree]
+  const visibleWorkspaceEntries = useMemo(
+    () => workspaceEntries.filter((entry) => !isGitDirectoryEntry(entry.path)),
+    [workspaceEntries]
   );
-  const [collapsedFolders, setCollapsedFolders] = useState<string[]>(() => directoryPaths);
+  const workspaceTree = useMemo(() => buildWorkspaceTree(visibleWorkspaceEntries), [visibleWorkspaceEntries]);
+  const directoryPaths = useMemo(() => collectDirectoryPaths(workspaceTree), [workspaceTree]);
+  const directorySignature = useMemo(() => directoryPaths.join("\n"), [directoryPaths]);
+  const previousDirectorySignatureRef = useRef("");
+  const [collapsedFolders, setCollapsedFolders] = useState<string[]>([]);
   const collapsedFoldersLookup = useMemo(() => new Set(collapsedFolders), [collapsedFolders]);
-  const previousWorkspaceRootPathRef = useRef(workspaceRootPath);
 
   useEffect(() => {
-    setCollapsedFolders((currentValue) => {
-      if (previousWorkspaceRootPathRef.current !== workspaceRootPath) {
-        previousWorkspaceRootPathRef.current = workspaceRootPath;
-        return directoryPaths;
-      }
+    if (previousDirectorySignatureRef.current === directorySignature) {
+      return;
+    }
 
-      const currentLookup = new Set(currentValue);
-      const nextValue = [...currentValue];
-      let hasNewDirectory = false;
-
-      for (const path of directoryPaths) {
-        if (currentLookup.has(path)) {
-          continue;
-        }
-
-        nextValue.push(path);
-        hasNewDirectory = true;
-      }
-
-      return hasNewDirectory ? nextValue : currentValue;
-    });
-  }, [directoryPaths, workspaceRootPath]);
+    previousDirectorySignatureRef.current = directorySignature;
+    setCollapsedFolders(directoryPaths);
+  }, [directoryPaths, directorySignature]);
 
   const toggleFolder = useCallback((path: string) => {
     setCollapsedFolders((currentValue) =>
@@ -95,30 +81,28 @@ export const InspectorColumn = memo(function InspectorColumn({
   }, []);
 
   return (
-    <aside className="flex h-full min-h-0 flex-col gap-4 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] p-5 shadow-none">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <aside className="flex h-full min-h-0 w-full flex-col bg-[var(--bg-panel)] shadow-none">
+      <div className="flex min-h-12 flex-wrap items-center justify-between gap-4 border-b border-[var(--border-strong)] px-4 py-2">
         <div className="min-w-0">
-          <p className="mb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-2)]">
+          <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
             Workspace
           </p>
-          <h2 className="m-0 truncate text-lg font-semibold text-[var(--text-main)]">
-            {workspaceRootName}
-          </h2>
         </div>
         <button className={BUTTON_CLASS} onClick={onOpenFolder} type="button">
           <Folder className="size-5" />
-          Open Folder
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4">
-        <div className="flex items-center gap-3 text-[var(--text-main)]">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex shrink-0 items-center gap-3 px-4 pt-4 pb-3 text-[var(--text-main)]">
           <Folder className="size-5 text-[var(--accent-2)]" />
-          <span className="text-sm font-semibold uppercase tracking-[0.08em]">
-            Project Files
+          <span className="truncate text-sm font-medium">
+            {workspaceRootName}
           </span>
         </div>
-        <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">{workspaceNotice}</p>
+        {workspaceNotice ? (
+          <p className="mx-4 mt-0 mb-3 text-sm leading-7 text-[var(--text-subtle)]">{workspaceNotice}</p>
+        ) : null}
         <input
           {...directoryPickerProps}
           className="hidden"
@@ -126,11 +110,11 @@ export const InspectorColumn = memo(function InspectorColumn({
           ref={folderInputRef}
           type="file"
         />
-        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto pr-1">
+        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-4 pb-4">
           {workspaceTree.map((node) =>
             renderTreeNode(node, collapsedFoldersLookup, toggleFolder, onFileOpen)
           )}
-          {workspaceEntries.length === 0 ? (
+          {visibleWorkspaceEntries.length === 0 ? (
             <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
               {hasWorkspaceEntries ? emptyStateMessage : "Open a folder to scan its documents and build a workspace tree."}
             </p>
@@ -158,7 +142,11 @@ function renderTreeNode(
         <button
           aria-expanded={!isCollapsed}
           className="flex w-full items-center gap-3 rounded py-2 pr-3 text-left text-[var(--text-muted)] transition hover:bg-[var(--bg-nav-active)] hover:text-[var(--text-main)]"
-          onClick={() => onToggleFolder(entry.path)}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onToggleFolder(entry.path);
+          }}
           style={{ paddingLeft: `${entry.depth * 18 + 12}px` }}
           type="button"
         >
@@ -185,8 +173,26 @@ function renderTreeNode(
   );
 }
 
+function isGitDirectoryEntry(path: string) {
+  return path === ".git" || path.startsWith(".git/");
+}
+
+function collectDirectoryPaths(nodes: WorkspaceTreeNode[]) {
+  const paths: string[] = [];
+
+  for (const node of nodes) {
+    if (node.entry.kind === "directory") {
+      paths.push(node.entry.path);
+    }
+
+    paths.push(...collectDirectoryPaths(node.children));
+  }
+
+  return paths;
+}
+
 const BUTTON_CLASS =
-  "inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3 font-medium text-[var(--text-main)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";
+  "inline-flex size-8 items-center justify-center rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-0 text-[var(--text-main)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";
 
 function buildWorkspaceTree(entries: WorkspaceEntry[]) {
   const nodes = new Map<string, WorkspaceTreeNode>();
@@ -222,20 +228,6 @@ function buildWorkspaceTree(entries: WorkspaceEntry[]) {
 
   sortWorkspaceTree(rootNodes);
   return rootNodes;
-}
-
-function collectDirectoryPaths(nodes: WorkspaceTreeNode[]) {
-  const paths: string[] = [];
-
-  for (const node of nodes) {
-    if (node.entry.kind === "directory") {
-      paths.push(node.entry.path);
-    }
-
-    paths.push(...collectDirectoryPaths(node.children));
-  }
-
-  return paths;
 }
 
 function upsertWorkspaceNode(

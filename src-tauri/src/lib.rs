@@ -4,6 +4,7 @@ mod constants;
 mod cursor_agent;
 mod documents;
 mod environment;
+mod external_editors;
 mod generation;
 mod git;
 mod models;
@@ -18,9 +19,10 @@ use chat::{
     approve_chat_session, create_chat_session, delete_chat_session, load_chat_session,
     rename_chat_session, save_chat_session, send_chat_message, stop_chat_session,
 };
-use cursor_agent::run_cursor_agent_prompt;
+use cursor_agent::{list_cursor_models, run_cursor_agent_prompt};
 use documents::{parse_document, pick_document, save_workspace_document};
 use environment::run_environment_scan;
+use external_editors::{list_external_editors, open_workspace_file_in_editor};
 use git::git_get_diff;
 use project::{load_project_context, pick_project_folder, save_project_settings};
 use secrets::{delete_cursor_api_key, get_cursor_api_key, save_cursor_api_key};
@@ -33,6 +35,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             run_environment_scan,
             run_cursor_agent_prompt,
+            list_cursor_models,
             get_cursor_api_key,
             save_cursor_api_key,
             delete_cursor_api_key,
@@ -44,6 +47,8 @@ pub fn run() {
             save_project_settings,
             open_workspace_folder,
             read_workspace_file,
+            list_external_editors,
+            open_workspace_file_in_editor,
             get_workspace_snapshot,
             git_get_diff,
             spawn_cli_agent,

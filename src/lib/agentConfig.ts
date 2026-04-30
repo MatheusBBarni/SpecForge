@@ -1,4 +1,4 @@
-import type { ModelId, ModelProvider, ReasoningProfileId } from "../types";
+import type { CursorModel, ModelId, ModelProvider, ReasoningProfileId } from "../types";
 
 export interface SelectOption<Value extends string> {
   value: Value;
@@ -14,13 +14,13 @@ interface AgentModelOption {
   reasoningProfiles: ReasoningProfileId[];
 }
 
-const REASONING_COPY: Record<
+const REASONING_COPY: Partial<Record<
   ReasoningProfileId,
   {
     label: string;
     description: string;
   }
-> = {
+>> = {
   low: {
     label: "Low",
     description: "Fastest responses with minimal extra reasoning."
@@ -36,6 +36,14 @@ const REASONING_COPY: Record<
   max: {
     label: "Max",
     description: "Maximum reasoning depth when accuracy matters more than speed."
+  },
+  thinking: {
+    label: "Thinking",
+    description: "Use the model's explicit reasoning/thinking mode when available."
+  },
+  normal: {
+    label: "Normal",
+    description: "Use the model's standard mode."
   }
 };
 
@@ -46,6 +54,13 @@ export const DEFAULT_REASONING_PROFILE: ReasoningProfileId = "medium";
 
 const AGENT_MODELS: AgentModelOption[] = [
   {
+    id: "auto",
+    label: "Auto",
+    provider: "cursor",
+    description: "Let Cursor choose the best available model for the request.",
+    reasoningProfiles: FULL_REASONING_RANGE
+  },
+  {
     id: "composer-2",
     label: "Composer 2",
     provider: "cursor",
@@ -53,18 +68,93 @@ const AGENT_MODELS: AgentModelOption[] = [
     reasoningProfiles: FULL_REASONING_RANGE
   },
   {
-    id: "auto",
-    label: "Auto",
+    id: "claude-4-sonnet",
+    label: "Claude 4 Sonnet",
     provider: "cursor",
-    description: "Let Cursor choose the best available model for the request.",
+    description: "Reliable daily-driver coding model with agent support.",
+    reasoningProfiles: FULL_REASONING_RANGE
+  },
+  {
+    id: "claude-4-sonnet-thinking",
+    label: "Claude 4 Sonnet Thinking",
+    provider: "cursor",
+    description: "Claude Sonnet preset with thinking enabled.",
+    reasoningProfiles: FULL_REASONING_RANGE
+  },
+  {
+    id: "claude-4-opus",
+    label: "Claude 4 Opus",
+    provider: "cursor",
+    description: "Stronger planning and complex problem-solving model.",
+    reasoningProfiles: FULL_REASONING_RANGE
+  },
+  {
+    id: "claude-4-opus-thinking",
+    label: "Claude 4 Opus Thinking",
+    provider: "cursor",
+    description: "Claude Opus preset with thinking enabled.",
+    reasoningProfiles: FULL_REASONING_RANGE
+  },
+  {
+    id: "gemini-2.5-pro",
+    label: "Gemini 2.5 Pro",
+    provider: "cursor",
+    description: "Large-context model for codebase navigation and planning.",
+    reasoningProfiles: FULL_REASONING_RANGE
+  },
+  {
+    id: "gemini-2.5-flash",
+    label: "Gemini 2.5 Flash",
+    provider: "cursor",
+    description: "Fast large-context model.",
+    reasoningProfiles: FULL_REASONING_RANGE
+  },
+  {
+    id: "gpt-5.2",
+    label: "GPT-5.2",
+    provider: "cursor",
+    description: "Cursor-recommended OpenAI model when available to the account.",
+    reasoningProfiles: FULL_REASONING_RANGE
+  },
+  {
+    id: "gpt-4.1",
+    label: "GPT-4.1",
+    provider: "cursor",
+    description: "Controlled OpenAI coding model with agent support.",
+    reasoningProfiles: FULL_REASONING_RANGE
+  },
+  {
+    id: "gpt-4o",
+    label: "GPT-4o",
+    provider: "cursor",
+    description: "OpenAI general-purpose coding model.",
+    reasoningProfiles: FULL_REASONING_RANGE
+  },
+  {
+    id: "o3",
+    label: "o3",
+    provider: "cursor",
+    description: "Deep reasoning model for complex bugs and ambiguous problems.",
+    reasoningProfiles: FULL_REASONING_RANGE
+  },
+  {
+    id: "grok-4",
+    label: "Grok 4",
+    provider: "cursor",
+    description: "xAI large-context model available in Cursor where enabled.",
     reasoningProfiles: FULL_REASONING_RANGE
   }
 ];
 
-export function getModelOptions(provider?: ModelProvider): Array<SelectOption<ModelId>> {
-  const filteredModels = provider
-    ? AGENT_MODELS.filter((model) => model.provider === provider)
-    : AGENT_MODELS;
+export function getModelOptions(
+  provider?: ModelProvider,
+  cursorModels: CursorModel[] = []
+): Array<SelectOption<ModelId>> {
+  const filteredModels = cursorModels.length > 0
+    ? cursorModels.map(cursorModelToAgentModelOption)
+    : provider
+      ? AGENT_MODELS.filter((model) => model.provider === provider)
+      : AGENT_MODELS;
 
   return filteredModels.map((model) => ({
     value: model.id,
@@ -73,7 +163,20 @@ export function getModelOptions(provider?: ModelProvider): Array<SelectOption<Mo
   }));
 }
 
-export function getReasoningOptions(modelId: ModelId): Array<SelectOption<ReasoningProfileId>> {
+export function getReasoningOptions(
+  modelId: ModelId,
+  cursorModels: CursorModel[] = []
+): Array<SelectOption<ReasoningProfileId>> {
+  const cursorParameter = getCursorReasoningParameter(modelId, cursorModels);
+
+  if (cursorParameter) {
+    return cursorParameter.values.map((entry) => ({
+      value: entry.value,
+      label: entry.label || formatReasoningValue(entry.value),
+      hint: `${cursorParameter.label || "Reasoning"} | ${getReasoningDescription(entry.value)}`
+    }));
+  }
+
   const model = getModelOption(modelId);
 
   return model.reasoningProfiles.map((profile) => ({
@@ -84,7 +187,10 @@ export function getReasoningOptions(modelId: ModelId): Array<SelectOption<Reason
 }
 
 export function getModelOption(modelId: ModelId) {
-  return AGENT_MODELS.find((model) => model.id === modelId) ?? AGENT_MODELS[0];
+  return AGENT_MODELS.find((model) => model.id === modelId) ?? cursorModelToAgentModelOption({
+    id: modelId,
+    label: formatModelLabel(modelId)
+  });
 }
 
 export function getModelLabel(modelId: ModelId) {
@@ -96,15 +202,15 @@ export function getModelProvider(modelId: ModelId) {
 }
 
 export function getReasoningLabel(_modelId: ModelId, profile: ReasoningProfileId) {
-  return REASONING_COPY[profile]?.label ?? REASONING_COPY[DEFAULT_REASONING_PROFILE].label;
+  return REASONING_COPY[profile]?.label ?? formatReasoningValue(profile);
 }
 
 export function getReasoningHint(modelId: ModelId, profile: ReasoningProfileId) {
   const model = getModelOption(modelId);
   const providerLabel = formatProvider(model.provider);
-  const copy = REASONING_COPY[profile] ?? REASONING_COPY[DEFAULT_REASONING_PROFILE];
+  const copy = REASONING_COPY[profile];
 
-  return `${providerLabel} | ${copy.description}`;
+  return `${providerLabel} | ${copy?.description ?? getReasoningDescription(profile)}`;
 }
 
 export function normalizeReasoningProfile(
@@ -113,6 +219,48 @@ export function normalizeReasoningProfile(
 ): ReasoningProfileId {
   const model = getModelOption(modelId);
   return model.reasoningProfiles.includes(profile) ? profile : DEFAULT_REASONING_PROFILE;
+}
+
+function cursorModelToAgentModelOption(model: CursorModel): AgentModelOption {
+  const reasoningParameter = getCursorReasoningParameter(model.id, [model]);
+
+  return {
+    id: model.id,
+    label: model.label || formatModelLabel(model.id),
+    provider: "cursor",
+    description: model.description || "Cursor SDK model available to this account.",
+    reasoningProfiles: reasoningParameter?.values.map((entry) => entry.value) ?? FULL_REASONING_RANGE
+  };
+}
+
+function getCursorReasoningParameter(modelId: ModelId, cursorModels: CursorModel[]) {
+  const model = cursorModels.find((entry) => entry.id === modelId);
+  return model?.parameters?.find((parameter) =>
+    ["thinking", "reasoning", "reasoning_effort", "max_mode", "mode"].includes(parameter.id)
+  );
+}
+
+function formatModelLabel(modelId: string) {
+  return modelId
+    .split("-")
+    .filter(Boolean)
+    .map((part) => {
+      const upper = part.toUpperCase();
+      return upper === "GPT" || upper === "O3" ? upper : `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`;
+    })
+    .join(" ");
+}
+
+function formatReasoningValue(value: string) {
+  return value
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
+    .join(" ");
+}
+
+function getReasoningDescription(value: string) {
+  return REASONING_COPY[value]?.description ?? "Cursor model parameter value for this account.";
 }
 
 function formatProvider(_provider: ModelProvider) {

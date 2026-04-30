@@ -105,11 +105,13 @@ export function useSettingsStoreSlice() {
       cursorApiKeyInput: state.cursorApiKeyInput,
       environment: state.environment,
       lastProjectPath: state.lastProjectPath,
+      recentProjects: state.recentProjects,
       theme: state.theme,
       workspaceEntries: state.workspaceEntries,
       setCursorApiKeyInput: state.setCursorApiKeyInput,
       setEnvironment: state.setEnvironment,
       setLastProjectPath: state.setLastProjectPath,
+      rememberRecentProject: state.rememberRecentProject,
       setTheme: state.setTheme,
       setWorkspaceEntries: state.setWorkspaceEntries
     }))

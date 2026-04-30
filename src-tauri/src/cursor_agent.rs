@@ -1,4 +1,4 @@
-use crate::paths::canonicalize_existing_path;
+use crate::{models::CursorModel, paths::canonicalize_existing_path, secrets::read_cursor_api_key};
 use serde::{Deserialize, Serialize};
 use std::{
     io::Write,
@@ -28,6 +28,12 @@ pub(crate) struct CursorAgentPromptResponse {
 enum CursorAgentRunnerLine {
     Event { text: String },
     Result { content: String },
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CursorModelsRunnerRequest {
+    api_key: Option<String>,
 }
 
 #[tauri::command]
@@ -92,6 +98,60 @@ pub(crate) fn run_cursor_agent_prompt(
     }
 
     parse_runner_output(&stdout)
+}
+
+#[tauri::command]
+pub(crate) fn list_cursor_models() -> Result<Vec<CursorModel>, String> {
+    let api_key = read_cursor_api_key()?;
+    let app_root = resolve_app_root()?;
+    let runner_path = app_root.join("src").join("cursorModelsRunner.ts");
+
+    if !runner_path.exists() {
+        return Err(format!(
+            "Cursor SDK model runner was not found at {}.",
+            runner_path.display()
+        ));
+    }
+
+    let bun_path =
+        which::which("bun").map_err(|error| format!("Unable to find Bun on PATH: {error}"))?;
+    let request_json = serde_json::to_vec(&CursorModelsRunnerRequest { api_key })
+        .map_err(|error| format!("Unable to prepare Cursor model request: {error}"))?;
+    let mut child = Command::new(bun_path)
+        .arg(&runner_path)
+        .current_dir(&app_root)
+        .env("NO_COLOR", "1")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("Unable to start the Bun Cursor model runner: {error}"))?;
+
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| String::from("Unable to open the Cursor model runner input."))?;
+    stdin
+        .write_all(&request_json)
+        .map_err(|error| format!("Unable to send the Cursor model request: {error}"))?;
+    drop(stdin);
+
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("Unable to read Cursor model runner output: {error}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    if !output.status.success() {
+        return Err(format_process_failure(&stderr, &stdout));
+    }
+
+    serde_json::from_str(stdout.trim()).map_err(|error| {
+        format!(
+            "Cursor SDK model runner returned malformed output: {error}. Output: {}",
+            stdout.trim()
+        )
+    })
 }
 
 fn resolve_app_root() -> Result<PathBuf, String> {

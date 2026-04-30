@@ -6,7 +6,7 @@ import { Brain, Spark } from "iconoir-react";
 import { memo } from "react";
 
 import { getModelOptions, getReasoningOptions } from "../lib/agentConfig";
-import type { ModelId, ReasoningProfileId } from "../types";
+import type { CursorModel, ModelId, ReasoningProfileId } from "../types";
 import {
   FIELD_LABEL_CLASS,
   ScopedPathReference,
@@ -20,6 +20,7 @@ import {
 interface ProjectAiSettingsCardProps {
   configPath: string;
   workspaceRootName: string;
+  cursorModels?: CursorModel[];
   selectedModel: ModelId;
   selectedReasoning: ReasoningProfileId;
   prdPrompt: string;
@@ -35,6 +36,7 @@ interface ProjectAiSettingsCardProps {
 export const ProjectAiSettingsCard = memo(function ProjectAiSettingsCard({
   configPath,
   workspaceRootName,
+  cursorModels = [],
   selectedModel,
   selectedReasoning,
   prdPrompt,
@@ -46,13 +48,19 @@ export const ProjectAiSettingsCard = memo(function ProjectAiSettingsCard({
   onSpecPromptChange,
   onExecutionAgentDescriptionChange
 }: ProjectAiSettingsCardProps) {
-  const modelOptions = getModelOptions();
-  const reasoningOptions = getReasoningOptions(selectedModel);
+  const modelOptions = getModelOptions(undefined, cursorModels);
+  const reasoningOptions = getReasoningOptions(selectedModel, cursorModels);
 
   return (
     <Card className={`${SETTINGS_PANEL_CLASS} rounded-[1.5rem]`}>
-      <Card.Content className="grid gap-5 px-5 py-5">
+      <Card.Content className="grid content-start gap-4 px-5 py-5">
         <SettingsSectionHeader icon={<Brain className="size-5" />} title="AI Defaults" />
+        <ScopedPathReference
+          path={configPath}
+          prefix={<span>Saved in</span>}
+          workspaceRootName={workspaceRootName}
+        />
+
         <div className="grid gap-4 md:grid-cols-2">
           <SettingsSelectField
             label="Default model"
@@ -77,11 +85,6 @@ export const ProjectAiSettingsCard = memo(function ProjectAiSettingsCard({
               onChange={(event) => onPrdPromptChange(event.target.value)}
               value={prdPrompt}
             />
-            <ScopedPathReference
-              path={configPath}
-              prefix={<span>Saved in</span>}
-              workspaceRootName={workspaceRootName}
-            />
           </label>
 
           <label className="grid gap-2">
@@ -91,11 +94,6 @@ export const ProjectAiSettingsCard = memo(function ProjectAiSettingsCard({
               onChange={(event) => onSpecPromptChange(event.target.value)}
               value={specPrompt}
             />
-            <ScopedPathReference
-              path={configPath}
-              prefix={<span>Saved in</span>}
-              workspaceRootName={workspaceRootName}
-            />
           </label>
 
           <label className="grid gap-2">
@@ -104,11 +102,6 @@ export const ProjectAiSettingsCard = memo(function ProjectAiSettingsCard({
               className={TEXTAREA_CLASS}
               onChange={(event) => onExecutionAgentDescriptionChange(event.target.value)}
               value={executionAgentDescription}
-            />
-            <ScopedPathReference
-              path={configPath}
-              prefix={<span>Saved in</span>}
-              workspaceRootName={workspaceRootName}
             />
           </label>
         </div>

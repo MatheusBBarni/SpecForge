@@ -9,6 +9,8 @@ import type {
   ChatSession,
   ChatSessionSummary,
   EnvironmentStatus,
+  ExternalEditor,
+  CursorModel,
   ModelId,
   ProjectContext,
   ProjectSettings,
@@ -64,6 +66,14 @@ export async function runEnvironmentScan(): Promise<EnvironmentStatus> {
   }
 
   return invoke<EnvironmentStatus>("run_environment_scan");
+}
+
+export async function listCursorModels(): Promise<CursorModel[]> {
+  if (!isTauriRuntime()) {
+    return [];
+  }
+
+  return invoke<CursorModel[]>("list_cursor_models");
 }
 
 export async function parseDocument(filePath: string): Promise<string> {
@@ -126,6 +136,28 @@ export async function readWorkspaceFile(filePath: string): Promise<string> {
   }
 
   return invoke<string>("read_workspace_file", { filePath });
+}
+
+export async function listExternalEditors(): Promise<ExternalEditor[]> {
+  if (!isTauriRuntime()) {
+    return [];
+  }
+
+  return invoke<ExternalEditor[]>("list_external_editors");
+}
+
+export async function openWorkspaceFileInEditor(payload: {
+  filePath: string;
+  editorId: string;
+}): Promise<void> {
+  if (!isTauriRuntime()) {
+    throw new Error("Desktop runtime not detected.");
+  }
+
+  await invoke("open_workspace_file_in_editor", {
+    filePath: payload.filePath,
+    editorId: payload.editorId
+  });
 }
 
 export async function getWorkspaceSnapshot(): Promise<WorkspaceEntry[]> {

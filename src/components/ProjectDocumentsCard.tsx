@@ -39,12 +39,12 @@ export const ProjectDocumentsCard = memo(function ProjectDocumentsCard({
 }: ProjectDocumentsCardProps) {
   return (
     <Card className={`${SETTINGS_PANEL_CLASS} rounded-[1.5rem]`}>
-      <Card.Content className="grid gap-5 px-5 py-5">
+      <Card.Content className="grid content-start gap-4 px-5 py-5">
         <SettingsSectionHeader icon={<Database className="size-5" />} title="Document Paths" />
-        <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
-          Paths are stored relative to the active workspace in
-        </p>
-        <ScopedPathReference path={configPath} workspaceRootName={workspaceRootName} />
+        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--text-subtle)]">
+          <span>Paths are stored relative to the active workspace in</span>
+          <ScopedPathReference path={configPath} workspaceRootName={workspaceRootName} />
+        </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="grid gap-2">

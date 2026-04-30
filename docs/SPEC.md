@@ -12,12 +12,12 @@ The webview never writes workspace files directly. All desktop data access conti
 
 ## 2. Routes
 
-* `/` is the project configuration flow.
+* `/` is the Projects / Workspace Initialization screen and project configuration flow.
 * `/review` is the primary post-setup document and file editing workspace.
 * `/chat` is the secondary agent conversation workspace.
 * `/settings` holds project-scoped and local runtime configuration.
 
-After setup completion, the app routes to `/review` by default. Chat remains available from the sidebar below Review.
+After setup completion, the app routes to `/review` by default. During automatic last-project restore, the app does not redirect away from `/`, so Projects remains available with the active project loaded. Chat remains available from the sidebar below Review.
 
 ## 3. State Model
 
@@ -144,7 +144,7 @@ There is no chat-entry verification or installation path tied to navigation, and
 
 ## 8. Review Workspace
 
-The main sidebar follows the full-height review-screen pattern from the Stitch design: fixed-width desktop navigation, Projects, Review, Chat, and Settings ordering, Dracula Enterprise colors, and Review above Chat. The review screen still provides:
+The main sidebar follows the full-height review-screen pattern from the Stitch design: fixed-width desktop navigation, Projects, Review, Chat, and Settings ordering, Dracula Enterprise colors, and Review above Chat. The review screen also has a top app bar with File/Edit/Selection/Terminal/Help menu labels plus compact model, reasoning, and approval-mode controls. The review screen still provides:
 
 * PRD/spec editing
 * workspace file browsing
@@ -161,6 +161,8 @@ This prevents review from launching a second execution engine that could diverge
 ## 9. Setup Clone Placeholder
 
 The setup screen includes a presentational Git clone card beside the local folder picker. The repository URL input and Clone button are disabled and must not call Git, Tauri commands, filesystem writes, or network operations until a dedicated clone implementation is added.
+
+The Projects screen also persists up to eight recently opened project folders in the `recentProjects` field of the `specforge.settings` `localStorage` record. Opening a recent project calls the existing `load_project_context` Tauri command for that saved path; React still does not perform filesystem access directly.
 
 ## 10. Known Limits
 

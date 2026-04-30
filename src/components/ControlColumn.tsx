@@ -28,6 +28,7 @@ import {
 import type {
   AutonomyMode,
   CliHealth,
+  CursorModel,
   ModelId,
   ModelProvider,
   ReasoningProfileId
@@ -43,6 +44,7 @@ interface ControlColumnProps {
   selectedModel: ModelId;
   selectedReasoning: ReasoningProfileId;
   configuredModelProviders: ModelProvider[];
+  cursorModels?: CursorModel[];
   autonomyMode: AutonomyMode;
   mcpItems?: McpListItem[];
   onModelChange: (model: ModelId) => void;
@@ -54,13 +56,14 @@ export const ControlColumn = memo(function ControlColumn({
   selectedModel,
   selectedReasoning,
   configuredModelProviders,
+  cursorModels = [],
   autonomyMode,
   mcpItems = [],
   onModelChange,
   onReasoningChange,
   onModeChange
 }: ControlColumnProps) {
-  const reasoningOptions = getReasoningOptions(selectedModel);
+  const reasoningOptions = getReasoningOptions(selectedModel, cursorModels);
 
   return (
     <section className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-y-auto rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] p-5 pr-4 shadow-none">
@@ -84,6 +87,7 @@ export const ControlColumn = memo(function ControlColumn({
           <div className="flex flex-col gap-4">
             <ModelSelectField
               configuredProviders={configuredModelProviders}
+              cursorModels={cursorModels}
               label="Agent model"
               onSelectionChange={onModelChange}
               selectedKey={selectedModel}
@@ -148,6 +152,7 @@ interface ModelSelectFieldProps {
   label: string;
   selectedKey: ModelId;
   configuredProviders: ModelProvider[];
+  cursorModels: CursorModel[];
   onSelectionChange: (value: ModelId) => void;
 }
 
@@ -155,6 +160,7 @@ function ModelSelectField({
   label,
   selectedKey,
   configuredProviders,
+  cursorModels,
   onSelectionChange
 }: ModelSelectFieldProps) {
   const hasProviderTabs = configuredProviders.length > 1;
@@ -180,15 +186,15 @@ function ModelSelectField({
 
   const visibleOptions = useMemo(() => {
     if (singleConfiguredProvider) {
-      return getModelOptions(singleConfiguredProvider);
+      return getModelOptions(singleConfiguredProvider, cursorModels);
     }
 
     if (hasProviderTabs) {
-      return getModelOptions(activeProviderTab);
+      return getModelOptions(activeProviderTab, cursorModels);
     }
 
-    return getModelOptions();
-  }, [activeProviderTab, hasProviderTabs, singleConfiguredProvider]);
+    return getModelOptions(undefined, cursorModels);
+  }, [activeProviderTab, cursorModels, hasProviderTabs, singleConfiguredProvider]);
 
   const handleSelectionChange = useCallback(
     (key: Key | null) => {

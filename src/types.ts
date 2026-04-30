@@ -1,8 +1,6 @@
-export type ModelId =
-  | "composer-2"
-  | "auto";
+export type ModelId = string;
 export type ModelProvider = "cursor";
-export type ReasoningProfileId = "low" | "medium" | "high" | "max";
+export type ReasoningProfileId = string;
 export type AutonomyMode = "stepped" | "milestone" | "god_mode";
 export type ThemeMode = "dracula" | "light" | "system";
 export type WorkspaceBaseTab = "review" | "execute";
@@ -73,6 +71,30 @@ export interface WorkspaceDocument {
   content: string;
   sourcePath: string;
   fileName: string;
+}
+
+export interface ExternalEditor {
+  id: string;
+  label: string;
+  executablePath: string;
+}
+
+export interface CursorModelParameterValue {
+  value: string;
+  label: string;
+}
+
+export interface CursorModelParameter {
+  id: string;
+  label: string;
+  values: CursorModelParameterValue[];
+}
+
+export interface CursorModel {
+  id: string;
+  label: string;
+  description?: string;
+  parameters?: CursorModelParameter[];
 }
 
 export interface ProjectSettings {

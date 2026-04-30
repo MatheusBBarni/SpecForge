@@ -45,12 +45,6 @@ Use the approved spec as the source of truth. Preserve the current repository st
 export const DEFAULT_PRD_PROMPT = DEFAULT_PRD_AGENT_DESCRIPTION;
 export const DEFAULT_SPEC_PROMPT = DEFAULT_SPEC_AGENT_DESCRIPTION;
 
-const VALID_REASONING_PROFILES = new Set<ReasoningProfileId>(["low", "medium", "high", "max"]);
-const VALID_MODEL_IDS = new Set<ModelId>([
-  "composer-2",
-  "auto"
-]);
-
 export function buildDefaultProjectSettings(): ProjectSettings {
   return {
     selectedModel: DEFAULT_MODEL_ID,
@@ -131,9 +125,9 @@ export function getWorkspaceDisplayPath(path: string, workspaceRootName?: string
 }
 
 function isModelId(value?: string | null): value is ModelId {
-  return Boolean(value && VALID_MODEL_IDS.has(value as ModelId));
+  return Boolean(value?.trim() && !/\s/.test(value.trim()));
 }
 
 function isReasoningProfileId(value?: string | null): value is ReasoningProfileId {
-  return Boolean(value && VALID_REASONING_PROFILES.has(value as ReasoningProfileId));
+  return Boolean(value?.trim() && !/\s/.test(value.trim()));
 }

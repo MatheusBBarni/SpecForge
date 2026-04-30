@@ -47,6 +47,7 @@ import type {
   ChatContextItem,
   ChatSession,
   ChatSessionSummary,
+  CursorModel,
   ModelProvider,
   WorkspaceEntry
 } from "../types";
@@ -58,6 +59,7 @@ interface ChatScreenProps {
   activeDraft: string;
   workspaceEntries: WorkspaceEntry[];
   configuredModelProviders: ModelProvider[];
+  cursorModels: CursorModel[];
   cavemanReady: boolean;
   cavemanMessage: string;
   cavemanChecking: boolean;
@@ -126,6 +128,7 @@ export const ChatScreen = memo(function ChatScreen({
   activeDraft,
   workspaceEntries,
   configuredModelProviders,
+  cursorModels,
   cavemanReady,
   cavemanMessage,
   cavemanChecking,
@@ -463,7 +466,8 @@ export const ChatScreen = memo(function ChatScreen({
                     options={getModelOptions(
                       configuredModelProviders.length === 1
                         ? configuredModelProviders[0]
-                        : undefined
+                        : undefined,
+                      cursorModels
                     )}
                     value={activeSession.selectedModel}
                   />
@@ -478,7 +482,7 @@ export const ChatScreen = memo(function ChatScreen({
                         contextItems: activeSession.contextItems
                       })
                     }
-                    options={getReasoningOptions(activeSession.selectedModel)}
+                    options={getReasoningOptions(activeSession.selectedModel, cursorModels)}
                     value={activeSession.selectedReasoning}
                   />
                   <SelectField

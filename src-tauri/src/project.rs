@@ -273,14 +273,13 @@ pub(crate) fn load_project_settings_from_workspace_root(
 }
 
 pub(crate) fn normalize_project_model(value: &str, fallback: &str) -> Result<String, String> {
-    const VALID_MODELS: &[&str] = &["composer-2", "auto"];
     let trimmed_value = value.trim();
 
     if trimmed_value.is_empty() {
         return Ok(fallback.to_string());
     }
 
-    if VALID_MODELS.contains(&trimmed_value) {
+    if !trimmed_value.chars().any(char::is_whitespace) {
         return Ok(trimmed_value.to_string());
     }
 
@@ -296,10 +295,11 @@ pub(crate) fn normalize_project_reasoning(value: &str, fallback: &str) -> Result
         return Ok(fallback.to_string());
     }
 
-    match trimmed_value {
-        "low" | "medium" | "high" | "max" => Ok(trimmed_value.to_string()),
-        _ => Err(format!(
-            "Unsupported reasoning profile `{trimmed_value}` in project settings."
-        )),
+    if !trimmed_value.chars().any(char::is_whitespace) {
+        return Ok(trimmed_value.to_string());
     }
+
+    Err(format!(
+        "Unsupported reasoning profile `{trimmed_value}` in project settings."
+    ))
 }

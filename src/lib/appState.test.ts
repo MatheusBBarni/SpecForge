@@ -129,39 +129,27 @@ describe("buildWorkspaceNotice", () => {
     };
   }
 
-  it("shows 'no document exists' when no documents are loaded", () => {
-    const notice = buildWorkspaceNotice(makeContext());
-    expect(notice).toContain("my-project is configured");
-    expect(notice).toContain("No document exists yet");
-    expect(notice).toContain("docs/PRD.md");
-    expect(notice).toContain("docs/SPEC.md");
+  it("stays empty after a project context loads", () => {
+    expect(buildWorkspaceNotice(makeContext())).toBe("");
   });
 
-  it("lists PRD when only PRD is loaded", () => {
+  it("stays empty when only PRD is loaded", () => {
     const notice = buildWorkspaceNotice(
       makeContext({
         prdDocument: { content: "# PRD", sourcePath: "/path/PRD.md", fileName: "PRD.md" }
       })
     );
-    expect(notice).toContain("PRD: PRD.md");
-    expect(notice).not.toContain("SPEC:");
+    expect(notice).toBe("");
   });
 
-  it("lists both PRD and SPEC when both are loaded", () => {
+  it("stays empty when both PRD and SPEC are loaded", () => {
     const notice = buildWorkspaceNotice(
       makeContext({
         prdDocument: { content: "# PRD", sourcePath: "/path/PRD.md", fileName: "PRD.md" },
         specDocument: { content: "# SPEC", sourcePath: "/path/SPEC.md", fileName: "SPEC.md" }
       })
     );
-    expect(notice).toContain("PRD: PRD.md");
-    expect(notice).toContain("SPEC: SPEC.md");
-    expect(notice).toContain(" and ");
-  });
-
-  it("uses the project root name in the notice", () => {
-    const notice = buildWorkspaceNotice(makeContext({ rootName: "awesome-app" }));
-    expect(notice).toContain("awesome-app is configured");
+    expect(notice).toBe("");
   });
 });
 

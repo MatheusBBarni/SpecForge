@@ -7,6 +7,7 @@ import {
 import type { ConfigurationScreen } from "../screens/ConfigurationScreen";
 import type { PrdScreen } from "../screens/PrdScreen";
 import type { SettingsScreen } from "../screens/SettingsScreen";
+import type { CursorModel, ExternalEditor } from "../types";
 import type { AgentStoreSlice, ProjectStoreSlice, SettingsStoreSlice } from "./useAppStoreSlices";
 import type { AppUiHandlers } from "./useAppUiHandlers";
 import type { AppDerivedState } from "./useAppView";
@@ -15,11 +16,15 @@ import type { ProjectSettingsHandlers } from "./useProjectSettingsHandlers";
 interface UseAppScreenPropsOptions {
   agentState: AgentStoreSlice;
   commandSearch: string;
+  cursorModels: CursorModel[];
   derivedState: AppDerivedState;
   desktopRuntime: boolean;
+  externalEditors: ExternalEditor[];
   folderInputRef: RefObject<HTMLInputElement | null>;
   handleApproveSpec: () => void;
+  handleOpenWorkspaceFileInEditor: (path: string, editorId: string) => Promise<void>;
   handleOpenChat: () => void;
+  handleOpenRecentProject: (path: string) => Promise<void>;
   handlePickProjectFolder: () => Promise<void>;
   hasSavedProjectSettings: boolean;
   isImporting: boolean;
@@ -46,11 +51,15 @@ interface UseAppScreenPropsOptions {
 export function useAppScreenProps({
   agentState,
   commandSearch,
+  cursorModels,
   derivedState,
   desktopRuntime,
+  externalEditors,
   folderInputRef,
   handleApproveSpec,
+  handleOpenWorkspaceFileInEditor,
   handleOpenChat,
+  handleOpenRecentProject,
   handlePickProjectFolder,
   hasSavedProjectSettings,
   isImporting,
@@ -76,6 +85,7 @@ export function useAppScreenProps({
   const controlColumnProps = useMemo(
     () => ({
       configuredModelProviders: derivedState.configuredModelProviders,
+      cursorModels,
       autonomyMode: projectState.autonomyMode,
       mcpItems: derivedState.mcpItems,
       onModeChange: projectState.setAutonomyMode,
@@ -84,7 +94,7 @@ export function useAppScreenProps({
       selectedModel: projectState.selectedModel,
       selectedReasoning: projectState.selectedReasoning
     }),
-    [derivedState, projectSettingsHandlers, projectState]
+    [cursorModels, derivedState, projectSettingsHandlers, projectState]
   );
 
   const mainWorkspaceProps = useMemo(
@@ -95,6 +105,7 @@ export function useAppScreenProps({
       canGenerateSpec: derivedState.canGenerateSpec,
       configPath: derivedState.configPathDisplay,
       executionSummary: agentState.executionSummary,
+      externalEditors,
       isGeneratingPrd: derivedState.isGeneratingPrd,
       isGeneratingSpec: derivedState.isGeneratingSpec,
       isSpecApproved: projectState.isSpecApproved,
@@ -102,8 +113,10 @@ export function useAppScreenProps({
       onActiveTabChange: projectState.setActiveTab,
       onApproveExecutionGate: uiHandlers.handleApproveExecutionGateClick,
       onApproveSpec: handleApproveSpec,
-      onEditorTabChange: projectState.updateEditorTabContent,
       onEditorTabClose: projectState.closeEditorTab,
+      onOpenEditorTabExternally: (path: string, editorId: string) => {
+        void handleOpenWorkspaceFileInEditor(path, editorId);
+      },
       onEmergencyStop: uiHandlers.handleEmergencyStopClick,
       onGeneratePrd: uiHandlers.handleGeneratePrdClick,
       onGenerateSpec: uiHandlers.handleGenerateSpecClick,
@@ -138,7 +151,9 @@ export function useAppScreenProps({
     [
       agentState,
       derivedState,
+      externalEditors,
       handleApproveSpec,
+      handleOpenWorkspaceFileInEditor,
       prdGenerationError,
       prdGenerationPrompt,
       projectRootName,
@@ -226,11 +241,12 @@ export function useAppScreenProps({
         onPrdPromptChange: projectSettingsHandlers.handlePrdPromptTemplateChange,
         onReasoningChange: projectSettingsHandlers.handleProjectReasoningChange,
         onSpecPathChange: projectSettingsHandlers.handleConfiguredSpecPathChange,
-        onSpecPromptChange: projectSettingsHandlers.handleSpecPromptTemplateChange,
-        onSaveCursorApiKey: uiHandlers.handleSaveCursorApiKeyClick,
-        onSupportingDocumentsChange: projectSettingsHandlers.handleSupportingDocumentsChange,
-        onThemeChange: settingsState.setTheme,
-        prdPath: projectState.configuredPrdPath,
+            onSpecPromptChange: projectSettingsHandlers.handleSpecPromptTemplateChange,
+            onSaveCursorApiKey: uiHandlers.handleSaveCursorApiKeyClick,
+            onSupportingDocumentsChange: projectSettingsHandlers.handleSupportingDocumentsChange,
+            onThemeChange: settingsState.setTheme,
+            cursorModels,
+            prdPath: projectState.configuredPrdPath,
         prdPrompt: projectState.prdPromptTemplate,
         projectErrorMessage,
         projectStatusMessage,
@@ -246,6 +262,7 @@ export function useAppScreenProps({
     [
       agentState.status,
       derivedState,
+      cursorModels,
       projectErrorMessage,
       projectRootName,
       projectSettingsHandlers,
@@ -271,6 +288,7 @@ export function useAppScreenProps({
       onExecutionAgentDescriptionChange:
         projectSettingsHandlers.handleExecutionAgentDescriptionChange,
       onModelChange: projectSettingsHandlers.handleProjectModelChange,
+      onOpenRecentProject: handleOpenRecentProject,
       onPickFolder: handlePickProjectFolder,
       onPrdPathChange: projectSettingsHandlers.handleConfiguredPrdPathChange,
       onPrdPromptChange: projectSettingsHandlers.handlePrdPromptTemplateChange,
@@ -282,6 +300,7 @@ export function useAppScreenProps({
       onSupportingDocumentsChange: projectSettingsHandlers.handleSupportingDocumentsChange,
       prdPath: projectState.configuredPrdPath,
       prdPrompt: projectState.prdPromptTemplate,
+      cursorModels,
       selectedModel: projectState.selectedModel,
       selectedReasoning: projectState.selectedReasoning,
       settingsPath: derivedState.configPathDisplay,
@@ -290,12 +309,15 @@ export function useAppScreenProps({
       executionAgentDescription: projectState.executionAgentDescription,
       statusMessage: projectStatusMessage,
       supportingDocumentsValue: derivedState.supportingDocumentsValue,
+      recentProjects: settingsState.recentProjects,
       workspaceRootName: projectRootName,
       workspaceRootPath: projectRootPath
     }),
     [
       derivedState,
+      cursorModels,
       desktopRuntime,
+      handleOpenRecentProject,
       handlePickProjectFolder,
       hasSavedProjectSettings,
       isImporting,

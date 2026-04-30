@@ -49,7 +49,6 @@ import {
   clearFallbackTimer,
   type DocumentTarget,
   type FallbackStep,
-  isOpenableWorkspacePath,
   runFallbackStep,
   stampLog,
   type WorkspaceFileSource
@@ -62,9 +61,12 @@ import {
   getGitDiff,
   getWorkspaceSnapshot,
   isTauriRuntime,
+  listCursorModels,
+  listExternalEditors,
   loadChatSession,
   readWorkspaceFile,
   runEnvironmentScan,
+  openWorkspaceFileInEditor,
   startAgentRun,
   subscribeToChatSessionEvents
 } from "./lib/runtime";
@@ -81,7 +83,9 @@ const SettingsScreen = lazy(() => import("./screens/SettingsScreen").then(m => (
 import { useAgentStore } from "./store/useAgentStore";
 import { useChatStore } from "./store/useChatStore";
 import type {
-  EnvironmentStatus
+  CursorModel,
+  EnvironmentStatus,
+  ExternalEditor
 } from "./types";
 
 function App() {
@@ -140,6 +144,8 @@ function App() {
   const [workspaceNotice, setWorkspaceNotice] = useState(
     "Finish the setup flow to load a project workspace."
   );
+  const [externalEditors, setExternalEditors] = useState<ExternalEditor[]>([]);
+  const [cursorModels, setCursorModels] = useState<CursorModel[]>([]);
   const [hasSavedProjectSettings, setHasSavedProjectSettings] = useState(false);
   const [hasSelectedProject, setHasSelectedProject] = useState(false);
   const [hasAttemptedProjectRestore, setHasAttemptedProjectRestore] = useState(!desktopRuntime);
@@ -198,15 +204,19 @@ function App() {
 
   const refreshDiagnostics = useCallback(
     async (previousEnvironment?: EnvironmentStatus) => {
-      const [nextEnvironment, snapshotEntries, diff] = await Promise.all([
+      const [nextEnvironment, snapshotEntries, diff, nextExternalEditors, nextCursorModels] = await Promise.all([
         runEnvironmentScan().catch(() => previousEnvironment ?? settingsState.environment),
         hasSelectedProject
           ? Promise.resolve(settingsState.workspaceEntries)
           : getWorkspaceSnapshot().catch(() => settingsState.workspaceEntries),
-        getGitDiff().catch(() => DEFAULT_PENDING_DIFF)
+        getGitDiff().catch(() => DEFAULT_PENDING_DIFF),
+        listExternalEditors().catch(() => []),
+        listCursorModels().catch(() => [])
       ]);
 
       settingsState.setEnvironment(nextEnvironment);
+      setExternalEditors(nextExternalEditors);
+      setCursorModels(nextCursorModels);
 
       if (!hasSelectedProject) {
         settingsState.setWorkspaceEntries(snapshotEntries);
@@ -247,6 +257,7 @@ function App() {
     saveCurrentProjectSettings,
     scheduleProjectSettingsSave,
     handlePickProjectFolder,
+    handleOpenRecentProject,
     projectSaveTimerRef
   } = useProjectHandlers({
     applyProjectContextDeps: {
@@ -348,11 +359,6 @@ function App() {
         return;
       }
 
-      if (!isOpenableWorkspacePath(path)) {
-        setWorkspaceNotice(`${file.fileName} is not an openable text/code file.`);
-        return;
-      }
-
       try {
         const content = await readWorkspaceFile(path);
         projectState.openEditorTab({
@@ -369,6 +375,20 @@ function App() {
       }
     },
     [projectState, workspaceFiles]
+  );
+
+  const handleOpenWorkspaceFileInEditor = useCallback(
+    async (path: string, editorId: string) => {
+      try {
+        await openWorkspaceFileInEditor({ filePath: path, editorId });
+        setWorkspaceNotice("");
+      } catch (error) {
+        setWorkspaceNotice(
+          error instanceof Error ? error.message : "Unable to open the file in the selected editor."
+        );
+      }
+    },
+    []
   );
 
   const handleApproveSpec = useCallback(() => {
@@ -704,11 +724,15 @@ function App() {
   } = useAppScreenProps({
     agentState,
     commandSearch,
+    cursorModels,
     derivedState,
     desktopRuntime,
+    externalEditors,
     folderInputRef,
     handleApproveSpec,
+    handleOpenWorkspaceFileInEditor,
     handleOpenChat,
+    handleOpenRecentProject,
     handlePickProjectFolder,
     hasSavedProjectSettings,
     isImporting,
@@ -754,6 +778,7 @@ function App() {
       cavemanMessage={cavemanMessage}
       cavemanReady={cavemanReady}
       configuredModelProviders={derivedState.configuredModelProviders}
+      cursorModels={cursorModels}
       onApprove={handleApproveChatSession}
       onAttachFile={handleAttachChatFile}
       onCreateSession={handleCreateChatSessionClick}

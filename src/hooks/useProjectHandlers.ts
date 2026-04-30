@@ -148,6 +148,10 @@ export function useProjectHandlers({
       ss.setWorkspaceEntries(context.entries);
       setWorkspaceFiles(nextWorkspaceFiles);
       ss.setLastProjectPath(context.rootPath);
+      ss.rememberRecentProject({
+        name: context.rootName,
+        path: context.rootPath
+      });
       ps.setProjectSettings(context.settings);
       setPrdGenerationPrompt("");
       setPrdGenerationError("");
@@ -315,11 +319,49 @@ export function useProjectHandlers({
     }
   }, [applyProjectContext, desktopRuntime, navigate, setIsProjectLoading, setProjectErrorMessage, setProjectStatusMessage]);
 
+  const handleOpenRecentProject = useCallback(
+    async (path: string) => {
+      if (!desktopRuntime) {
+        setProjectErrorMessage("Project configuration requires the desktop runtime.");
+        return;
+      }
+
+      if (!path.trim()) {
+        return;
+      }
+
+      setProjectErrorMessage("");
+      setProjectStatusMessage("");
+      setIsProjectLoading(true);
+
+      try {
+        const nextProjectContext = await loadProjectContext(path);
+        applyProjectContext(nextProjectContext);
+        navigate("/");
+      } catch (error) {
+        setProjectErrorMessage(
+          error instanceof Error ? error.message : "Unable to open the selected recent project."
+        );
+      } finally {
+        setIsProjectLoading(false);
+      }
+    },
+    [
+      applyProjectContext,
+      desktopRuntime,
+      navigate,
+      setIsProjectLoading,
+      setProjectErrorMessage,
+      setProjectStatusMessage
+    ]
+  );
+
   return {
     applyProjectContext,
     saveCurrentProjectSettings,
     scheduleProjectSettingsSave,
     handlePickProjectFolder,
+    handleOpenRecentProject,
     projectSaveTimerRef
   };
 }

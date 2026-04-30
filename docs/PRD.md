@@ -20,7 +20,7 @@ The product combines five responsibilities in one desktop shell:
 
 ## 3. Primary User Flow
 
-1. **Open setup:** The app starts on configuration until a workspace is chosen and `.specforge/settings.json` exists.
+1. **Open Projects:** The app starts on the Projects / Workspace Initialization screen until a workspace is chosen and `.specforge/settings.json` exists.
 2. **Choose the project folder:** SpecForge scans the workspace, restores saved project settings, and restores the most recent chat topic when available.
 3. **Connect Cursor:** The user saves a Cursor API key through the desktop runtime. The key is stored in the OS credential store and never in `.specforge/settings.json`.
 4. **Save configuration:** The user sets Cursor model/reasoning defaults, editable PRD/spec/execution agent descriptions, PRD/spec paths, and optional supporting documents, then lands in the review workspace.
@@ -40,6 +40,7 @@ The product combines five responsibilities in one desktop shell:
 * **Project-scoped sessions:** Chat metadata must be stored in `.specforge/sessions/index.json`.
 * **Per-topic snapshots:** Each topic must be persisted in `.specforge/sessions/<sessionId>.json`.
 * **Last-active restore:** Reopening the app should restore the last active project and the last active topic when available.
+* **Recent projects:** The Projects screen must show recently opened project folders from browser `localStorage` and allow reopening them through the desktop runtime.
 * **Git clone placeholder:** Setup may show a repository URL clone option as a disabled/presentational control. It must not invoke Git or write files until the desktop clone flow is implemented.
 
 ### 4.2. PRD And Spec Generation
@@ -82,6 +83,8 @@ The product combines five responsibilities in one desktop shell:
 
 * **Review remains available:** `/review` must still support PRD/spec/file editing and document generation.
 * **Primary post-setup route:** `/review` is the default destination after setup and is ordered above chat in the main sidebar.
+* **Projects remains available:** `/` must remain accessible after a project is configured and must not auto-redirect away during last-project restore.
+* **Top-bar model controls:** Review must expose model, reasoning, and approval mode controls in the top app bar beside the File/Edit/Selection/Terminal/Help menu, not in a separate left control column.
 * **Read-only execution mirror:** The execute panel in review must reflect the active chat topic runtime and diff, but must not start, approve, or stop a separate execution engine.
 * **Settings remain project-scoped:** Model/reasoning defaults, agent descriptions, document paths, and supporting docs remain editable from setup and settings.
 

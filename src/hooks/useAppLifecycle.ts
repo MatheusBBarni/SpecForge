@@ -209,9 +209,7 @@ export function useProjectRestore({
           return;
         }
 
-        applyProjectContext(context, {
-          navigateToChat: context.hasSavedSettings
-        });
+        applyProjectContext(context);
       })
       .catch(() => {
         if (isDisposed) {
