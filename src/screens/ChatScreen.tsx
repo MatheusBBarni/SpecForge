@@ -7,19 +7,18 @@ import {
   DropdownRoot,
   DropdownTrigger,
   Input,
-  Label,
-  ListBox,
-  Select,
   TextArea
 } from "@heroui/react";
 import {
   Attachment,
   BubbleSearch,
   ChatBubble,
+  Check,
   CheckCircle,
   Code,
   Copy,
   EditPencil,
+  NavArrowRight,
   Refresh,
   SendSolid,
   Terminal,
@@ -30,7 +29,7 @@ import {
   XmarkCircle
 } from "iconoir-react";
 import {
-  type Key,
+  type MouseEvent,
   memo,
   useCallback,
   useEffect,
@@ -101,6 +100,8 @@ const MENU_ITEM_CLASS =
   "cursor-pointer rounded px-3 py-2 text-sm text-[var(--text-main)] outline-none transition data-[focused=true]:bg-white/8";
 const MENU_DANGER_ITEM_CLASS =
   "cursor-pointer rounded px-3 py-2 text-sm text-[var(--danger)] outline-none transition data-[focused=true]:bg-[rgba(255,85,85,0.14)]";
+const CONFIG_MENU_ITEM_CLASS =
+  "cursor-pointer rounded px-3 py-2 text-sm text-[var(--text-main)] outline-none transition data-[focused=true]:bg-white/10";
 
 export const ChatScreen = memo(function ChatScreen({
   workspaceRootName,
@@ -346,7 +347,14 @@ export const ChatScreen = memo(function ChatScreen({
 
           <footer className={`border-t ${CORE_BORDER} bg-[var(--bg-panel)] px-5 py-5 lg:px-6`}>
             <div className="mx-auto max-w-[960px]">
-              <div className="rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)]">
+              <div className="relative rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)]">
+                <MentionSuggestionsPanel
+                  activeDraft={activeDraft}
+                  attachableFiles={attachableFiles}
+                  isOpen={mentionQuery.length > 0}
+                  onAttachFile={onAttachFile}
+                  onDraftChange={onDraftChange}
+                />
                 <TextArea
                   aria-label="Chat message draft"
                   className="min-h-24 w-full resize-none border-0 bg-transparent px-5 py-5 text-base leading-7 text-[var(--text-main)] outline-none placeholder:text-[var(--text-muted)]"
@@ -365,13 +373,17 @@ export const ChatScreen = memo(function ChatScreen({
 
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-soft)] px-4 py-3">
                   <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-                    <MentionSuggestionsDropdown
-                      activeDraft={activeDraft}
-                      attachableFiles={attachableFiles}
-                      isOpen={mentionQuery.length > 0}
-                      onAttachFile={onAttachFile}
-                      onDraftChange={onDraftChange}
-                    />
+                    <Button
+                      aria-label="Attach file with @ mention"
+                      className={ICON_BUTTON_CLASS}
+                      onPress={() =>
+                        onDraftChange(
+                          `${activeDraft}${activeDraft.endsWith(" ") || activeDraft.length === 0 ? "" : " "}@`
+                        )
+                      }
+                    >
+                      <Attachment className="size-4" />
+                    </Button>
                     <Button
                       aria-label="Open review"
                       className={ICON_BUTTON_CLASS}
@@ -595,7 +607,7 @@ function ContextChips({
   );
 }
 
-function MentionSuggestionsDropdown({
+function MentionSuggestionsPanel({
   activeDraft,
   attachableFiles,
   isOpen,
@@ -609,72 +621,39 @@ function MentionSuggestionsDropdown({
   onDraftChange: (value: string) => void;
 }) {
   const handleAttachRequest = useCallback(
-    (key: Key) => {
-      const path = String(key);
-
-      if (!path) {
-        return;
-      }
-
+    (path: string, event: MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
       onAttachFile(path);
       onDraftChange(removeTrailingMention(activeDraft));
     },
     [activeDraft, onAttachFile, onDraftChange]
   );
 
-  const handleTriggerPress = useCallback(() => {
-    onDraftChange(
-      `${activeDraft}${activeDraft.endsWith(" ") || activeDraft.length === 0 ? "" : " "}@`
-    );
-  }, [activeDraft, onDraftChange]);
+  if (!isOpen) {
+    return null;
+  }
 
   return (
-    <DropdownRoot isOpen={isOpen}>
-      <DropdownTrigger>
-        <Button
-          aria-label="Attach file with @ mention"
-          className={ICON_BUTTON_CLASS}
-          onPress={handleTriggerPress}
-        >
-          <Attachment className="size-4" />
-        </Button>
-      </DropdownTrigger>
-      <DropdownPopover
-        className="max-h-48 w-[min(34rem,calc(100vw-4rem))] overflow-auto rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)]"
-        offset={132}
-        placement="top start"
-        shouldFlip={false}
-      >
-        <DropdownMenu
-          aria-label="Attach workspace file"
-          onAction={handleAttachRequest}
-        >
-          {attachableFiles.length > 0 ? (
-            attachableFiles.slice(0, 8).map((entry) => (
-              <DropdownItem
-                className="cursor-pointer rounded px-3 py-2 text-sm text-[var(--text-main)] outline-none transition data-[focused=true]:bg-[var(--accent)] data-[focused=true]:text-[var(--bg-app)]"
-                id={entry.path}
-                key={entry.path}
-                textValue={entry.path}
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <Attachment className="size-4 shrink-0" />
-                  <span className="truncate">{entry.path}</span>
-                </div>
-              </DropdownItem>
-            ))
-          ) : (
-            <DropdownItem
-              className="rounded px-3 py-2 text-sm text-[var(--text-subtle)]"
-              id="no-matching-files"
-              isDisabled
-            >
-              No matching files.
-            </DropdownItem>
-          )}
-        </DropdownMenu>
-      </DropdownPopover>
-    </DropdownRoot>
+    <div className="absolute bottom-[calc(100%+0.5rem)] left-0 z-20 max-h-48 w-[min(34rem,100%)] overflow-auto rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)]">
+      {attachableFiles.length > 0 ? (
+        attachableFiles.slice(0, 8).map((entry) => (
+          <button
+            className="flex w-full min-w-0 items-center gap-2 rounded px-3 py-2 text-left text-sm text-[var(--text-main)] outline-none transition hover:bg-[var(--accent)] hover:text-[var(--bg-app)]"
+            key={entry.path}
+            onClick={(event) => handleAttachRequest(entry.path, event)}
+            onMouseDown={(event) => event.preventDefault()}
+            type="button"
+          >
+            <Attachment className="size-4 shrink-0" />
+            <span className="truncate">{entry.path}</span>
+          </button>
+        ))
+      ) : (
+        <div className="rounded px-3 py-2 text-sm text-[var(--text-subtle)]">
+          No matching files.
+        </div>
+      )}
+    </div>
   );
 }
 
