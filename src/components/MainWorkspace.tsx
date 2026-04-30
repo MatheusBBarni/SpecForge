@@ -20,6 +20,7 @@ import type {
   PaneMode,
   WorkspaceTab
 } from "../types";
+import { CodePreview } from "./CodePreview";
 import { DocumentActionBar } from "./DocumentActionBar";
 import { DocumentEmptyState } from "./DocumentEmptyState";
 import { DocumentPane } from "./DocumentPane";
@@ -301,11 +302,7 @@ export const MainWorkspace = memo(function MainWorkspace({
               onOpen={(editorId) => onOpenEditorTabExternally(activeEditorTab.path, editorId)}
             />
           </div>
-          <textarea
-            className="min-h-0 min-w-0 w-full resize-none rounded-lg border border-[var(--border-soft)] bg-[var(--bg-surface)] px-4 py-4 font-[var(--font-mono)] text-[15px] leading-7 text-[var(--text-main)] outline-none"
-            readOnly
-            value={activeEditorTab.content}
-          />
+          <CodePreview content={activeEditorTab.content} path={activeEditorTab.path} />
         </div>
       ) : (
         <div className="grid h-full min-h-0 gap-4 p-4">

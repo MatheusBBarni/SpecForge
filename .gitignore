@@ -6,3 +6,5 @@ src-tauri/gen/
 *.log
 Thumbs.db
 .DS_Store
+
+src-tauri/binaries/*
