@@ -1,29 +1,41 @@
-import { Agent } from "@cursor/sdk";
+import { Agent, Cursor } from "@cursor/sdk";
 import {
   extractCursorRunText,
   formatCursorStreamEvent,
+  normalizeCursorModels,
   stripWrappingCodeFence,
-  type CursorStreamEvent
+  type CursorSidecarOutputLine,
+  type CursorSidecarRequest,
+  type CursorStreamEvent,
+  type SdkModel
 } from "./lib/cursorSidecarProtocol";
-import type { ModelId, ReasoningProfileId } from "./types";
-
-interface CursorAgentRunnerRequest {
-  apiKey: string;
-  workspaceRoot: string;
-  model: ModelId;
-  reasoning: ReasoningProfileId;
-  prompt: string;
-}
-
-type RunnerOutputLine =
-  | { type: "event"; text: string }
-  | { type: "result"; content: string };
 
 async function main() {
-  const request = JSON.parse(await readStdin()) as CursorAgentRunnerRequest;
+  const request = JSON.parse(await readStdin()) as CursorSidecarRequest;
+
+  switch (request.command) {
+    case "listModels": {
+      const models = await Cursor.models.list(
+        request.apiKey?.trim() ? { apiKey: request.apiKey.trim() } : undefined
+      );
+      writeOutputLine({ type: "models", models: normalizeCursorModels(models as SdkModel[]) });
+      return;
+    }
+
+    case "runAgentPrompt": {
+      await runAgentPrompt(request);
+      return;
+    }
+  }
+}
+
+async function runAgentPrompt(request: Extract<CursorSidecarRequest, { command: "runAgentPrompt" }>) {
   const agent = await Agent.create({
     apiKey: request.apiKey,
-    model: buildCursorModelSelection(request.model, request.reasoning),
+    model: {
+      id: request.model,
+      params: [{ id: "thinking", value: request.reasoning === "max" ? "high" : request.reasoning }]
+    },
     local: { cwd: request.workspaceRoot }
   });
   const events: CursorStreamEvent[] = [];
@@ -53,13 +65,6 @@ async function main() {
   }
 }
 
-function buildCursorModelSelection(model: ModelId, reasoning: ReasoningProfileId) {
-  return {
-    id: model,
-    params: [{ id: "thinking", value: reasoning === "max" ? "high" : reasoning }]
-  };
-}
-
 async function readStdin() {
   const chunks: Buffer[] = [];
 
@@ -67,10 +72,10 @@ async function readStdin() {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
 
-  return Buffer.concat(chunks).toString("utf8");
+  return Buffer.concat(chunks).toString("utf8") || "{}";
 }
 
-function writeOutputLine(line: RunnerOutputLine) {
+function writeOutputLine(line: CursorSidecarOutputLine) {
   process.stdout.write(`${JSON.stringify(line)}\n`);
 }
 

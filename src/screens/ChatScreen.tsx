@@ -18,7 +18,7 @@ import {
   Code,
   Copy,
   EditPencil,
-  NavArrowRight,
+  NavArrowDown,
   Refresh,
   SendSolid,
   Terminal,
@@ -708,88 +708,97 @@ function ChatConfigControls({
   );
 
   return (
-    <div className="flex min-w-0 flex-wrap items-end gap-3">
-      <CompactSelect
-        ariaLabel="Chat model"
-        label="Model"
-        onChange={handleModelChange}
-        options={modelOptions}
-        value={activeSession.selectedModel}
-      />
-      <CompactSelect
-        ariaLabel="Chat reasoning"
-        label="Reasoning"
-        onChange={handleReasoningChange}
-        options={reasoningOptions}
-        value={activeSession.selectedReasoning}
-      />
-    </div>
-  );
-}
+    <DropdownRoot>
+      <DropdownTrigger>
+        <Button
+          aria-label="Chat model and reasoning"
+          className="inline-flex min-h-9 max-w-56 items-center gap-2 rounded-full border border-transparent bg-white/[0.06] px-3 text-sm font-medium text-[var(--text-main)] transition hover:bg-white/[0.1]"
+        >
+          <span className="truncate">
+            {formatCompactModelLabel(
+              modelOptions.find((option) => option.value === activeSession.selectedModel)
+                ?.label ?? activeSession.selectedModel
+            )}
+          </span>
+          <span className="truncate text-[var(--text-subtle)]">
+            {reasoningOptions.find(
+              (option) => option.value === activeSession.selectedReasoning
+            )?.label ?? activeSession.selectedReasoning}
+          </span>
+          <NavArrowDown className="size-3.5 shrink-0 text-[var(--text-subtle)]" />
+        </Button>
+      </DropdownTrigger>
+      <DropdownPopover
+        className="w-64 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)]"
+        placement="top start"
+      >
+        <DropdownMenu
+          aria-label="Chat model and reasoning options"
+          onAction={(key) => {
+            const [kind, value] = String(key).split(":");
 
-function CompactSelect<Value extends string>({
-  ariaLabel,
-  label,
-  options,
-  value,
-  onChange
-}: {
-  ariaLabel: string;
-  label: string;
-  options: Array<{ value: Value; label: string; hint?: string }>;
-  value: Value;
-  onChange: (value: Value) => void;
-}) {
-  const handleSelectionChange = useCallback(
-    (key: Key | null) => {
-      if (key !== null) {
-        onChange(String(key) as Value);
-      }
-    },
-    [onChange]
-  );
+            if (kind === "reasoning") {
+              handleReasoningChange(value);
+              return;
+            }
 
-  return (
-    <Select
-      aria-label={ariaLabel}
-      className="flex w-52 min-w-0 flex-col gap-1.5"
-      onSelectionChange={handleSelectionChange}
-      selectedKey={value}
-    >
-      <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-subtle)]">
-        {label}
-      </Label>
-      <Select.Trigger className="min-h-11 rounded border border-[var(--border-soft)] bg-white/[0.04] px-3 text-[var(--text-main)] transition hover:border-[var(--accent)] hover:bg-white/[0.07] focus:border-[var(--accent)] focus:shadow-[var(--focus-ring)]">
-        <Select.Value className="min-w-0 flex-1 truncate text-left text-sm font-medium text-[var(--text-main)]" />
-        <Select.Indicator className="ml-1 size-3 shrink-0 text-[var(--text-muted)]" />
-      </Select.Trigger>
-      <Select.Popover className="min-w-64 rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[var(--shadow)]">
-        <ListBox className="outline-none">
-          {options.map((option) => (
-            <ListBox.Item
-              className="cursor-pointer rounded px-3 py-2 text-sm text-[var(--text-main)] outline-none transition data-[focused=true]:bg-white/8"
-              id={option.value}
+            if (kind === "model") {
+              handleModelChange(value);
+            }
+          }}
+        >
+          <DropdownItem className="px-3 pb-1 pt-2 text-xs font-semibold text-[var(--text-muted)]" id="reasoning-label" isDisabled>
+            Intelligence
+          </DropdownItem>
+          {reasoningOptions.map((option) => (
+            <DropdownItem
+              className={CONFIG_MENU_ITEM_CLASS}
+              id={`reasoning:${option.value}`}
               key={option.value}
               textValue={option.label}
             >
-              <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between gap-3">
                 <span>{option.label}</span>
-                {option.hint ? (
-                  <small className="text-xs leading-5 text-[var(--text-subtle)]">
-                    {option.hint}
-                  </small>
+                {option.value === activeSession.selectedReasoning ? (
+                  <Check className="size-4 text-[var(--text-main)]" />
                 ) : null}
               </div>
-            </ListBox.Item>
+            </DropdownItem>
           ))}
-        </ListBox>
-      </Select.Popover>
-    </Select>
+          <DropdownItem className="mt-1 border-t border-[var(--border-soft)] px-3 pb-1 pt-3 text-xs font-semibold text-[var(--text-muted)]" id="model-label" isDisabled>
+            Model
+          </DropdownItem>
+          {modelOptions.map((option) => (
+            <DropdownItem
+              className={CONFIG_MENU_ITEM_CLASS}
+              id={`model:${option.value}`}
+              key={option.value}
+              textValue={option.label}
+            >
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <span className="truncate">{option.label}</span>
+                {option.value === activeSession.selectedModel ? (
+                  <Check className="size-4 shrink-0 text-[var(--text-main)]" />
+                ) : null}
+              </div>
+            </DropdownItem>
+          ))}
+        </DropdownMenu>
+      </DropdownPopover>
+    </DropdownRoot>
   );
 }
 
 function removeTrailingMention(value: string) {
   return value.replace(/(?:^|\s)@[^\s@]*$/, "").trimEnd();
+}
+
+function formatCompactModelLabel(label: string) {
+  return label
+    .replace(/^GPT-/, "")
+    .replace(/^Claude /, "")
+    .replace(/^Gemini /, "")
+    .replace(/^Composer /, "Composer ");
 }
 
 function formatRelativeTime(value: string) {

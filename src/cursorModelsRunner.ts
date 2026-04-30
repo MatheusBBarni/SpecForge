@@ -1,26 +1,8 @@
 import { Cursor } from "@cursor/sdk";
-import type { CursorModel } from "./types";
+import { normalizeCursorModels, type SdkModel } from "./lib/cursorSidecarProtocol";
 
 interface CursorModelsRunnerRequest {
   apiKey?: string;
-}
-
-interface SdkModelParameterValue {
-  value: string;
-  displayName?: string;
-}
-
-interface SdkModelParameter {
-  id: string;
-  displayName?: string;
-  values?: SdkModelParameterValue[];
-}
-
-interface SdkModel {
-  id: string;
-  displayName?: string;
-  description?: string;
-  parameters?: SdkModelParameter[];
 }
 
 async function main() {
@@ -29,37 +11,7 @@ async function main() {
     request.apiKey?.trim() ? { apiKey: request.apiKey.trim() } : undefined
   );
 
-  process.stdout.write(JSON.stringify(normalizeModels(models as SdkModel[])));
-}
-
-function normalizeModels(models: SdkModel[]): CursorModel[] {
-  return models
-    .filter((model) => model.id.trim().length > 0)
-    .map((model) => ({
-      id: model.id,
-      label: model.displayName?.trim() || formatLabel(model.id),
-      description: model.description?.trim() || undefined,
-      parameters: model.parameters
-        ?.map((parameter) => ({
-          id: parameter.id,
-          label: parameter.displayName?.trim() || formatLabel(parameter.id),
-          values: (parameter.values ?? [])
-            .filter((entry) => entry.value.trim().length > 0)
-            .map((entry) => ({
-              value: entry.value,
-              label: entry.displayName?.trim() || formatLabel(entry.value)
-            }))
-        }))
-        .filter((parameter) => parameter.values.length > 0)
-    }));
-}
-
-function formatLabel(value: string) {
-  return value
-    .split(/[-_]/)
-    .filter(Boolean)
-    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
-    .join(" ");
+  process.stdout.write(JSON.stringify(normalizeCursorModels(models as SdkModel[])));
 }
 
 async function readStdin() {
