@@ -10,6 +10,8 @@ import {
   FIELD_LABEL_CLASS,
   INPUT_CLASS,
   ScopedPathReference,
+  SETTINGS_CARD_BODY_CLASS,
+  SETTINGS_CARD_HEADER_CLASS,
   SETTINGS_PANEL_CLASS,
   SETTINGS_SURFACE_CLASS,
   SettingsSectionHeader,
@@ -38,9 +40,11 @@ export const ProjectDocumentsCard = memo(function ProjectDocumentsCard({
   onSupportingDocumentsChange
 }: ProjectDocumentsCardProps) {
   return (
-    <Card className={`${SETTINGS_PANEL_CLASS} rounded-[1.5rem]`}>
-      <Card.Content className="grid content-start gap-4 px-5 py-5">
-        <SettingsSectionHeader icon={<Database className="size-5" />} title="Document Paths" />
+    <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
+      <div className={SETTINGS_CARD_HEADER_CLASS}>
+        <SettingsSectionHeader icon={<Database className="size-5" />} title="Document Context" />
+      </div>
+      <Card.Content className={SETTINGS_CARD_BODY_CLASS}>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--text-subtle)]">
           <span>Paths are stored relative to the active workspace in</span>
           <ScopedPathReference path={configPath} workspaceRootName={workspaceRootName} />
@@ -84,7 +88,7 @@ export const ProjectDocumentsCard = memo(function ProjectDocumentsCard({
 
         <div className={`${SETTINGS_SURFACE_CLASS} px-4 py-4`}>
           <div className="flex items-start gap-3">
-            <Folder className="mt-1 size-4 shrink-0 text-[var(--accent-2)]" />
+            <Folder className="mt-1 size-4 shrink-0 text-[var(--accent)]" />
             <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
               Generated AI documents are written to the configured PRD and SPEC paths. Configure
               Markdown targets if you want the generated output saved back into the workspace.

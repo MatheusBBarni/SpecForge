@@ -10,6 +10,8 @@ import type { CursorModel, ModelId, ReasoningProfileId } from "../types";
 import {
   FIELD_LABEL_CLASS,
   ScopedPathReference,
+  SETTINGS_CARD_BODY_CLASS,
+  SETTINGS_CARD_HEADER_CLASS,
   SETTINGS_PANEL_CLASS,
   SETTINGS_SURFACE_CLASS,
   SettingsSectionHeader,
@@ -52,9 +54,11 @@ export const ProjectAiSettingsCard = memo(function ProjectAiSettingsCard({
   const reasoningOptions = getReasoningOptions(selectedModel, cursorModels);
 
   return (
-    <Card className={`${SETTINGS_PANEL_CLASS} rounded-[1.5rem]`}>
-      <Card.Content className="grid content-start gap-4 px-5 py-5">
-        <SettingsSectionHeader icon={<Brain className="size-5" />} title="AI Defaults" />
+    <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
+      <div className={SETTINGS_CARD_HEADER_CLASS}>
+        <SettingsSectionHeader icon={<Brain className="size-5" />} title="AI Engine" />
+      </div>
+      <Card.Content className={SETTINGS_CARD_BODY_CLASS}>
         <ScopedPathReference
           path={configPath}
           prefix={<span>Saved in</span>}
@@ -108,7 +112,7 @@ export const ProjectAiSettingsCard = memo(function ProjectAiSettingsCard({
 
         <div className={`${SETTINGS_SURFACE_CLASS} px-4 py-4`}>
           <div className="flex items-start gap-3">
-            <Spark className="mt-1 size-4 shrink-0 text-[var(--accent-2)]" />
+            <Spark className="mt-1 size-4 shrink-0 text-[var(--success)]" />
             <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
               The empty-state prompt fields append the user note after these saved Cursor agent
               descriptions before the SDK run starts.

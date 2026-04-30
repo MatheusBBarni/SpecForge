@@ -4,6 +4,8 @@ import {
   Input
 } from "@heroui/react";
 import {
+  Brain,
+  Database,
   SunLight,
   Terminal
 } from "iconoir-react";
@@ -24,6 +26,8 @@ import {
   INPUT_CLASS,
   PRIMARY_BUTTON_CLASS,
   SECONDARY_BUTTON_CLASS,
+  SETTINGS_CARD_BODY_CLASS,
+  SETTINGS_CARD_HEADER_CLASS,
   SETTINGS_PANEL_CLASS,
   SettingsSectionHeader
 } from "./SettingsPrimitives";
@@ -90,50 +94,93 @@ export const SettingsView = memo(function SettingsView({
   onSupportingDocumentsChange
 }: SettingsViewProps) {
   return (
-    <section className="grid gap-4 pt-4">
+    <section className="mx-auto grid w-full max-w-[1200px] gap-8 px-5 py-8">
+      <div className="flex flex-wrap items-end justify-between gap-5 border-b border-[var(--border-strong)] pb-6">
+        <div className="min-w-0">
+          <h1 className="m-0 text-3xl font-semibold leading-tight text-[var(--text-main)]">
+            Project Settings
+          </h1>
+          <p className="mb-0 mt-2 text-lg leading-7 text-[var(--text-subtle)]">
+            Manage project configuration for{" "}
+            <span className="font-semibold text-[var(--text-main)]">
+              {workspaceRootName || "this workspace"}
+            </span>
+            .
+          </p>
+        </div>
+      </div>
+
       {projectErrorMessage ? (
-        <Card className={`${SETTINGS_PANEL_CLASS} rounded-[1.5rem]`}>
+        <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
           <Card.Content className="px-5 py-4">
             <p className="m-0 text-sm leading-6 text-[var(--danger)]">{projectErrorMessage}</p>
           </Card.Content>
         </Card>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Card className={`${SETTINGS_PANEL_CLASS} h-full rounded-[1.5rem]`}>
-          <Card.Content className="grid h-full content-start gap-5 px-5 py-5">
-            <SettingsSectionHeader icon={<Terminal className="size-5" />} title="Cursor SDK" />
-            <CliHealthCard entry={environment.cursor} />
-            <label className="grid gap-2">
-              <span className={FIELD_LABEL_CLASS}>Cursor API key</span>
-              <Input
-                className={INPUT_CLASS}
-                id="settings-cursor-key"
-                onChange={(event) => onCursorApiKeyInputChange(event.target.value)}
-                placeholder="key_..."
-                type="password"
-                value={cursorApiKeyInput}
-              />
-            </label>
-            <div className="flex flex-wrap gap-3">
-              <Button className={PRIMARY_BUTTON_CLASS} onPress={onSaveCursorApiKey}>
-                Save Key
-              </Button>
-              <Button className={SECONDARY_BUTTON_CLASS} onPress={onDeleteCursorApiKey}>
-                Clear Key
-              </Button>
+      <div className="grid items-start gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <nav className="grid gap-2">
+          {[
+            { icon: <Terminal className="size-4" />, label: "General" },
+            { icon: <Brain className="size-4" />, label: "AI Engine" },
+            { icon: <Database className="size-4" />, label: "Document Context" },
+            { icon: <SunLight className="size-4" />, label: "Theme" }
+          ].map((item, index) => (
+            <div
+              className={
+                index === 0
+                  ? "flex items-center gap-3 rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3 font-semibold text-[var(--accent)]"
+                  : "flex items-center gap-3 rounded border border-transparent px-4 py-3 text-[var(--text-subtle)]"
+              }
+              key={item.label}
+            >
+              {item.icon}
+              <span>{item.label}</span>
             </div>
-          </Card.Content>
-        </Card>
+          ))}
+        </nav>
 
-        <Card className={`${SETTINGS_PANEL_CLASS} h-full rounded-[1.5rem]`}>
-          <Card.Content className="grid h-full content-start gap-5 px-5 py-5">
-            <SettingsSectionHeader icon={<Terminal className="size-5" />} title="Git" />
-            <CliHealthCard entry={environment.git} />
-          </Card.Content>
-        </Card>
+        <div className="grid gap-8">
+          <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
+            <div className={SETTINGS_CARD_HEADER_CLASS}>
+              <SettingsSectionHeader icon={<Terminal className="size-5" />} title="General" />
+            </div>
+            <Card.Content className={SETTINGS_CARD_BODY_CLASS}>
+              <div className="grid gap-5 xl:grid-cols-2">
+                <section className="grid content-start gap-4">
+                  <h3 className="m-0 text-base font-semibold text-[var(--text-main)]">
+                    Cursor SDK
+                  </h3>
+                  <CliHealthCard entry={environment.cursor} />
+                  <label className="grid gap-2">
+                    <span className={FIELD_LABEL_CLASS}>Cursor API key</span>
+                    <Input
+                      className={INPUT_CLASS}
+                      id="settings-cursor-key"
+                      onChange={(event) => onCursorApiKeyInputChange(event.target.value)}
+                      placeholder="key_..."
+                      type="password"
+                      value={cursorApiKeyInput}
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-3">
+                    <Button className={PRIMARY_BUTTON_CLASS} onPress={onSaveCursorApiKey}>
+                      Save Key
+                    </Button>
+                    <Button className={SECONDARY_BUTTON_CLASS} onPress={onDeleteCursorApiKey}>
+                      Clear Key
+                    </Button>
+                  </div>
+                </section>
 
-        <div className="grid gap-4 xl:col-span-2 xl:grid-cols-2">
+                <section className="grid content-start gap-4">
+                  <h3 className="m-0 text-base font-semibold text-[var(--text-main)]">Git</h3>
+                  <CliHealthCard entry={environment.git} />
+                </section>
+              </div>
+            </Card.Content>
+          </Card>
+
           <ProjectAiSettingsCard
             configPath={configPath}
             cursorModels={cursorModels}
@@ -160,38 +207,40 @@ export const SettingsView = memo(function SettingsView({
             supportingDocumentsValue={supportingDocumentsValue}
             workspaceRootName={workspaceRootName}
           />
-        </div>
 
-        <Card className={`${SETTINGS_PANEL_CLASS} rounded-[1.5rem] xl:col-span-2`}>
-          <Card.Content className="grid gap-4 px-5 py-5">
-            <SettingsSectionHeader icon={<SunLight className="size-5" />} title="Theme" />
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {[
-                { id: "dracula", label: "Dracula", meta: "Primary dark IDE theme" },
-                { id: "light", label: "Light", meta: "High-contrast daylight palette" },
-                { id: "system", label: "System", meta: "Follow the OS appearance" }
-              ].map((entry) => (
-                <Button
-                  className={theme === entry.id ? ACTIVE_OPTION_CARD_CLASS : OPTION_CARD_CLASS}
-                  key={entry.id}
-                  onPress={() => onThemeChange(entry.id as ThemeMode)}
-                >
-                  <span className="text-left">{entry.label}</span>
-                  <small className="text-left">{entry.meta}</small>
-                </Button>
-              ))}
+          <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
+            <div className={SETTINGS_CARD_HEADER_CLASS}>
+              <SettingsSectionHeader icon={<SunLight className="size-5" />} title="Theme" />
             </div>
-          </Card.Content>
-        </Card>
+            <Card.Content className={SETTINGS_CARD_BODY_CLASS}>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {[
+                  { id: "dracula", label: "Dracula", meta: "Primary dark IDE theme" },
+                  { id: "light", label: "Light", meta: "High-contrast daylight palette" },
+                  { id: "system", label: "System", meta: "Follow the OS appearance" }
+                ].map((entry) => (
+                  <Button
+                    className={theme === entry.id ? ACTIVE_OPTION_CARD_CLASS : OPTION_CARD_CLASS}
+                    key={entry.id}
+                    onPress={() => onThemeChange(entry.id as ThemeMode)}
+                  >
+                    <span className="text-left">{entry.label}</span>
+                    <small className="text-left">{entry.meta}</small>
+                  </Button>
+                ))}
+              </div>
+            </Card.Content>
+          </Card>
+        </div>
       </div>
     </section>
   );
 });
 
 const OPTION_CARD_CLASS =
-  "flex h-full w-full flex-col items-start justify-start gap-1 rounded-[1rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] px-4 py-4 text-left text-[var(--text-main)] transition hover:-translate-y-0.5 hover:border-[rgba(189,147,249,0.34)]";
+  "flex h-full w-full flex-col items-start justify-start gap-1 rounded border border-[var(--border-soft)] bg-[#090b14] px-4 py-4 text-left text-[var(--text-main)] transition hover:border-[rgba(189,147,249,0.34)]";
 
 const ACTIVE_OPTION_CARD_CLASS =
-  "flex h-full w-full flex-col items-start justify-start gap-1 rounded-[1rem] border border-[rgba(189,147,249,0.42)] bg-[linear-gradient(135deg,rgba(189,147,249,0.18),rgba(139,233,253,0.08)),var(--bg-surface)] px-4 py-4 text-left text-[var(--text-main)] transition";
+  "flex h-full w-full flex-col items-start justify-start gap-1 rounded border border-[rgba(189,147,249,0.42)] bg-[linear-gradient(135deg,rgba(189,147,249,0.18),rgba(80,250,123,0.08)),#090b14] px-4 py-4 text-left text-[var(--text-main)] transition";
 
 export default SettingsView;
