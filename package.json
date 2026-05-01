@@ -15,7 +15,8 @@
     "lint": "bun ./node_modules/@biomejs/biome/bin/biome check src",
     "lint:fix": "bun ./node_modules/@biomejs/biome/bin/biome check --fix src",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "sandcastle": "bunx tsx .sandcastle/main.ts"
   },
   "dependencies": {
     "@cursor/sdk": "^1.0.10",
