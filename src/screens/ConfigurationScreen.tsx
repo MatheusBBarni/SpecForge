@@ -155,7 +155,7 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
               Sandcastle / Codex / Docker
             </span>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <CliHealthCard entry={environment.cursor} />
             <CliHealthCard entry={environment.codex} />
             <CliHealthCard entry={environment.docker} />

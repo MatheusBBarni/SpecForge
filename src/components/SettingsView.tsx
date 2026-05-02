@@ -165,14 +165,17 @@ export const SettingsView = memo(function SettingsView({
                 <SettingsSectionHeader icon={<Terminal className="size-5" />} title="General" />
               </div>
               <Card.Content className={SETTINGS_CARD_BODY_CLASS}>
-                <div className="grid gap-5 xl:grid-cols-2">
+                <div className="grid gap-5">
                   <section className="grid content-start gap-4">
                     <h3 className="m-0 text-base font-semibold text-[var(--text-main)]">
                       Sandcastle Runtime
                     </h3>
-                    <CliHealthCard entry={environment.cursor} />
-                    <CliHealthCard entry={environment.codex} />
-                    <CliHealthCard entry={environment.docker} />
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <CliHealthCard entry={environment.cursor} />
+                      <CliHealthCard entry={environment.codex} />
+                      <CliHealthCard entry={environment.docker} />
+                      <CliHealthCard entry={environment.git} />
+                    </div>
                     {providerAuthMode === "api_key" ? (
                       <>
                         <label className="grid gap-2" htmlFor="settings-cursor-key">
@@ -203,10 +206,6 @@ export const SettingsView = memo(function SettingsView({
                     )}
                   </section>
 
-                  <section className="grid content-start gap-4">
-                    <h3 className="m-0 text-base font-semibold text-[var(--text-main)]">Git</h3>
-                    <CliHealthCard entry={environment.git} />
-                  </section>
                 </div>
               </Card.Content>
             </Card>

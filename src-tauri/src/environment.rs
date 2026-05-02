@@ -170,10 +170,7 @@ fn docker_status_from_probe_result(
     }
 }
 
-fn run_status_with_timeout(
-    command: &mut Command,
-    timeout: Duration,
-) -> Result<ExitStatus, String> {
+fn run_status_with_timeout(command: &mut Command, timeout: Duration) -> Result<ExitStatus, String> {
     let mut child = command.spawn().map_err(|error| error.to_string())?;
     let started_at = Instant::now();
 

@@ -9,24 +9,21 @@ interface CliHealthCardProps {
 
 export const CliHealthCard = memo(function CliHealthCard({ entry }: CliHealthCardProps) {
   return (
-    <article className="grid gap-3 rounded-[1rem] border border-[var(--border-soft)] bg-[var(--bg-surface)] p-4">
+    <article className="grid min-h-[6.5rem] content-start gap-2 rounded border border-[var(--border-soft)] bg-[var(--bg-surface)] p-3">
       <div className="flex items-center gap-3">
         {entry.status === "found" ? (
-          <CheckCircle className="size-5 text-[var(--success)]" />
+          <CheckCircle className="size-4 shrink-0 text-[var(--success)]" />
         ) : (
-          <WarningTriangle className="size-5 text-[var(--warning)]" />
+          <WarningTriangle className="size-4 shrink-0 text-[var(--warning)]" />
         )}
-        <div>
-          <h3 className="m-0 text-base font-semibold text-[var(--text-main)]">{entry.name}</h3>
-          <p className="m-0 text-sm text-[var(--text-subtle)]">{formatCliHealth(entry.status)}</p>
+        <div className="min-w-0">
+          <h3 className="m-0 truncate text-sm font-semibold text-[var(--text-main)]">
+            {entry.name}
+          </h3>
+          <p className="m-0 text-xs text-[var(--text-subtle)]">{formatCliHealth(entry.status)}</p>
         </div>
       </div>
-      <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">{entry.detail}</p>
-      {entry.path ? (
-        <code className="rounded-[0.5rem] bg-white/5 px-2 py-1 font-[var(--font-mono)] text-[0.85rem] text-[var(--text-main)]">
-          {entry.path}
-        </code>
-      ) : null}
+      <p className="m-0 line-clamp-2 text-xs leading-5 text-[var(--text-subtle)]">{entry.detail}</p>
     </article>
   );
 });

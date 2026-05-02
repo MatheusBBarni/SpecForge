@@ -77,6 +77,18 @@ describe("getModelOptions", () => {
       expect(opt.hint).toBeTruthy();
     }
   });
+
+  it("formats discovered Codex model labels like the static model list", () => {
+    const options = getModelOptions(undefined, [
+      {
+        id: "gpt-5.4-mini",
+        label: "",
+        parameters: []
+      }
+    ]);
+
+    expect(options[0]?.label).toBe("GPT-5.4 Mini");
+  });
 });
 
 describe("getReasoningLabel", () => {

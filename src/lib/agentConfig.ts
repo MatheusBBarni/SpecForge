@@ -189,7 +189,7 @@ function cursorModelToAgentModelOption(model: CursorModel): AgentModelOption {
 
   return {
     id: model.id,
-    label: model.label || formatModelLabel(model.id),
+    label: model.label.trim() || formatModelLabel(model.id),
     provider: "codex",
     description: model.description || "Codex model available to this account.",
     reasoningProfiles: reasoningParameter?.values.map((entry) => entry.value) ?? FULL_REASONING_RANGE
@@ -204,14 +204,29 @@ function getCursorReasoningParameter(modelId: ModelId, cursorModels: CursorModel
 }
 
 function formatModelLabel(modelId: string) {
-  return modelId
+  const normalized = modelId.trim();
+  const gptMatch = normalized.match(/^gpt[-_](\d+(?:\.\d+)?)(.*)$/i);
+
+  if (gptMatch) {
+    const suffix = gptMatch[2]
+      ?.split(/[-_]/)
+      .filter(Boolean)
+      .map(capitalizeModelLabelPart)
+      .join(" ");
+
+    return suffix ? `GPT-${gptMatch[1]} ${suffix}` : `GPT-${gptMatch[1]}`;
+  }
+
+  return normalized
     .split("-")
     .filter(Boolean)
-    .map((part) => {
-      const upper = part.toUpperCase();
-      return upper === "GPT" || upper === "O3" ? upper : `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`;
-    })
+    .map(capitalizeModelLabelPart)
     .join(" ");
+}
+
+function capitalizeModelLabelPart(part: string) {
+  const upper = part.toUpperCase();
+  return upper === "GPT" || upper === "O3" ? upper : `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`;
 }
 
 function formatReasoningValue(value: string) {

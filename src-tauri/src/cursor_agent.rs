@@ -260,6 +260,10 @@ fn parse_codex_models_json(value: &serde_json::Value) -> Vec<CursorModel> {
         })
         .unwrap_or_default();
 
+    if model_values.is_empty() {
+        return parse_codex_models_object(value);
+    }
+
     model_values
         .iter()
         .filter_map(|entry| {
@@ -281,6 +285,33 @@ fn parse_codex_models_json(value: &serde_json::Value) -> Vec<CursorModel> {
             Some(build_codex_model(id, label))
         })
         .collect()
+}
+
+fn parse_codex_models_object(value: &serde_json::Value) -> Vec<CursorModel> {
+    let Some(object) = value.as_object() else {
+        return Vec::new();
+    };
+
+    object
+        .iter()
+        .filter_map(|(id, entry)| {
+            if !looks_like_codex_model_id(id) {
+                return None;
+            }
+
+            let label = entry
+                .get("label")
+                .or_else(|| entry.get("displayName"))
+                .and_then(|value| value.as_str());
+
+            Some(build_codex_model(id, label))
+        })
+        .collect()
+}
+
+fn looks_like_codex_model_id(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    lower.starts_with("gpt-") || lower.starts_with("o3") || lower.starts_with("codex")
 }
 
 fn parse_codex_models_lines(stdout: &str) -> Vec<CursorModel> {
@@ -329,26 +360,58 @@ fn build_codex_model(id: &str, label: Option<&str>) -> CursorModel {
 }
 
 fn format_codex_model_label(id: &str) -> String {
-    id.split(['-', '_'])
+    let normalized = id.trim();
+
+    if let Some(label) = format_gpt_model_label(normalized) {
+        return label;
+    }
+
+    normalized
+        .split(['-', '_'])
         .filter(|part| !part.is_empty())
-        .map(|part| {
-            let upper = part.to_ascii_uppercase();
-            if matches!(upper.as_str(), "GPT" | "API")
-                || part
-                    .chars()
-                    .all(|character| character.is_ascii_digit() || character == '.')
-            {
-                upper
-            } else {
-                let mut characters = part.chars();
-                match characters.next() {
-                    Some(first) => format!("{}{}", first.to_uppercase(), characters.as_str()),
-                    None => String::new(),
-                }
-            }
-        })
+        .map(format_model_label_part)
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+fn format_gpt_model_label(id: &str) -> Option<String> {
+    let mut parts = id.split(['-', '_']).filter(|part| !part.is_empty());
+    let prefix = parts.next()?;
+
+    if !prefix.eq_ignore_ascii_case("gpt") {
+        return None;
+    }
+
+    let version = parts.next()?;
+    let mut label = format!("GPT-{version}");
+    let suffix = parts
+        .map(format_model_label_part)
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if !suffix.is_empty() {
+        label.push(' ');
+        label.push_str(&suffix);
+    }
+
+    Some(label)
+}
+
+fn format_model_label_part(part: &str) -> String {
+    let upper = part.to_ascii_uppercase();
+    if matches!(upper.as_str(), "GPT" | "API")
+        || part
+            .chars()
+            .all(|character| character.is_ascii_digit() || character == '.')
+    {
+        upper
+    } else {
+        let mut characters = part.chars();
+        match characters.next() {
+            Some(first) => format!("{}{}", first.to_uppercase(), characters.as_str()),
+            None => String::new(),
+        }
+    }
 }
 
 fn format_reasoning_label(value: &str) -> String {
@@ -380,6 +443,26 @@ mod tests {
 
         assert_eq!(models.len(), 1);
         assert_eq!(models[0].id, "gpt-5.4-mini");
+    }
+
+    #[test]
+    fn parses_keyed_model_object() {
+        let models = parse_codex_models_output(
+            r#"{"gpt-5.4-mini":{"description":"fast"},"gpt-5.2":{"label":"GPT-5.2"}}"#,
+        );
+
+        assert_eq!(models.len(), 2);
+        let mini_model = models
+            .iter()
+            .find(|model| model.id == "gpt-5.4-mini")
+            .expect("expected gpt-5.4-mini");
+        let default_model = models
+            .iter()
+            .find(|model| model.id == "gpt-5.2")
+            .expect("expected gpt-5.2");
+
+        assert_eq!(mini_model.label, "GPT-5.4 Mini");
+        assert_eq!(default_model.label, "GPT-5.2");
     }
 
     #[test]
