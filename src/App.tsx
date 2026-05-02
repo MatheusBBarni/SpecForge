@@ -421,7 +421,9 @@ function App() {
       agentState.appendTerminalOutput(
         stampLog(
           "error",
-          "Configure Codex authentication, Codex CLI, and Docker before starting execution."
+          settingsState.environment.docker.status === "unavailable"
+            ? "Docker Desktop is open, but the Docker engine is unavailable. Restart Docker Desktop or run wsl --shutdown before starting execution."
+            : "Configure Codex authentication, Codex CLI, and Docker before starting execution."
         )
       );
       return;

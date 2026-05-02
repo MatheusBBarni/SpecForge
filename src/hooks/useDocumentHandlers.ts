@@ -575,8 +575,16 @@ function getRuntimeReadinessError({
     return `Install or repair Codex CLI before generating a ${target}.`;
   }
 
-  if (environmentDockerStatus !== "found") {
+  if (environmentDockerStatus === "missing") {
     return `Start Docker before generating a ${target}.`;
+  }
+
+  if (environmentDockerStatus === "unavailable") {
+    return `Docker Desktop is open, but the Docker engine is unavailable. Restart Docker Desktop or run wsl --shutdown before generating a ${target}.`;
+  }
+
+  if (environmentDockerStatus !== "found") {
+    return `Repair Docker before generating a ${target}.`;
   }
 
   return "";

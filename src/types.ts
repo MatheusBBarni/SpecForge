@@ -16,7 +16,7 @@ export type AgentStatus =
   | "halted"
   | "error"
   | "completed";
-export type CliHealth = "found" | "missing" | "unauthorized";
+export type CliHealth = "found" | "missing" | "unauthorized" | "unavailable";
 export type AnnotationTone = "info" | "warning" | "success";
 export type ChatContextKind =
   | "prd"

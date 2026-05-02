@@ -212,4 +212,9 @@ describe("buildMcpItems", () => {
     const items = buildMcpItems(makeEnvironment({ git: { status: "missing" } }));
     expect(items[3].status).toBe("missing");
   });
+
+  it("reflects unavailable status for installed tools that are not reachable", () => {
+    const items = buildMcpItems(makeEnvironment({ docker: { status: "unavailable" } }));
+    expect(items[2].status).toBe("unavailable");
+  });
 });

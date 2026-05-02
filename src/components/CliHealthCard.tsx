@@ -40,5 +40,9 @@ function formatCliHealth(status: CliStatus["status"]) {
     return "Needs authentication";
   }
 
+  if (status === "unavailable") {
+    return "Unavailable";
+  }
+
   return "Missing";
 }
