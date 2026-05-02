@@ -14,6 +14,7 @@ import type {
   ModelId,
   PaneMode,
   ProjectSettings,
+  ProviderAuthMode,
   ReasoningProfileId,
   SelectionRange,
   SpecAnnotation,
@@ -25,12 +26,15 @@ interface ProjectState {
   specContent: string;
   prdPath: string;
   specPath: string;
+  hasPrdPreview: boolean;
+  hasSpecPreview: boolean;
   configuredPrdPath: string;
   configuredSpecPath: string;
   supportingDocumentPaths: string[];
   prdPromptTemplate: string;
   specPromptTemplate: string;
   executionAgentDescription: string;
+  providerAuthMode: ProviderAuthMode;
   selectedModel: ModelId;
   selectedReasoning: ReasoningProfileId;
   autonomyMode: AutonomyMode;
@@ -49,8 +53,11 @@ interface ProjectState {
   setPrdPromptTemplate: (prompt: string) => void;
   setSpecPromptTemplate: (prompt: string) => void;
   setExecutionAgentDescription: (description: string) => void;
+  setProviderAuthMode: (mode: ProviderAuthMode) => void;
   setPrdContent: (content: string, path?: string) => void;
   setSpecContent: (content: string, path?: string) => void;
+  setPrdPreviewState: (hasPreview: boolean) => void;
+  setSpecPreviewState: (hasPreview: boolean) => void;
   setSelectedModel: (model: ModelId) => void;
   setReasoningProfile: (profile: ReasoningProfileId) => void;
   setAutonomyMode: (mode: AutonomyMode) => void;
@@ -132,6 +139,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   activeTab: "review",
   prdPaneMode: "preview",
   specPaneMode: "preview",
+  hasPrdPreview: false,
+  hasSpecPreview: false,
   reviewPrompt: "",
   selectedSpecRange: null,
   annotations: buildInitialAnnotations(),
@@ -145,6 +154,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         prdAgentDescription: state.prdPromptTemplate,
         specAgentDescription: state.specPromptTemplate,
         executionAgentDescription: state.executionAgentDescription,
+        providerAuthMode: state.providerAuthMode,
         prdPath: state.configuredPrdPath,
         specPath: state.configuredSpecPath,
         supportingDocumentPaths: state.supportingDocumentPaths,
@@ -157,6 +167,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         prdPromptTemplate: nextSettings.prdAgentDescription,
         specPromptTemplate: nextSettings.specAgentDescription,
         executionAgentDescription: nextSettings.executionAgentDescription,
+        providerAuthMode: nextSettings.providerAuthMode,
         selectedModel: nextSettings.selectedModel,
         selectedReasoning: nextSettings.selectedReasoning,
         supportingDocumentPaths: nextSettings.supportingDocumentPaths
@@ -168,6 +179,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setPrdPromptTemplate: (prdPromptTemplate) => set({ prdPromptTemplate }),
   setSpecPromptTemplate: (specPromptTemplate) => set({ specPromptTemplate }),
   setExecutionAgentDescription: (executionAgentDescription) => set({ executionAgentDescription }),
+  setProviderAuthMode: (providerAuthMode) => set({ providerAuthMode }),
   setPrdContent: (prdContent, path) =>
     set({
       prdContent,
@@ -179,6 +191,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       specPath: path ?? get().specPath,
       isSpecApproved: false
     }),
+  setPrdPreviewState: (hasPrdPreview) => set({ hasPrdPreview }),
+  setSpecPreviewState: (hasSpecPreview) => set({ hasSpecPreview }),
   setSelectedModel: (selectedModel) =>
     set((state) => ({
       selectedModel,
@@ -291,6 +305,7 @@ function buildInitialProjectState() {
     prdPromptTemplate: defaults.prdAgentDescription,
     specPromptTemplate: defaults.specAgentDescription,
     executionAgentDescription: defaults.executionAgentDescription,
+    providerAuthMode: defaults.providerAuthMode,
     selectedModel: DEFAULT_MODEL_ID,
     selectedReasoning: DEFAULT_REASONING_PROFILE,
     supportingDocumentPaths: defaults.supportingDocumentPaths

@@ -39,6 +39,8 @@ interface MainWorkspaceProps {
   specContent: string;
   prdPaneMode: PaneMode;
   specPaneMode: PaneMode;
+  hasPrdPreview: boolean;
+  hasSpecPreview: boolean;
   isSpecApproved: boolean;
   canGeneratePrd: boolean;
   canGrillPrd: boolean;
@@ -72,9 +74,13 @@ interface MainWorkspaceProps {
   onPrdGenerationPromptChange: (value: string) => void;
   onGeneratePrd: () => void;
   onGrillPrd: () => void;
+  onSavePrdPreview: () => void;
+  onDiscardPrdPreview: () => void;
   onSpecGenerationPromptChange: (value: string) => void;
   onGenerateSpec: () => void;
   onGrillSpec: () => void;
+  onSaveSpecPreview: () => void;
+  onDiscardSpecPreview: () => void;
   onSpecSelect: (event: ChangeEvent<HTMLTextAreaElement>) => void;
   onEditorTabClose: (path: string) => void;
   onOpenEditorTabExternally: (path: string, editorId: string) => void;
@@ -92,6 +98,8 @@ export const MainWorkspace = memo(function MainWorkspace({
   specContent,
   prdPaneMode,
   specPaneMode,
+  hasPrdPreview,
+  hasSpecPreview,
   isSpecApproved,
   canGeneratePrd,
   canGrillPrd,
@@ -125,9 +133,13 @@ export const MainWorkspace = memo(function MainWorkspace({
   onPrdGenerationPromptChange,
   onGeneratePrd,
   onGrillPrd,
+  onSavePrdPreview,
+  onDiscardPrdPreview,
   onSpecGenerationPromptChange,
   onGenerateSpec,
   onGrillSpec,
+  onSaveSpecPreview,
+  onDiscardSpecPreview,
   onSpecSelect,
   onEditorTabClose,
   onOpenEditorTabExternally,
@@ -217,6 +229,13 @@ export const MainWorkspace = memo(function MainWorkspace({
                 onModeChange={onPrdPaneModeChange}
                 showModeButtons={hasPrdContent}
               />
+              {hasPrdPreview ? (
+                <PreviewActions
+                  onDiscard={onDiscardPrdPreview}
+                  onEdit={() => onPrdPaneModeChange("edit")}
+                  onSave={onSavePrdPreview}
+                />
+              ) : null}
             </div>
             {showPrdEmptyState ? (
               <PrdEmptyState
@@ -260,6 +279,13 @@ export const MainWorkspace = memo(function MainWorkspace({
                   onModeChange={onSpecPaneModeChange}
                   showModeButtons={hasSpecContent || !showSpecPreviewState}
                 />
+                {hasSpecPreview ? (
+                  <PreviewActions
+                    onDiscard={onDiscardSpecPreview}
+                    onEdit={() => onSpecPaneModeChange("edit")}
+                    onSave={onSaveSpecPreview}
+                  />
+                ) : null}
                 {approveSpecButton}
               </div>
             </div>
@@ -375,6 +401,30 @@ function ExternalEditorMenu({
   );
 }
 
+function PreviewActions({
+  onSave,
+  onEdit,
+  onDiscard
+}: {
+  onSave: () => void;
+  onEdit: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <div className="inline-flex flex-wrap items-center rounded-lg border border-[var(--success)]/30 bg-[rgba(80,250,123,0.08)] p-1">
+      <button className={PREVIEW_ACTION_BUTTON_CLASS} onClick={onSave} type="button">
+        Save
+      </button>
+      <button className={PREVIEW_ACTION_BUTTON_CLASS} onClick={onEdit} type="button">
+        Edit
+      </button>
+      <button className={PREVIEW_ACTION_BUTTON_CLASS} onClick={onDiscard} type="button">
+        Discard
+      </button>
+    </div>
+  );
+}
+
 const HEADER_ACTION_BUTTON_CLASS =
   "inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3 font-medium text-[var(--text-main)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";
 
@@ -383,3 +433,6 @@ const APPROVED_ACTION_BUTTON_CLASS =
 
 const OPEN_EDITOR_BUTTON_CLASS =
   "rounded border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-3 py-2 text-sm font-medium text-[var(--text-main)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
+
+const PREVIEW_ACTION_BUTTON_CLASS =
+  "rounded px-3 py-2 text-sm font-medium text-[var(--text-main)] transition hover:bg-[var(--bg-nav-active)] hover:text-[var(--accent)]";

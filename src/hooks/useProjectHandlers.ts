@@ -11,6 +11,7 @@ import {
   buildCurrentProjectSettings,
   buildWorkspaceNotice
 } from "../lib/appState";
+import { getActiveDocumentFromPreview, hasDocumentPreview } from "../lib/documentPreview";
 import {
   loadProjectContext,
   pickProjectFolder,
@@ -92,10 +93,16 @@ export function useProjectHandlers({
       const isSameProject =
         normalizedCurrentProjectPath.length > 0 &&
         normalizedCurrentProjectPath === normalizedNextProjectPath;
-      const nextPrdSourcePath =
-        context.prdDocument?.sourcePath ?? context.settings.prdPath;
-      const nextSpecSourcePath =
-        context.specDocument?.sourcePath ?? context.settings.specPath;
+      const activePrdDocument = getActiveDocumentFromPreview(
+        context.prdDocument,
+        context.prdPreview
+      );
+      const activeSpecDocument = getActiveDocumentFromPreview(
+        context.specDocument,
+        context.specPreview
+      );
+      const nextPrdSourcePath = activePrdDocument?.sourcePath ?? context.settings.prdPath;
+      const nextSpecSourcePath = activeSpecDocument?.sourcePath ?? context.settings.specPath;
       const preserveEditingPrd =
         isSameProject &&
         ps.prdPaneMode === "edit" &&
@@ -138,6 +145,8 @@ export function useProjectHandlers({
         path: context.rootPath
       });
       ps.setProjectSettings(context.settings);
+      ps.setPrdPreviewState(hasDocumentPreview(context.prdPreview));
+      ps.setSpecPreviewState(hasDocumentPreview(context.specPreview));
       uiState.clearGenerationState();
       setChatSessions(context.chatSessions);
       setActiveSessionId(context.lastActiveSessionId ?? context.chatSessions[0]?.id ?? null);
@@ -156,7 +165,7 @@ export function useProjectHandlers({
       startTransition(() => {
         if (!preserveEditingPrd) {
           ps.setPrdContent(
-            context.prdDocument?.content ?? "",
+            activePrdDocument?.content ?? "",
             nextPrdSourcePath
           );
           ps.setPrdPaneMode("preview");
@@ -164,7 +173,7 @@ export function useProjectHandlers({
 
         if (!preserveEditingSpec) {
           ps.setSpecContent(
-            context.specDocument?.content ?? "",
+            activeSpecDocument?.content ?? "",
             nextSpecSourcePath
           );
           ps.setSpecPaneMode("preview");
@@ -206,6 +215,7 @@ export function useProjectHandlers({
           configuredPrdPath: latestProjectState.configuredPrdPath,
           configuredSpecPath: latestProjectState.configuredSpecPath,
           prdAgentDescription: latestProjectState.prdPromptTemplate,
+          providerAuthMode: latestProjectState.providerAuthMode,
           selectedModel: latestProjectState.selectedModel,
           selectedReasoning: latestProjectState.selectedReasoning,
           specAgentDescription: latestProjectState.specPromptTemplate,

@@ -10,7 +10,7 @@ import { useAgentStore } from "../store/useAgentStore";
 import { useProjectStore } from "../store/useProjectStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useWorkspaceUiStore } from "../store/useWorkspaceUiStore";
-import type { ModelId, ReasoningProfileId, ThemeMode } from "../types";
+import type { ModelId, ProviderAuthMode, ReasoningProfileId, ThemeMode } from "../types";
 
 interface SettingsScreenProps {
   onRefresh: () => void;
@@ -19,6 +19,7 @@ interface SettingsScreenProps {
   onSaveCursorApiKey: () => void;
   onDeleteCursorApiKey: () => void;
   onModelChange: (model: ModelId) => void;
+  onProviderAuthModeChange: (mode: ProviderAuthMode) => void;
   onReasoningChange: (reasoning: ReasoningProfileId) => void;
   onPrdPromptChange: (value: string) => void;
   onSpecPromptChange: (value: string) => void;
@@ -35,6 +36,7 @@ export const SettingsScreen = memo(function SettingsScreen({
   onSaveCursorApiKey,
   onDeleteCursorApiKey,
   onModelChange,
+  onProviderAuthModeChange,
   onReasoningChange,
   onPrdPromptChange,
   onSpecPromptChange,
@@ -49,6 +51,7 @@ export const SettingsScreen = memo(function SettingsScreen({
     executionAgentDescription,
     prdPath,
     prdPrompt,
+    providerAuthMode,
     selectedModel,
     selectedReasoning,
     specPath,
@@ -60,6 +63,7 @@ export const SettingsScreen = memo(function SettingsScreen({
       executionAgentDescription: state.executionAgentDescription,
       prdPath: state.configuredPrdPath,
       prdPrompt: state.prdPromptTemplate,
+      providerAuthMode: state.providerAuthMode,
       selectedModel: state.selectedModel,
       selectedReasoning: state.selectedReasoning,
       specPath: state.configuredSpecPath,
@@ -117,6 +121,7 @@ export const SettingsScreen = memo(function SettingsScreen({
           onDeleteCursorApiKey={onDeleteCursorApiKey}
           onExecutionAgentDescriptionChange={onExecutionAgentDescriptionChange}
           onModelChange={onModelChange}
+          onProviderAuthModeChange={onProviderAuthModeChange}
           onPrdPathChange={onPrdPathChange}
           onPrdPromptChange={onPrdPromptChange}
           onReasoningChange={onReasoningChange}
@@ -127,6 +132,7 @@ export const SettingsScreen = memo(function SettingsScreen({
           onThemeChange={onThemeChange}
           prdPath={prdPath}
           prdPrompt={prdPrompt}
+          providerAuthMode={providerAuthMode}
           projectErrorMessage={projectErrorMessage}
           projectStatusMessage={projectStatusMessage}
           selectedModel={selectedModel}

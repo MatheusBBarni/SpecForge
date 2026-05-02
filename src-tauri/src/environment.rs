@@ -10,6 +10,8 @@ pub(crate) fn run_environment_scan() -> Result<EnvironmentStatus, String> {
     Ok(EnvironmentStatus {
         scanned_at: current_timestamp(),
         cursor: cursor_key_status(),
+        codex: inspect_binary("Codex CLI", "codex", None),
+        docker: inspect_docker(),
         git: inspect_binary("Git", "git", None),
     })
 }
@@ -115,4 +117,54 @@ fn probe_binary_version(path: &Path) -> Result<String, String> {
     Ok(String::from(
         "Binary detected. Version probe returned no output.",
     ))
+}
+
+fn inspect_docker() -> CliStatus {
+    let mut status = inspect_binary("Docker", "docker", None);
+
+    if status.status != "found" {
+        return status;
+    }
+
+    let Some(path) = status.path.clone() else {
+        return status;
+    };
+    let output = Command::new(&path).arg("info").output();
+
+    match output {
+        Ok(output) if output.status.success() => {
+            status.detail = format!("{} Docker daemon is reachable.", status.detail);
+            status
+        }
+        Ok(output) => CliStatus {
+            name: String::from("Docker"),
+            status: String::from("missing"),
+            path: Some(path),
+            detail: format_process_output(
+                "Docker CLI was found, but the daemon is not reachable.",
+                &output,
+            ),
+        },
+        Err(error) => CliStatus {
+            name: String::from("Docker"),
+            status: String::from("missing"),
+            path: Some(path),
+            detail: format!("Docker CLI was found, but daemon probing failed: {error}"),
+        },
+    }
+}
+
+fn format_process_output(prefix: &str, output: &std::process::Output) -> String {
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    if !stderr.is_empty() {
+        return format!("{prefix} {stderr}");
+    }
+
+    if !stdout.is_empty() {
+        return format!("{prefix} {stdout}");
+    }
+
+    format!("{prefix} Exit status: {}", output.status)
 }

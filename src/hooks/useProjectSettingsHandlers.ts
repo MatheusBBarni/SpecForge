@@ -19,6 +19,7 @@ interface UseProjectSettingsHandlersOptions {
   setConfiguredSpecPath: ProjectStoreSlice["setConfiguredSpecPath"];
   setPrdPromptTemplate: ProjectStoreSlice["setPrdPromptTemplate"];
   setExecutionAgentDescription: ProjectStoreSlice["setExecutionAgentDescription"];
+  setProviderAuthMode: ProjectStoreSlice["setProviderAuthMode"];
   setReasoningProfile: ProjectStoreSlice["setReasoningProfile"];
   setSelectedModel: ProjectStoreSlice["setSelectedModel"];
   setSpecPromptTemplate: ProjectStoreSlice["setSpecPromptTemplate"];
@@ -32,6 +33,7 @@ export function useProjectSettingsHandlers({
   setConfiguredSpecPath,
   setPrdPromptTemplate,
   setExecutionAgentDescription,
+  setProviderAuthMode,
   setReasoningProfile,
   setSelectedModel,
   setSpecPromptTemplate,
@@ -51,6 +53,14 @@ export function useProjectSettingsHandlers({
       scheduleProjectSettingsSave(false);
     },
     [scheduleProjectSettingsSave, setReasoningProfile]
+  );
+
+  const handleProviderAuthModeChange = useCallback(
+    (mode: Parameters<ProjectStoreSlice["setProviderAuthMode"]>[0]) => {
+      setProviderAuthMode(mode);
+      scheduleProjectSettingsSave(false);
+    },
+    [scheduleProjectSettingsSave, setProviderAuthMode]
   );
 
   const handlePrdPromptTemplateChange = useCallback(
@@ -108,6 +118,7 @@ export function useProjectSettingsHandlers({
   return {
     handleProjectModelChange,
     handleProjectReasoningChange,
+    handleProviderAuthModeChange,
     handlePrdPromptTemplateChange,
     handleSpecPromptTemplateChange,
     handleExecutionAgentDescriptionChange,

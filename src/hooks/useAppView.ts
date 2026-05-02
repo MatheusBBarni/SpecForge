@@ -77,6 +77,7 @@ export function useAppDerivedState({
         configuredPrdPath: projectState.configuredPrdPath,
         configuredSpecPath: projectState.configuredSpecPath,
         prdAgentDescription: projectState.prdPromptTemplate,
+        providerAuthMode: projectState.providerAuthMode,
         selectedModel: projectState.selectedModel,
         selectedReasoning: projectState.selectedReasoning,
         specAgentDescription: projectState.specPromptTemplate,
@@ -88,6 +89,7 @@ export function useAppDerivedState({
       projectState.configuredSpecPath,
       projectState.executionAgentDescription,
       projectState.prdPromptTemplate,
+      projectState.providerAuthMode,
       projectState.selectedModel,
       projectState.selectedReasoning,
       projectState.specPromptTemplate,
@@ -111,6 +113,8 @@ export function useAppDerivedState({
       desktopRuntime &&
       !isGeneratingPrd &&
       settingsState.environment.cursor.status === "found" &&
+      settingsState.environment.codex.status === "found" &&
+      settingsState.environment.docker.status === "found" &&
       workspaceUiState.projectRootPath.trim().length > 0 &&
       projectState.configuredPrdPath.trim().length > 0 &&
       workspaceUiState.prdGenerationPrompt.trim().length > 0,
@@ -119,6 +123,8 @@ export function useAppDerivedState({
       isGeneratingPrd,
       projectState.configuredPrdPath,
       settingsState.environment.cursor.status,
+      settingsState.environment.codex.status,
+      settingsState.environment.docker.status,
       workspaceUiState.prdGenerationPrompt,
       workspaceUiState.projectRootPath
     ]
@@ -128,6 +134,8 @@ export function useAppDerivedState({
       desktopRuntime &&
       !isGeneratingSpec &&
       settingsState.environment.cursor.status === "found" &&
+      settingsState.environment.codex.status === "found" &&
+      settingsState.environment.docker.status === "found" &&
       workspaceUiState.projectRootPath.trim().length > 0 &&
       projectState.prdContent.trim().length > 0 &&
       projectState.configuredSpecPath.trim().length > 0 &&
@@ -138,6 +146,8 @@ export function useAppDerivedState({
       projectState.configuredSpecPath,
       projectState.prdContent,
       settingsState.environment.cursor.status,
+      settingsState.environment.codex.status,
+      settingsState.environment.docker.status,
       workspaceUiState.projectRootPath,
       workspaceUiState.specGenerationPrompt
     ]
@@ -147,6 +157,8 @@ export function useAppDerivedState({
       desktopRuntime &&
       !isGeneratingSpec &&
       settingsState.environment.cursor.status === "found" &&
+      settingsState.environment.codex.status === "found" &&
+      settingsState.environment.docker.status === "found" &&
       workspaceUiState.projectRootPath.trim().length > 0 &&
       projectState.prdContent.trim().length > 0 &&
       projectState.configuredSpecPath.trim().length > 0,
@@ -156,6 +168,8 @@ export function useAppDerivedState({
       projectState.configuredSpecPath,
       projectState.prdContent,
       settingsState.environment.cursor.status,
+      settingsState.environment.codex.status,
+      settingsState.environment.docker.status,
       workspaceUiState.projectRootPath
     ]
   );

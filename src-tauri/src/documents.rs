@@ -51,6 +51,34 @@ pub(crate) fn save_workspace_document(
     write_generated_workspace_document(&workspace_root, &output_path, content, &field_name)
 }
 
+#[tauri::command]
+pub(crate) fn save_document_preview(
+    workspace_root: String,
+    target: String,
+    content: String,
+) -> Result<WorkspaceDocument, String> {
+    write_document_preview(&workspace_root, &target, content)
+}
+
+#[tauri::command]
+pub(crate) fn delete_document_preview(
+    workspace_root: String,
+    target: String,
+) -> Result<(), String> {
+    let preview_path = resolve_document_preview_path(&workspace_root, &target)?;
+
+    if preview_path.exists() {
+        fs::remove_file(&preview_path).map_err(|error| {
+            format!(
+                "Unable to delete document preview {}: {error}",
+                preview_path.display()
+            )
+        })?;
+    }
+
+    Ok(())
+}
+
 pub(crate) fn load_configured_workspace_document(
     workspace_root: &Path,
     relative_path: &str,
@@ -72,6 +100,37 @@ pub(crate) fn load_configured_workspace_document(
         content,
         source_path: resolved_path.display().to_string(),
         file_name,
+    }))
+}
+
+pub(crate) fn load_document_preview(
+    workspace_root: &Path,
+    target: &str,
+) -> Result<Option<WorkspaceDocument>, String> {
+    let preview_path = workspace_root
+        .join(".specforge")
+        .join("previews")
+        .join(preview_file_name(target)?);
+
+    if !preview_path.exists() {
+        return Ok(None);
+    }
+
+    let content = fs::read_to_string(&preview_path).map_err(|error| {
+        format!(
+            "Unable to read document preview {}: {error}",
+            preview_path.display()
+        )
+    })?;
+
+    Ok(Some(WorkspaceDocument {
+        content,
+        source_path: preview_path.display().to_string(),
+        file_name: preview_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("preview.md")
+            .to_string(),
     }))
 }
 
@@ -138,6 +197,76 @@ pub(crate) fn write_generated_workspace_document(
             .unwrap_or("Document.md")
             .to_string(),
     })
+}
+
+pub(crate) fn write_document_preview(
+    workspace_root: &str,
+    target: &str,
+    generated_content: String,
+) -> Result<WorkspaceDocument, String> {
+    let preview_path = resolve_document_preview_path(workspace_root, target)?;
+    let rendered_document = format!(
+        "{}\n",
+        strip_wrapping_code_fence(generated_content.trim()).trim()
+    );
+
+    if rendered_document.trim().is_empty() {
+        return Err(String::from(
+            "The AI returned an empty document preview. Adjust the prompt and try again.",
+        ));
+    }
+
+    if let Some(parent_directory) = preview_path.parent() {
+        fs::create_dir_all(parent_directory).map_err(|error| {
+            format!(
+                "Unable to create the document preview folder {}: {error}",
+                parent_directory.display()
+            )
+        })?;
+    }
+
+    fs::write(&preview_path, rendered_document.as_bytes()).map_err(|error| {
+        format!(
+            "Unable to save the document preview to {}: {error}",
+            preview_path.display()
+        )
+    })?;
+
+    Ok(WorkspaceDocument {
+        content: rendered_document,
+        source_path: preview_path.display().to_string(),
+        file_name: preview_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("preview.md")
+            .to_string(),
+    })
+}
+
+fn resolve_document_preview_path(workspace_root: &str, target: &str) -> Result<PathBuf, String> {
+    let trimmed_root = workspace_root.trim();
+
+    if trimmed_root.is_empty() {
+        return Err(String::from("A workspace root is required."));
+    }
+
+    let canonical_root = canonicalize_existing_path(&PathBuf::from(trimmed_root))
+        .map_err(|error| format!("Unable to resolve workspace root {}: {error}", trimmed_root))?;
+
+    Ok(canonical_root
+        .join(".specforge")
+        .join("previews")
+        .join(preview_file_name(target)?))
+}
+
+fn preview_file_name(target: &str) -> Result<&'static str, String> {
+    match target {
+        "prd" => Ok("prd.md"),
+        "spec" => Ok("spec.md"),
+        _ => Err(String::from(
+            "Document preview target must be `prd` or `spec`.",
+        )),
+    }
 }
 
 pub(crate) fn parse_workspace_document(path: &Path) -> Result<String, String> {

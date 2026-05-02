@@ -61,6 +61,8 @@ pub(crate) struct CliStatus {
 pub(crate) struct EnvironmentStatus {
     pub(crate) scanned_at: String,
     pub(crate) cursor: CliStatus,
+    pub(crate) codex: CliStatus,
+    pub(crate) docker: CliStatus,
     pub(crate) git: CliStatus,
 }
 
@@ -116,6 +118,10 @@ pub(crate) struct CursorModel {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ProjectSettings {
+    #[serde(default = "default_agent_provider")]
+    pub(crate) agent_provider: String,
+    #[serde(default = "default_provider_auth_mode")]
+    pub(crate) provider_auth_mode: String,
     pub(crate) selected_model: String,
     pub(crate) selected_reasoning: String,
     #[serde(default, alias = "prdPrompt")]
@@ -127,6 +133,14 @@ pub(crate) struct ProjectSettings {
     pub(crate) prd_path: String,
     pub(crate) spec_path: String,
     pub(crate) supporting_document_paths: Vec<String>,
+}
+
+fn default_agent_provider() -> String {
+    String::from("codex")
+}
+
+fn default_provider_auth_mode() -> String {
+    String::from("subscription")
 }
 
 #[derive(Clone, Serialize)]
@@ -141,6 +155,8 @@ pub(crate) struct ProjectContextPayload {
     pub(crate) ignored_file_count: usize,
     pub(crate) prd_document: Option<WorkspaceDocument>,
     pub(crate) spec_document: Option<WorkspaceDocument>,
+    pub(crate) prd_preview: Option<WorkspaceDocument>,
+    pub(crate) spec_preview: Option<WorkspaceDocument>,
     pub(crate) chat_sessions: Vec<ChatSessionSummary>,
     pub(crate) last_active_session_id: Option<String>,
 }
@@ -262,21 +278,6 @@ pub(crate) struct ChatEventPayload {
     pub(crate) session: Option<ChatSessionSnapshot>,
     pub(crate) runtime: Option<ChatRuntimeState>,
     pub(crate) summary: Option<ChatSessionSummary>,
-}
-
-#[derive(Clone)]
-pub(crate) struct SimulatedStep {
-    pub(crate) delay_ms: u64,
-    pub(crate) line: String,
-    pub(crate) milestone: &'static str,
-    pub(crate) gate: bool,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum StopState {
-    Continue,
-    StopRequested,
-    Replaced,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

@@ -8,15 +8,29 @@ import {
   buildWorkspaceNotice
 } from "./appState";
 
-function makeEnvironment(overrides?: Partial<Record<"cursor" | "git", Partial<EnvironmentStatus["cursor"]>>>): EnvironmentStatus {
+function makeEnvironment(overrides?: Partial<Record<"cursor" | "codex" | "docker" | "git", Partial<EnvironmentStatus["cursor"]>>>): EnvironmentStatus {
   return {
     scannedAt: new Date().toISOString(),
     cursor: {
-      name: "Cursor SDK",
+      name: "Codex Provider",
       status: "found",
       path: null,
-      detail: "Cursor API key is configured",
+      detail: "Codex authentication is configured",
       ...overrides?.cursor
+    },
+    codex: {
+      name: "Codex CLI",
+      status: "found",
+      path: "/usr/bin/codex",
+      detail: "Codex CLI is available",
+      ...overrides?.codex
+    },
+    docker: {
+      name: "Docker",
+      status: "found",
+      path: "/usr/bin/docker",
+      detail: "Docker daemon is reachable",
+      ...overrides?.docker
     },
     git: {
       name: "Git",
@@ -34,14 +48,15 @@ describe("buildCurrentProjectSettings", () => {
       configuredPrdPath: "docs/PRD.md",
       configuredSpecPath: "docs/SPEC.md",
       prdAgentDescription: "Generate PRD",
-      selectedModel: "composer-2",
+      providerAuthMode: "subscription",
+      selectedModel: "gpt-5.2",
       selectedReasoning: "medium",
       specAgentDescription: "Generate Spec",
       executionAgentDescription: "Execute Spec",
       supportingDocumentPaths: ["docs/api.md"]
     });
 
-    expect(result.selectedModel).toBe("composer-2");
+    expect(result.selectedModel).toBe("gpt-5.2");
     expect(result.selectedReasoning).toBe("medium");
     expect(result.prdPath).toBe("docs/PRD.md");
     expect(result.specPath).toBe("docs/SPEC.md");
@@ -53,7 +68,8 @@ describe("buildCurrentProjectSettings", () => {
       configuredPrdPath: "",
       configuredSpecPath: "",
       prdAgentDescription: "prompt",
-      selectedModel: "composer-2",
+      providerAuthMode: "subscription",
+      selectedModel: "gpt-5.2",
       selectedReasoning: "medium",
       specAgentDescription: "prompt",
       executionAgentDescription: "prompt",
@@ -69,7 +85,8 @@ describe("buildCurrentProjectSettings", () => {
       configuredPrdPath: "docs/PRD.md",
       configuredSpecPath: "docs/SPEC.md",
       prdAgentDescription: "prompt",
-      selectedModel: "composer-2",
+      providerAuthMode: "subscription",
+      selectedModel: "gpt-5.2",
       selectedReasoning: "high",
       specAgentDescription: "prompt",
       executionAgentDescription: "prompt",
@@ -110,7 +127,9 @@ describe("buildWorkspaceNotice", () => {
       settingsPath: "/Users/me/my-project/.specforge/settings.json",
       hasSavedSettings: true,
       settings: {
-        selectedModel: "composer-2",
+        agentProvider: "codex",
+        providerAuthMode: "subscription",
+        selectedModel: "gpt-5.2",
         selectedReasoning: "medium",
         prdAgentDescription: "prompt",
         specAgentDescription: "prompt",
@@ -123,6 +142,8 @@ describe("buildWorkspaceNotice", () => {
       ignoredFileCount: 0,
       prdDocument: null,
       specDocument: null,
+      prdPreview: null,
+      specPreview: null,
       chatSessions: [],
       lastActiveSessionId: null,
       ...overrides
@@ -154,14 +175,14 @@ describe("buildWorkspaceNotice", () => {
 });
 
 describe("buildConfiguredModelProviders", () => {
-  it("returns cursor when the Cursor API key is configured", () => {
+  it("returns codex when Codex authentication is configured", () => {
     const providers = buildConfiguredModelProviders(
       makeEnvironment({ cursor: { status: "found" } })
     );
-    expect(providers).toEqual(["cursor"]);
+    expect(providers).toEqual(["codex"]);
   });
 
-  it("returns empty array when Cursor API key is missing", () => {
+  it("returns empty array when Codex authentication is missing", () => {
     const providers = buildConfiguredModelProviders(
       makeEnvironment({ cursor: { status: "missing" } })
     );
@@ -170,11 +191,13 @@ describe("buildConfiguredModelProviders", () => {
 });
 
 describe("buildMcpItems", () => {
-  it("returns two items for Cursor and git", () => {
+  it("returns readiness items for Codex, Docker, and git", () => {
     const items = buildMcpItems(makeEnvironment());
-    expect(items).toHaveLength(2);
-    expect(items[0].name).toBe("Cursor SDK");
-    expect(items[1].name).toBe("Git");
+    expect(items).toHaveLength(4);
+    expect(items[0].name).toBe("Codex Provider");
+    expect(items[1].name).toBe("Codex CLI");
+    expect(items[2].name).toBe("Docker");
+    expect(items[3].name).toBe("Git");
   });
 
   it("includes status and detail in each item", () => {
@@ -187,6 +210,6 @@ describe("buildMcpItems", () => {
 
   it("reflects missing status", () => {
     const items = buildMcpItems(makeEnvironment({ git: { status: "missing" } }));
-    expect(items[1].status).toBe("missing");
+    expect(items[3].status).toBe("missing");
   });
 });

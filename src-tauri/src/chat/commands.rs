@@ -7,6 +7,7 @@ use crate::{
     project::{normalize_project_model, normalize_project_reasoning},
     state::SharedState,
 };
+use std::process::Command;
 use std::{fs, thread};
 use tauri::{AppHandle, State};
 
@@ -181,7 +182,18 @@ pub(crate) fn stop_chat_session(
     let control = controls.entry(session_id).or_default();
     control.stop_requested = true;
     control.awaiting_approval = false;
+    let active_container = control.active_container.clone();
     state.chat_runtime.signal.notify_all();
+    drop(controls);
+
+    if let Some(container_name) = active_container {
+        let _ = Command::new("docker")
+            .arg("rm")
+            .arg("-f")
+            .arg(container_name)
+            .output();
+    }
+
     Ok(())
 }
 
@@ -219,6 +231,7 @@ pub(crate) fn send_chat_message(
         control.run_id = control.run_id.wrapping_add(1);
         control.stop_requested = false;
         control.awaiting_approval = false;
+        control.active_container = None;
         control.run_id
     };
 

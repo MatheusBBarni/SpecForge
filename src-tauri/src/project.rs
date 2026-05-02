@@ -5,7 +5,7 @@ use crate::{
         DEFAULT_PROJECT_PRD_PATH, DEFAULT_PROJECT_SPEC_PATH, DEFAULT_SPEC_AGENT_DESCRIPTION,
         SPECFORGE_SETTINGS_RELATIVE_PATH,
     },
-    documents::load_configured_workspace_document,
+    documents::{load_configured_workspace_document, load_document_preview},
     models::{ProjectContextPayload, ProjectSettings},
     paths::{canonicalize_existing_path, normalize_relative_path},
     state::{ScannedWorkspace, SharedState},
@@ -103,6 +103,8 @@ pub(crate) fn load_project_context_from_folder(
         load_project_settings_from_workspace_root(&context.root, default_settings)?;
     let prd_document = load_configured_workspace_document(&context.root, &settings.prd_path)?;
     let spec_document = load_configured_workspace_document(&context.root, &settings.spec_path)?;
+    let prd_preview = load_document_preview(&context.root, "prd")?;
+    let spec_preview = load_document_preview(&context.root, "spec")?;
     let chat_index = load_chat_session_index(&context.root)?;
     let mut active_workspace = state
         .workspace
@@ -123,6 +125,8 @@ pub(crate) fn load_project_context_from_folder(
         ignored_file_count: result.ignored_file_count,
         prd_document,
         spec_document,
+        prd_preview,
+        spec_preview,
         chat_sessions: chat_index.sessions,
         last_active_session_id: chat_index.last_active_session_id,
     })
@@ -134,7 +138,9 @@ pub(crate) fn build_default_project_settings(
     spec_document: Option<&crate::models::WorkspaceDocument>,
 ) -> ProjectSettings {
     ProjectSettings {
-        selected_model: String::from("composer-2"),
+        agent_provider: String::from("codex"),
+        provider_auth_mode: String::from("subscription"),
+        selected_model: String::from("gpt-5.2"),
         selected_reasoning: String::from("medium"),
         prd_agent_description: String::from(DEFAULT_PRD_AGENT_DESCRIPTION),
         spec_agent_description: String::from(DEFAULT_SPEC_AGENT_DESCRIPTION),
@@ -166,6 +172,8 @@ pub(crate) fn normalize_project_settings(
         normalize_project_model(&provided.selected_model, &defaults.selected_model)?;
     let selected_reasoning =
         normalize_project_reasoning(&provided.selected_reasoning, &defaults.selected_reasoning)?;
+    let agent_provider = normalize_agent_provider(&provided.agent_provider);
+    let provider_auth_mode = normalize_provider_auth_mode(&provided.provider_auth_mode);
     let normalized_prd_path =
         normalize_project_path_or_default(workspace_root, &provided.prd_path, &defaults.prd_path)?;
     let normalized_spec_path = normalize_project_path_or_default(
@@ -180,6 +188,8 @@ pub(crate) fn normalize_project_settings(
         .collect::<Vec<_>>();
 
     Ok(ProjectSettings {
+        agent_provider,
+        provider_auth_mode,
         selected_model,
         selected_reasoning,
         prd_agent_description: if provided.prd_agent_description.trim().is_empty() {
@@ -201,6 +211,18 @@ pub(crate) fn normalize_project_settings(
         spec_path: normalized_spec_path,
         supporting_document_paths,
     })
+}
+
+pub(crate) fn normalize_agent_provider(_value: &str) -> String {
+    String::from("codex")
+}
+
+pub(crate) fn normalize_provider_auth_mode(value: &str) -> String {
+    if value == "api_key" {
+        String::from("api_key")
+    } else {
+        String::from("subscription")
+    }
 }
 
 pub(crate) fn normalize_project_path_or_default(

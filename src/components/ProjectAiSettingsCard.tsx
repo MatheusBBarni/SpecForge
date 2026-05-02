@@ -6,7 +6,7 @@ import { Brain, Spark } from "iconoir-react";
 import { memo } from "react";
 
 import { getModelOptions, getReasoningOptions } from "../lib/agentConfig";
-import type { CursorModel, ModelId, ReasoningProfileId } from "../types";
+import type { CursorModel, ModelId, ProviderAuthMode, ReasoningProfileId } from "../types";
 import {
   FIELD_LABEL_CLASS,
   ScopedPathReference,
@@ -23,12 +23,14 @@ interface ProjectAiSettingsCardProps {
   configPath: string;
   workspaceRootName: string;
   cursorModels?: CursorModel[];
+  providerAuthMode: ProviderAuthMode;
   selectedModel: ModelId;
   selectedReasoning: ReasoningProfileId;
   prdPrompt: string;
   specPrompt: string;
   executionAgentDescription: string;
   onModelChange: (model: ModelId) => void;
+  onProviderAuthModeChange: (mode: ProviderAuthMode) => void;
   onReasoningChange: (reasoning: ReasoningProfileId) => void;
   onPrdPromptChange: (value: string) => void;
   onSpecPromptChange: (value: string) => void;
@@ -39,12 +41,14 @@ export const ProjectAiSettingsCard = memo(function ProjectAiSettingsCard({
   configPath,
   workspaceRootName,
   cursorModels = [],
+  providerAuthMode,
   selectedModel,
   selectedReasoning,
   prdPrompt,
   specPrompt,
   executionAgentDescription,
   onModelChange,
+  onProviderAuthModeChange,
   onReasoningChange,
   onPrdPromptChange,
   onSpecPromptChange,
@@ -52,6 +56,18 @@ export const ProjectAiSettingsCard = memo(function ProjectAiSettingsCard({
 }: ProjectAiSettingsCardProps) {
   const modelOptions = getModelOptions(undefined, cursorModels);
   const reasoningOptions = getReasoningOptions(selectedModel, cursorModels);
+  const authModeOptions = [
+    {
+      value: "subscription" as const,
+      label: "Local subscription",
+      hint: "Use local Codex authentication material when preparing Sandcastle."
+    },
+    {
+      value: "api_key" as const,
+      label: "API key",
+      hint: "Use the Codex API key stored in the OS credential store."
+    }
+  ];
 
   return (
     <Card className={`${SETTINGS_PANEL_CLASS} rounded-lg`}>
@@ -66,6 +82,20 @@ export const ProjectAiSettingsCard = memo(function ProjectAiSettingsCard({
         />
 
         <div className="grid gap-4 md:grid-cols-2">
+          <SettingsSelectField
+            label="Agent provider"
+            onSelectionChange={() => undefined}
+            options={[{ value: "codex", label: "Codex", hint: "Runs through Sandcastle." }]}
+            selectedKey="codex"
+          />
+
+          <SettingsSelectField
+            label="Provider auth mode"
+            onSelectionChange={onProviderAuthModeChange}
+            options={authModeOptions}
+            selectedKey={providerAuthMode}
+          />
+
           <SettingsSelectField
             label="Default model"
             onSelectionChange={onModelChange}
@@ -117,8 +147,8 @@ export const ProjectAiSettingsCard = memo(function ProjectAiSettingsCard({
           <div className="flex items-start gap-3">
             <Spark className="mt-1 size-4 shrink-0 text-[var(--success)]" />
             <p className="m-0 text-sm leading-7 text-[var(--text-subtle)]">
-              The empty-state prompt fields append the user note after these saved Cursor agent
-              descriptions before the SDK run starts.
+              The empty-state prompt fields append the user note after these saved workflow agent
+              descriptions before the Sandcastle turn starts.
             </p>
           </div>
         </div>

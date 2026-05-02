@@ -15,8 +15,8 @@ import {
 } from "./agentConfig";
 
 describe("getModelLabel", () => {
-  it("returns the label for a known Cursor model", () => {
-    expect(getModelLabel("composer-2")).toBe("Composer 2");
+  it("returns the label for the default Codex model", () => {
+    expect(getModelLabel("gpt-5.2")).toBe("GPT-5.2");
   });
 
   it("returns the label for auto", () => {
@@ -25,31 +25,31 @@ describe("getModelLabel", () => {
 
   it("falls back to the first model for an unknown model id", () => {
     const label = getModelLabel("nonexistent-model");
-    expect(label).toBe("Composer 2");
+    expect(label).toBe("GPT-5.2");
   });
 });
 
 describe("getModelProvider", () => {
-  it("returns cursor for Cursor models", () => {
-    expect(getModelProvider("composer-2")).toBe("cursor");
+  it("returns codex for Codex models", () => {
+    expect(getModelProvider("gpt-5.2")).toBe("codex");
   });
 
   it("falls back to the first model's provider for unknown id", () => {
-    expect(getModelProvider("unknown")).toBe("cursor");
+    expect(getModelProvider("unknown")).toBe("codex");
   });
 });
 
 describe("getModelOption", () => {
   it("returns the full model option for a valid id", () => {
-    const option = getModelOption("composer-2");
-    expect(option.id).toBe("composer-2");
-    expect(option.provider).toBe("cursor");
-    expect(option.label).toBe("Composer 2");
+    const option = getModelOption("gpt-5.2");
+    expect(option.id).toBe("gpt-5.2");
+    expect(option.provider).toBe("codex");
+    expect(option.label).toBe("GPT-5.2");
   });
 
   it("returns the first model as fallback for unknown id", () => {
     const option = getModelOption("fake");
-    expect(option.id).toBe("composer-2");
+    expect(option.id).toBe("gpt-5.2");
   });
 });
 
@@ -58,15 +58,15 @@ describe("getModelOptions", () => {
     const options = getModelOptions();
     expect(options.length).toBeGreaterThan(0);
     const ids = options.map((o) => o.value);
-    expect(ids).toContain("composer-2");
+    expect(ids).toContain("gpt-5.2");
     expect(ids).toContain("auto");
   });
 
-  it("returns only Cursor models when filtered by cursor", () => {
-    const options = getModelOptions("cursor");
+  it("returns only Codex models when filtered by codex", () => {
+    const options = getModelOptions("codex");
     expect(options.length).toBeGreaterThan(0);
     for (const opt of options) {
-      expect(opt.hint).toMatch(/^Cursor/);
+      expect(opt.hint).toMatch(/^Codex/);
     }
   });
 
@@ -84,8 +84,8 @@ describe("getReasoningLabel", () => {
     expect(getReasoningLabel("composer-2", "medium")).toBe("Medium");
   });
 
-  it("returns 'Max' for Cursor model with max profile", () => {
-    expect(getReasoningLabel("composer-2", "max")).toBe("Max");
+  it("returns 'Extra High' for Codex model with xhigh profile", () => {
+    expect(getReasoningLabel("gpt-5.2", "xhigh")).toBe("Extra High");
   });
 
   it("returns 'Low' for low profile", () => {
@@ -94,18 +94,18 @@ describe("getReasoningLabel", () => {
 });
 
 describe("getReasoningHint", () => {
-  it("returns description-based hint for Cursor model", () => {
-    const hint = getReasoningHint("composer-2", "medium");
-    expect(hint).toContain("Cursor");
+  it("returns description-based hint for Codex model", () => {
+    const hint = getReasoningHint("gpt-5.2", "medium");
+    expect(hint).toContain("Codex");
     expect(hint).toContain("Balanced");
   });
 });
 
 describe("getReasoningOptions", () => {
-  it("returns full range for a Cursor model", () => {
-    const options = getReasoningOptions("composer-2");
+  it("returns full range for a Codex model", () => {
+    const options = getReasoningOptions("gpt-5.2");
     expect(options).toHaveLength(4);
-    expect(options.map((o) => o.value)).toEqual(["low", "medium", "high", "max"]);
+    expect(options.map((o) => o.value)).toEqual(["low", "medium", "high", "xhigh"]);
   });
 
   it("each option has a label and hint", () => {
@@ -119,11 +119,11 @@ describe("getReasoningOptions", () => {
 
 describe("normalizeReasoningProfile", () => {
   it("returns the profile when it is valid for the model", () => {
-    expect(normalizeReasoningProfile("composer-2", "high")).toBe("high");
+    expect(normalizeReasoningProfile("gpt-5.2", "high")).toBe("high");
   });
 
   it("returns the default profile for invalid profile values", () => {
-    expect(normalizeReasoningProfile("composer-2", "invalid")).toBe("medium");
+    expect(normalizeReasoningProfile("gpt-5.2", "invalid")).toBe("medium");
   });
 
   it("preserves account-specific profile values for dynamic model ids", () => {
@@ -136,7 +136,7 @@ describe("normalizeReasoningProfile", () => {
 });
 
 describe("normalizeModelId", () => {
-  it("preserves account-specific Cursor model ids", () => {
+  it("preserves account-specific Codex model ids", () => {
     expect(normalizeModelId("account-model")).toBe("account-model");
   });
 
@@ -145,20 +145,20 @@ describe("normalizeModelId", () => {
   });
 
   it("uses the default model for empty values", () => {
-    expect(normalizeModelId(" ")).toBe("composer-2");
-    expect(normalizeModelId(null)).toBe("composer-2");
+    expect(normalizeModelId(" ")).toBe("gpt-5.2");
+    expect(normalizeModelId(null)).toBe("gpt-5.2");
   });
 });
 
 describe("getProviderLabel", () => {
-  it("returns 'Cursor' for cursor provider", () => {
-    expect(getProviderLabel("cursor")).toBe("Cursor");
+  it("returns 'Codex' for codex provider", () => {
+    expect(getProviderLabel("codex")).toBe("Codex");
   });
 });
 
 describe("DEFAULT exports", () => {
-  it("DEFAULT_MODEL_ID is composer-2", () => {
-    expect(DEFAULT_MODEL_ID).toBe("composer-2");
+  it("DEFAULT_MODEL_ID is gpt-5.2", () => {
+    expect(DEFAULT_MODEL_ID).toBe("gpt-5.2");
   });
 
   it("DEFAULT_REASONING_PROFILE is medium", () => {

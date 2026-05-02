@@ -23,6 +23,7 @@ pub(crate) struct ExecutionControl {
     pub(crate) run_id: u64,
     pub(crate) awaiting_approval: bool,
     pub(crate) stop_requested: bool,
+    pub(crate) active_container: Option<String>,
 }
 
 #[derive(Default)]
@@ -36,6 +37,7 @@ pub(crate) struct ChatExecutionControl {
     pub(crate) run_id: u64,
     pub(crate) awaiting_approval: bool,
     pub(crate) stop_requested: bool,
+    pub(crate) active_container: Option<String>,
 }
 
 #[derive(Clone)]

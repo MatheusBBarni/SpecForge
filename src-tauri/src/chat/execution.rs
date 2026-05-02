@@ -2,18 +2,19 @@ use crate::{
     environment::{current_timestamp, resolve_cli_binary},
     generation::{
         create_spec_generation_temp_dir, format_process_failure, map_claude_reasoning,
-        map_codex_reasoning, run_command_with_stdin,
+        map_codex_reasoning, run_command_with_stdin, run_command_with_stdin_and_stream,
     },
     git::git_get_diff_for_root,
     models::{
         AutonomyMode, ChatEventPayload, ChatMessage, ChatRuntimeState, ChatSessionSnapshot,
         MessageRole, SessionStatus,
     },
+    secrets::read_cursor_api_key,
     state::{ChatExecutionRuntime, WorkspaceContext},
 };
 use std::{
     fs,
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::Arc,
 };
@@ -387,15 +388,54 @@ fn execute_chat_phase(
 
     let context_blocks = build_context_blocks(workspace, snapshot)?;
     let prompt_payload = build_chat_prompt(snapshot, &context_blocks, user_message, phase);
-    let assistant_content = run_chat_provider_request(
+    let selected_model = snapshot.selected_model.clone();
+    let selected_reasoning = snapshot.selected_reasoning.clone();
+    let assistant_content = match run_chat_provider_request(
+        app,
+        runtime,
+        session_id,
+        run_id,
+        snapshot,
         &workspace.root,
-        &snapshot.selected_model,
-        &snapshot.selected_reasoning,
+        &selected_model,
+        &selected_reasoning,
         phase,
         &prompt_payload,
         claude_path.as_deref(),
         codex_path.as_deref(),
-    )?;
+    ) {
+        Ok(content) => content,
+        Err(_)
+            if matches!(
+                stop_state(runtime, session_id, run_id),
+                ChatStopState::StopRequested
+            ) =>
+        {
+            halt_session(
+                app,
+                &workspace.root,
+                session_id,
+                snapshot,
+                "Turn stopped while Sandcastle was running.",
+            )?;
+            return Ok(());
+        }
+        Err(error) => return Err(error),
+    };
+
+    if matches!(
+        stop_state(runtime, session_id, run_id),
+        ChatStopState::StopRequested
+    ) {
+        halt_session(
+            app,
+            &workspace.root,
+            session_id,
+            snapshot,
+            "Turn stopped while Sandcastle was running.",
+        )?;
+        return Ok(());
+    }
 
     let assistant_message = ChatMessage {
         id: create_chat_entity_id("msg"),
@@ -435,6 +475,11 @@ fn execute_chat_phase(
 }
 
 fn run_chat_provider_request(
+    app: &AppHandle,
+    runtime: &Arc<ChatExecutionRuntime>,
+    session_id: &str,
+    run_id: u64,
+    snapshot: &mut ChatSessionSnapshot,
     workspace_root: &Path,
     model: &str,
     reasoning: &str,
@@ -454,8 +499,16 @@ fn run_chat_provider_request(
         )
     } else {
         run_codex_chat_request(
+            app,
+            Some((runtime, session_id, run_id)),
+            snapshot,
             workspace_root,
             &resolve_cli_binary("codex", codex_path)?,
+            Some(&format!(
+                "specforge-chat-{}-{run_id}-{}",
+                sanitize_container_segment(session_id),
+                phase.label()
+            )),
             model,
             reasoning,
             phase,
@@ -465,8 +518,12 @@ fn run_chat_provider_request(
 }
 
 fn run_codex_chat_request(
+    app: &AppHandle,
+    runtime: Option<(&Arc<ChatExecutionRuntime>, &str, u64)>,
+    snapshot: &mut ChatSessionSnapshot,
     workspace_root: &Path,
-    binary_path: &Path,
+    _binary_path: &Path,
+    container_name: Option<&str>,
     model: &str,
     reasoning: &str,
     phase: ChatExecutionPhase,
@@ -474,33 +531,69 @@ fn run_codex_chat_request(
 ) -> Result<String, String> {
     let temp_dir = create_spec_generation_temp_dir("codex-chat")?;
     let output_path = temp_dir.join("assistant-message.md");
-    let mut command = Command::new(binary_path);
+    let diff_path = temp_dir.join("sandbox.diff");
+    let image = ensure_sandcastle_image()?;
+    let owned_container_name = container_name
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("specforge-chat-{}", current_timestamp()));
+    let mut command = Command::new("docker");
     command
-        .current_dir(workspace_root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .arg("exec")
-        .arg("--color")
-        .arg("never")
-        .arg("--skip-git-repo-check")
-        .arg("--sandbox")
-        .arg(phase.codex_sandbox())
-        .arg("--model")
-        .arg(model)
-        .arg("--config")
+        .arg("run")
+        .arg("--rm")
+        .arg("-i")
+        .arg("--name")
+        .arg(&owned_container_name)
+        .arg("-v")
+        .arg(format!("{}:/home/agent/input:ro", workspace_root.display()))
+        .arg("-v")
+        .arg(format!("{}:/home/agent/output", temp_dir.display()))
+        .arg("-e")
+        .arg(format!("SPECFORGE_CODEX_MODEL={model}"))
+        .arg("-e")
         .arg(format!(
-            "model_reasoning_effort=\"{}\"",
+            "SPECFORGE_CODEX_REASONING={}",
             map_codex_reasoning(reasoning)
         ))
-        .arg("--output-last-message")
-        .arg(&output_path);
+        .arg("-e")
+        .arg(format!("SPECFORGE_CODEX_SANDBOX={}", phase.codex_sandbox()))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
 
-    let output = run_command_with_stdin(&mut command, "Codex CLI", prompt_payload)?;
+    configure_codex_auth(&mut command)?;
+
+    command
+        .arg(image)
+        .arg("sh")
+        .arg("-lc")
+        .arg(sandcastle_codex_script());
+
+    if let Some((runtime, session_id, run_id)) = runtime {
+        set_active_chat_container(
+            runtime,
+            session_id,
+            run_id,
+            Some(owned_container_name.clone()),
+        )?;
+    }
+    let output = run_command_with_stdin_and_stream(
+        &mut command,
+        "Sandcastle Runtime",
+        prompt_payload,
+        |line| {
+            if let Some((_, session_id, _)) = runtime {
+                append_terminal_line(app, session_id, snapshot, line);
+            }
+        },
+    );
+    if let Some((runtime, session_id, run_id)) = runtime {
+        set_active_chat_container(runtime, session_id, run_id, None)?;
+    }
+    let output = output?;
 
     if !output.status.success() {
         let _ = fs::remove_dir_all(&temp_dir);
-        return Err(format_process_failure("Codex CLI", &output));
+        return Err(format_process_failure("Sandcastle Runtime", &output));
     }
 
     let result = fs::read_to_string(&output_path).or_else(|_| {
@@ -509,15 +602,31 @@ fn run_codex_chat_request(
         if stdout.is_empty() {
             Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                "The Codex CLI returned no assistant content.",
+                "The Sandcastle Runtime returned no assistant content.",
             ))
         } else {
             Ok(stdout)
         }
     });
+
+    let mut result = match result {
+        Ok(result) => result,
+        Err(error) => {
+            let _ = fs::remove_dir_all(&temp_dir);
+            return Err(format!(
+                "Unable to read the Sandcastle assistant output: {error}"
+            ));
+        }
+    };
+    if let Ok(diff) = fs::read_to_string(&diff_path) {
+        if !diff.trim().is_empty() {
+            result.push_str("\n\n--- Sandbox Diff ---\n");
+            result.push_str(diff.trim());
+        }
+    }
     let _ = fs::remove_dir_all(&temp_dir);
 
-    result.map_err(|error| format!("Unable to read the Codex assistant output: {error}"))
+    Ok(result)
 }
 
 fn run_claude_chat_request(
@@ -554,6 +663,106 @@ fn run_claude_chat_request(
     }
 
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+fn sandcastle_codex_script() -> &'static str {
+    r#"set -eu
+mkdir -p /home/agent/workspace
+cp -a /home/agent/input/. /home/agent/workspace/
+cd /home/agent/workspace
+codex exec --color never --skip-git-repo-check --sandbox "$SPECFORGE_CODEX_SANDBOX" --model "$SPECFORGE_CODEX_MODEL" --config "model_reasoning_effort=\"$SPECFORGE_CODEX_REASONING\"" --output-last-message /home/agent/output/assistant-message.md
+git diff --no-ext-diff > /home/agent/output/sandbox.diff || true
+"#
+}
+
+fn set_active_chat_container(
+    runtime: &Arc<ChatExecutionRuntime>,
+    session_id: &str,
+    run_id: u64,
+    active_container: Option<String>,
+) -> Result<(), String> {
+    let mut controls = runtime
+        .control
+        .lock()
+        .map_err(|_| String::from("Chat execution lock was poisoned."))?;
+    let control = controls.entry(session_id.to_string()).or_default();
+
+    if control.run_id == run_id {
+        control.active_container = active_container;
+    }
+
+    Ok(())
+}
+
+fn sanitize_container_segment(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character == '-' || character == '_' {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect()
+}
+
+fn ensure_sandcastle_image() -> Result<String, String> {
+    let app_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| String::from("Unable to resolve the SpecForge application root."))?;
+    let dockerfile = app_root.join("src").join("sandcastle").join("Dockerfile");
+
+    if !dockerfile.exists() {
+        return Err(format!(
+            "Sandcastle Dockerfile was not found at {}.",
+            dockerfile.display()
+        ));
+    }
+
+    let image = "specforge-sandcastle-runtime:latest";
+    let output = Command::new("docker")
+        .arg("build")
+        .arg("-t")
+        .arg(image)
+        .arg("-f")
+        .arg(&dockerfile)
+        .current_dir(&app_root)
+        .env("NO_COLOR", "1")
+        .output()
+        .map_err(|error| format!("Unable to build the Sandcastle runtime image: {error}"))?;
+
+    if !output.status.success() {
+        return Err(format_process_failure("Sandcastle image build", &output));
+    }
+
+    Ok(String::from(image))
+}
+
+fn configure_codex_auth(command: &mut Command) -> Result<(), String> {
+    if let Some(api_key) = read_cursor_api_key()?.filter(|value| !value.trim().is_empty()) {
+        command.arg("-e").arg(format!("OPENAI_API_KEY={api_key}"));
+        return Ok(());
+    }
+
+    let codex_home = local_codex_auth_dir()
+        .filter(|path| path.exists())
+        .ok_or_else(|| {
+            String::from("Codex authentication is required before running Sandcastle.")
+        })?;
+    command
+        .arg("-v")
+        .arg(format!("{}:/home/agent/.codex:ro", codex_home.display()));
+
+    Ok(())
+}
+
+fn local_codex_auth_dir() -> Option<PathBuf> {
+    std::env::var_os("CODEX_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join(".codex")))
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".codex")))
 }
 
 fn append_terminal_line(
