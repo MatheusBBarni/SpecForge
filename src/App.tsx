@@ -112,7 +112,7 @@ async function refreshCursorModelsForEnvironment(
       models: [],
       projectErrorMessage: error instanceof Error
         ? error.message
-        : "Unable to load Cursor SDK models."
+        : "Unable to load Codex models."
     };
   }
 }
@@ -254,7 +254,11 @@ function App() {
     handleGrillPrd,
     handleGeneratePrd,
     handleGrillSpec,
-    handleGenerateSpec
+    handleGenerateSpec,
+    handleSavePrdPreview,
+    handleDiscardPrdPreview,
+    handleSaveSpecPreview,
+    handleDiscardSpecPreview
   } = useDocumentHandlers({
     agentState,
     derivedState,
@@ -296,6 +300,7 @@ function App() {
     setConfiguredPrdPath: projectState.setConfiguredPrdPath,
     setConfiguredSpecPath: projectState.setConfiguredSpecPath,
     setExecutionAgentDescription: projectState.setExecutionAgentDescription,
+    setProviderAuthMode: projectState.setProviderAuthMode,
     setPrdPromptTemplate: projectState.setPrdPromptTemplate,
     setReasoningProfile: projectState.setReasoningProfile,
     setSelectedModel: projectState.setSelectedModel,
@@ -405,6 +410,25 @@ function App() {
       return;
     }
 
+    if (
+      desktopRuntime &&
+      (settingsState.environment.cursor.status !== "found" ||
+        settingsState.environment.codex.status !== "found" ||
+        settingsState.environment.docker.status !== "found")
+    ) {
+      agentState.setStatus("error");
+      agentState.setExecutionSummary("Sandcastle Runtime is not ready.");
+      agentState.appendTerminalOutput(
+        stampLog(
+          "error",
+          settingsState.environment.docker.status === "unavailable"
+            ? "Docker Desktop is open, but the Docker engine is unavailable. Restart Docker Desktop or run wsl --shutdown before starting execution."
+            : "Configure Codex authentication, Codex CLI, and Docker before starting execution."
+        )
+      );
+      return;
+    }
+
     const modelLabel = getModelLabel(projectState.selectedModel);
     const reasoningLabel = getReasoningLabel(
       projectState.selectedModel,
@@ -433,12 +457,17 @@ function App() {
         );
         return;
       } catch (error) {
+        agentState.setStatus("error");
+        agentState.setExecutionSummary(
+          error instanceof Error ? error.message : "Agent startup failed."
+        );
         agentState.appendTerminalOutput(
           stampLog(
             "error",
-            `${error instanceof Error ? error.message : "Agent startup failed."} Falling back to the local simulator.`
+            error instanceof Error ? error.message : "Agent startup failed."
           )
         );
+        return;
       }
     }
 
@@ -455,7 +484,7 @@ function App() {
       fallbackTimerRef,
       workspaceUiState.setLatestDiff
     );
-  }, [agentState, desktopRuntime, projectState, workspaceUiState.setLatestDiff]);
+  }, [agentState, desktopRuntime, projectState, settingsState.environment, workspaceUiState.setLatestDiff]);
 
   const handleApproveExecutionGate = useCallback(async () => {
     if (agentState.status !== "awaiting_approval") {
@@ -537,6 +566,10 @@ function App() {
     handleGenerateSpec,
     handleGrillPrd,
     handleGrillSpec,
+    handleSavePrdPreview,
+    handleDiscardPrdPreview,
+    handleSaveSpecPreview,
+    handleDiscardSpecPreview,
     handleOpenImportFile,
     handleStartBuild,
     handleWorkspaceFileOpen,

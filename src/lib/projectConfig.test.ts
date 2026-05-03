@@ -106,7 +106,9 @@ describe("parseSupportingDocumentPaths", () => {
 describe("buildDefaultProjectSettings", () => {
   it("returns expected default values", () => {
     const settings = buildDefaultProjectSettings();
-    expect(settings.selectedModel).toBe("composer-2");
+    expect(settings.agentProvider).toBe("codex");
+    expect(settings.providerAuthMode).toBe("subscription");
+    expect(settings.selectedModel).toBe("gpt-5.2");
     expect(settings.selectedReasoning).toBe("medium");
     expect(settings.prdPath).toBe("docs/PRD.md");
     expect(settings.specPath).toBe("docs/SPEC.md");
@@ -136,12 +138,15 @@ describe("normalizeProjectSettings", () => {
 
   it("preserves valid overrides", () => {
     const result = normalizeProjectSettings({
-      selectedModel: "composer-2",
+      selectedModel: "gpt-5.2",
       selectedReasoning: "high",
+      providerAuthMode: "api_key",
       prdPath: "custom/PRD.md",
       specPath: "custom/SPEC.md"
     });
-    expect(result.selectedModel).toBe("composer-2");
+    expect(result.agentProvider).toBe("codex");
+    expect(result.providerAuthMode).toBe("api_key");
+    expect(result.selectedModel).toBe("gpt-5.2");
     expect(result.selectedReasoning).toBe("high");
     expect(result.prdPath).toBe("custom/PRD.md");
     expect(result.specPath).toBe("custom/SPEC.md");
@@ -150,6 +155,16 @@ describe("normalizeProjectSettings", () => {
   it("preserves account-specific Cursor model ids", () => {
     const result = normalizeProjectSettings({ selectedModel: "account-model" });
     expect(result.selectedModel).toBe("account-model");
+  });
+
+  it("normalizes unsupported providers and auth modes to Codex subscription", () => {
+    const result = normalizeProjectSettings({
+      agentProvider: "cursor",
+      providerAuthMode: "oauth"
+    } as unknown as Partial<ReturnType<typeof buildDefaultProjectSettings>>);
+
+    expect(result.agentProvider).toBe("codex");
+    expect(result.providerAuthMode).toBe("subscription");
   });
 
   it("preserves account-specific reasoning values for dynamic Cursor models", () => {

@@ -1,9 +1,22 @@
-use crate::constants::SAMPLE_DIFF;
-use crate::models::{AgentStateEvent, ApprovalWaitOutcome, SimulatedStep, StopState};
-use crate::state::{ExecutionRuntime, SharedState};
-use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
+use crate::models::{AgentStateEvent, ApprovalWaitOutcome};
+use crate::state::{ExecutionRuntime, SharedState, WorkspaceContext};
+use crate::{
+    constants::SAMPLE_DIFF,
+    docker::{DockerRuntime, docker_mount_arg, sandcastle_build_args},
+    generation::{
+        create_spec_generation_temp_dir, format_process_failure, map_codex_reasoning,
+        run_command_with_stdin_and_stream,
+    },
+    git::git_get_diff_for_root,
+    secrets::read_cursor_api_key,
+};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+    sync::Arc,
+    thread,
+};
 use tauri::{AppHandle, Emitter, State};
 
 #[tauri::command]
@@ -24,11 +37,27 @@ pub(crate) fn spawn_cli_agent(
         control.run_id = control.run_id.wrapping_add(1);
         control.awaiting_approval = false;
         control.stop_requested = false;
+        control.active_container = None;
         control.run_id
     };
 
+    let workspace = state
+        .workspace
+        .lock()
+        .map_err(|_| String::from("Workspace lock was poisoned."))?
+        .clone();
+
     thread::spawn(move || {
-        run_simulated_agent(app, runtime, run_id, spec_payload, mode, model, reasoning);
+        run_sandcastle_agent(
+            app,
+            runtime,
+            workspace,
+            run_id,
+            spec_payload,
+            mode,
+            model,
+            reasoning,
+        );
     });
 
     Ok(())
@@ -55,211 +84,404 @@ pub(crate) fn kill_agent_process(state: State<SharedState>) -> Result<(), String
         .map_err(|_| String::from("Execution lock was poisoned."))?;
     control.stop_requested = true;
     control.awaiting_approval = false;
+    let active_container = control.active_container.clone();
     state.runtime.signal.notify_all();
+    drop(control);
+
+    if let Some(container_name) = active_container {
+        let _ = force_remove_container(&container_name);
+    }
+
     Ok(())
 }
 
-pub(crate) fn run_simulated_agent(
+pub(crate) fn run_sandcastle_agent(
     app: AppHandle,
     runtime: Arc<ExecutionRuntime>,
+    workspace: Option<WorkspaceContext>,
     run_id: u64,
     spec_payload: String,
     mode: String,
     model: String,
     reasoning: String,
 ) {
-    let heading_count = spec_payload
-        .lines()
-        .filter(|line| line.trim_start().starts_with('#'))
-        .count();
-    let steps = build_simulated_steps(heading_count, &mode, &model, &reasoning);
-    emit_state(&app, "executing", Some("Pre-flight Check"), None, None);
-
-    for step in steps {
-        match stop_state(&runtime, run_id) {
-            StopState::Continue => {}
-            StopState::StopRequested => {
-                emit_line(
-                    &app,
-                    "Execution interrupted before the next step could run.",
-                );
-                emit_state(
-                    &app,
-                    "halted",
-                    Some(step.milestone),
-                    None,
-                    Some("Execution interrupted by the operator."),
-                );
-                return;
-            }
-            StopState::Replaced => return,
-        }
-
-        thread::sleep(Duration::from_millis(step.delay_ms));
-        match stop_state(&runtime, run_id) {
-            StopState::Continue => {}
-            StopState::StopRequested => {
-                emit_line(
-                    &app,
-                    "Execution interrupted before the next step could run.",
-                );
-                emit_state(
-                    &app,
-                    "halted",
-                    Some(step.milestone),
-                    None,
-                    Some("Execution interrupted by the operator."),
-                );
-                return;
-            }
-            StopState::Replaced => return,
-        }
-        emit_state(&app, "executing", Some(step.milestone), None, None);
-        emit_line(&app, &step.line);
-
-        if step.gate {
-            let summary = if mode == "stepped" {
-                "Stepped approval required before the next write action."
-            } else {
-                "Milestone boundary reached. Review the diff before execution resumes."
-            };
-
-            match wait_for_approval(&app, &runtime, run_id, step.milestone, summary) {
-                Ok(ApprovalWaitOutcome::Approved) => {}
-                Ok(ApprovalWaitOutcome::StopRequested) => {
-                    emit_line(&app, "Execution interrupted during approval gate.");
-                    emit_state(
-                        &app,
-                        "halted",
-                        Some(step.milestone),
-                        None,
-                        Some("Execution interrupted by the operator."),
-                    );
-                    return;
-                }
-                Ok(ApprovalWaitOutcome::Replaced) => return,
-                Err(message) => {
-                    emit_line(&app, &message);
-                    emit_state(
-                        &app,
-                        "error",
-                        Some(step.milestone),
-                        None,
-                        Some("Approval synchronization failed."),
-                    );
-                    return;
-                }
-            }
-
-            emit_line(&app, "Approval received. Resuming the agent loop.");
-        }
-    }
-
-    if !matches!(stop_state(&runtime, run_id), StopState::Continue) {
+    let Some(workspace) = workspace else {
+        emit_line(
+            &app,
+            "Choose a project workspace before starting Sandcastle execution.",
+        );
+        emit_state(
+            &app,
+            "error",
+            Some("Workspace Required"),
+            None,
+            Some("Choose a project workspace before starting execution."),
+        );
         return;
-    }
+    };
 
+    emit_state(&app, "executing", Some("Sandcastle Pre-flight"), None, None);
     emit_line(
         &app,
-        "Execution complete. Final diff is ready for inspection.",
+        "Preparing the Sandcastle Runtime sandbox for execution.",
     );
-    emit_state(
-        &app,
-        "completed",
-        Some("Execution Complete"),
-        Some(SAMPLE_DIFF),
-        Some("Simulated agent execution completed successfully."),
-    );
-}
-
-pub(crate) fn build_simulated_steps(
-    heading_count: usize,
-    mode: &str,
-    model: &str,
-    reasoning: &str,
-) -> Vec<SimulatedStep> {
-    let mut steps = vec![
-        SimulatedStep {
-            delay_ms: 450,
-            line: format!(
-                "Loaded approved specification with {heading_count} markdown headings into {model} using the {reasoning} reasoning profile."
-            ),
-            milestone: "Pre-flight Check",
-            gate: false,
-        },
-        SimulatedStep {
-            delay_ms: 650,
-            line: String::from(
-                "Scanning CLI availability and staging the current repository diff.",
-            ),
-            milestone: "Pre-flight Check",
-            gate: false,
-        },
-        SimulatedStep {
-            delay_ms: 750,
-            line: String::from(
-                "Mapping milestones for review UI, Zustand stores, and Tauri commands.",
-            ),
-            milestone: "Milestone Planning",
-            gate: false,
-        },
-    ];
 
     if mode == "stepped" {
-        steps.push(SimulatedStep {
-            delay_ms: 650,
-            line: String::from(
-                "A write action is ready to execute against the approved specification.",
-            ),
-            milestone: "Stepped Approval",
-            gate: true,
-        });
+        match wait_for_approval(
+            &app,
+            &runtime,
+            run_id,
+            "Stepped Approval",
+            "Approve this Sandcastle execution turn before the sandbox runs.",
+        ) {
+            Ok(ApprovalWaitOutcome::Approved) => {}
+            Ok(ApprovalWaitOutcome::StopRequested) => {
+                emit_line(&app, "Execution interrupted during approval gate.");
+                emit_state(
+                    &app,
+                    "halted",
+                    Some("Stepped Approval"),
+                    None,
+                    Some("Execution interrupted by the operator."),
+                );
+                return;
+            }
+            Ok(ApprovalWaitOutcome::Replaced) => return,
+            Err(message) => {
+                emit_line(&app, &message);
+                emit_state(
+                    &app,
+                    "error",
+                    Some("Stepped Approval"),
+                    None,
+                    Some(&message),
+                );
+                return;
+            }
+        }
     }
 
-    steps.extend([
-        SimulatedStep {
-            delay_ms: 700,
-            line: String::from(
-                "Applying Dracula theme tokens and composing the review workspace shell.",
-            ),
-            milestone: "Compose Review Workspace",
-            gate: false,
-        },
-        SimulatedStep {
-            delay_ms: 650,
-            line: String::from(
-                "Wiring project, settings, and agent stores into the execution dashboard.",
-            ),
-            milestone: "Compose Review Workspace",
-            gate: false,
-        },
-    ]);
+    let container_name = format!("specforge-exec-{run_id}");
 
-    if mode == "milestone" {
-        steps.push(SimulatedStep {
-            delay_ms: 650,
-            line: String::from("The first milestone is complete and ready for diff review."),
-            milestone: "Milestone Approval",
-            gate: true,
+    match run_sandcastle_execution_turn(
+        &app,
+        &runtime,
+        run_id,
+        &workspace.root,
+        &spec_payload,
+        &model,
+        &reasoning,
+        &container_name,
+    ) {
+        Ok(result) => {
+            if stop_was_requested(&runtime, run_id) {
+                emit_line(&app, "Execution stopped while Sandcastle was running.");
+                emit_state(
+                    &app,
+                    "halted",
+                    Some("Sandcastle Runtime"),
+                    None,
+                    Some("Execution stopped by the operator."),
+                );
+                return;
+            }
+
+            let host_diff =
+                git_get_diff_for_root(&workspace.root).unwrap_or_else(|_| SAMPLE_DIFF.to_string());
+            let sandbox_result = format!(
+                "{}\n\n--- Sandcastle Result ---\n{}",
+                if host_diff.trim().is_empty() {
+                    SAMPLE_DIFF
+                } else {
+                    host_diff.trim()
+                },
+                result.trim()
+            );
+            emit_line(
+                &app,
+                "Sandcastle execution turn completed. Review the sandbox result.",
+            );
+
+            if mode == "milestone" {
+                match wait_for_approval(
+                    &app,
+                    &runtime,
+                    run_id,
+                    "Milestone Approval",
+                    "Milestone boundary reached. Review the Sandcastle result before continuing.",
+                ) {
+                    Ok(ApprovalWaitOutcome::Approved) => {}
+                    Ok(ApprovalWaitOutcome::StopRequested) => {
+                        emit_line(&app, "Execution interrupted during milestone approval.");
+                        emit_state(
+                            &app,
+                            "halted",
+                            Some("Milestone Approval"),
+                            None,
+                            Some("Execution interrupted by the operator."),
+                        );
+                        return;
+                    }
+                    Ok(ApprovalWaitOutcome::Replaced) => return,
+                    Err(message) => {
+                        emit_line(&app, &message);
+                        emit_state(
+                            &app,
+                            "error",
+                            Some("Milestone Approval"),
+                            None,
+                            Some(&message),
+                        );
+                        return;
+                    }
+                }
+            }
+
+            emit_state(
+                &app,
+                "completed",
+                Some("Execution Complete"),
+                Some(&sandbox_result),
+                Some("Sandcastle execution completed. The sandbox result is ready for review."),
+            );
+        }
+        Err(error) => {
+            if stop_was_requested(&runtime, run_id) {
+                emit_line(&app, "Execution stopped while Sandcastle was running.");
+                emit_state(
+                    &app,
+                    "halted",
+                    Some("Sandcastle Runtime"),
+                    None,
+                    Some("Execution stopped by the operator."),
+                );
+                return;
+            }
+
+            emit_line(&app, &error);
+            emit_state(
+                &app,
+                "error",
+                Some("Sandcastle Runtime"),
+                None,
+                Some(&error),
+            );
+        }
+    }
+}
+
+fn run_sandcastle_execution_turn(
+    app: &AppHandle,
+    runtime: &Arc<ExecutionRuntime>,
+    run_id: u64,
+    workspace_root: &Path,
+    spec_payload: &str,
+    model: &str,
+    reasoning: &str,
+    container_name: &str,
+) -> Result<String, String> {
+    let temp_dir = create_spec_generation_temp_dir("sandcastle-execution")?;
+    let output_path = temp_dir.join("assistant-message.md");
+    let diff_path = temp_dir.join("sandbox.diff");
+    let docker = DockerRuntime::detect()?;
+    let image = ensure_sandcastle_image(&docker)?;
+    let prompt = format!(
+        "Execute from this approved technical specification inside the sandbox. Do not mutate the host workspace directly. Return a concise Sandbox Result with the intended patch, commands, or blockers.\n\n{}",
+        spec_payload
+    );
+    let mut command = docker.command();
+    command
+        .arg("run")
+        .arg("--rm")
+        .arg("-i")
+        .arg("--name")
+        .arg(container_name)
+        .arg("-v")
+        .arg(docker_mount_arg(
+            &docker,
+            workspace_root,
+            "/home/agent/input",
+            "ro",
+        ))
+        .arg("-v")
+        .arg(docker_mount_arg(
+            &docker,
+            &temp_dir,
+            "/home/agent/output",
+            "rw",
+        ))
+        .arg("-e")
+        .arg(format!("SPECFORGE_CODEX_MODEL={model}"))
+        .arg("-e")
+        .arg(format!(
+            "SPECFORGE_CODEX_REASONING={}",
+            map_codex_reasoning(reasoning)
+        ))
+        .arg("-e")
+        .arg("SPECFORGE_CODEX_SANDBOX=workspace-write")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    configure_codex_auth(&mut command, &docker)?;
+
+    command
+        .arg(image)
+        .arg("sh")
+        .arg("-lc")
+        .arg(sandcastle_codex_script());
+
+    set_active_container(runtime, run_id, Some(container_name.to_string()))?;
+    let output =
+        run_command_with_stdin_and_stream(&mut command, "Sandcastle Runtime", &prompt, |line| {
+            emit_line(app, line);
         });
+    let clear_result = set_active_container(runtime, run_id, None);
+    clear_result?;
+    let output = output?;
+
+    if !output.status.success() {
+        let _ = fs::remove_dir_all(&temp_dir);
+        return Err(format_process_failure("Sandcastle Runtime", &output));
     }
 
-    steps.extend([
-        SimulatedStep {
-            delay_ms: 650,
-            line: String::from("Streaming terminal telemetry and enabling approval controls."),
-            milestone: "Execution Dashboard",
-            gate: false,
-        },
-        SimulatedStep {
-            delay_ms: 550,
-            line: String::from("Packaging a final summary for IDE handoff."),
-            milestone: "Execution Dashboard",
-            gate: false,
-        },
-    ]);
+    let result = fs::read_to_string(&output_path).or_else(|_| {
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
-    steps
+        if stdout.is_empty() {
+            Err(std::io::Error::other(
+                "The Sandcastle Runtime returned no sandbox result.",
+            ))
+        } else {
+            Ok(stdout)
+        }
+    });
+    let mut result = match result {
+        Ok(result) => result,
+        Err(error) => {
+            let _ = fs::remove_dir_all(&temp_dir);
+            return Err(format!("Unable to read the Sandcastle result: {error}"));
+        }
+    };
+    if let Ok(diff) = fs::read_to_string(&diff_path)
+        && !diff.trim().is_empty()
+    {
+        result.push_str("\n\n--- Sandbox Diff ---\n");
+        result.push_str(diff.trim());
+    }
+    let _ = fs::remove_dir_all(&temp_dir);
+
+    Ok(result)
+}
+
+fn sandcastle_codex_script() -> &'static str {
+    r#"set -eu
+mkdir -p /home/agent/workspace
+cp -a /home/agent/input/. /home/agent/workspace/
+cd /home/agent/workspace
+codex exec --color never --skip-git-repo-check --sandbox "$SPECFORGE_CODEX_SANDBOX" --model "$SPECFORGE_CODEX_MODEL" --config "model_reasoning_effort=\"$SPECFORGE_CODEX_REASONING\"" --output-last-message /home/agent/output/assistant-message.md
+git diff --no-ext-diff > /home/agent/output/sandbox.diff || true
+"#
+}
+
+fn set_active_container(
+    runtime: &Arc<ExecutionRuntime>,
+    run_id: u64,
+    active_container: Option<String>,
+) -> Result<(), String> {
+    let mut control = runtime
+        .control
+        .lock()
+        .map_err(|_| String::from("Execution lock was poisoned."))?;
+
+    if control.run_id == run_id {
+        control.active_container = active_container;
+    }
+
+    Ok(())
+}
+
+fn stop_was_requested(runtime: &Arc<ExecutionRuntime>, run_id: u64) -> bool {
+    runtime
+        .control
+        .lock()
+        .map(|control| control.run_id == run_id && control.stop_requested)
+        .unwrap_or(true)
+}
+
+fn force_remove_container(container_name: &str) -> Result<(), String> {
+    let mut command = DockerRuntime::detect()?.command();
+    let output = command
+        .arg("rm")
+        .arg("-f")
+        .arg(container_name)
+        .output()
+        .map_err(|error| {
+            format!("Unable to stop Sandcastle container {container_name}: {error}")
+        })?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(format_process_failure("Docker stop", &output))
+    }
+}
+
+fn ensure_sandcastle_image(docker: &DockerRuntime) -> Result<String, String> {
+    let app_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| String::from("Unable to resolve the SpecForge application root."))?;
+    let dockerfile = app_root.join("src").join("sandcastle").join("Dockerfile");
+
+    if !dockerfile.exists() {
+        return Err(format!(
+            "Sandcastle Dockerfile was not found at {}.",
+            dockerfile.display()
+        ));
+    }
+
+    let image = "specforge-sandcastle-runtime:latest";
+    let mut command = docker.command();
+    let output = command
+        .args(sandcastle_build_args(docker, image, &dockerfile, &app_root))
+        .env("NO_COLOR", "1")
+        .output()
+        .map_err(|error| format!("Unable to build the Sandcastle runtime image: {error}"))?;
+
+    if !output.status.success() {
+        return Err(format_process_failure("Sandcastle image build", &output));
+    }
+
+    Ok(String::from(image))
+}
+
+fn configure_codex_auth(command: &mut Command, docker: &DockerRuntime) -> Result<(), String> {
+    if let Some(api_key) = read_cursor_api_key()?.filter(|value| !value.trim().is_empty()) {
+        command.arg("-e").arg(format!("OPENAI_API_KEY={api_key}"));
+        return Ok(());
+    }
+
+    let codex_home = local_codex_auth_dir()
+        .filter(|path| path.exists())
+        .ok_or_else(|| {
+            String::from("Codex authentication is required before running Sandcastle.")
+        })?;
+    command.arg("-v").arg(docker_mount_arg(
+        docker,
+        &codex_home,
+        "/home/agent/.codex",
+        "ro",
+    ));
+
+    Ok(())
+}
+
+fn local_codex_auth_dir() -> Option<PathBuf> {
+    std::env::var_os("CODEX_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join(".codex")))
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".codex")))
 }
 
 pub(crate) fn wait_for_approval(
@@ -300,22 +522,6 @@ pub(crate) fn wait_for_approval(
     }
 
     Ok(ApprovalWaitOutcome::Approved)
-}
-
-pub(crate) fn stop_state(runtime: &Arc<ExecutionRuntime>, run_id: u64) -> StopState {
-    runtime
-        .control
-        .lock()
-        .map(|control| {
-            if control.stop_requested {
-                StopState::StopRequested
-            } else if control.run_id != run_id {
-                StopState::Replaced
-            } else {
-                StopState::Continue
-            }
-        })
-        .unwrap_or(StopState::StopRequested)
 }
 
 pub(crate) fn emit_line(app: &AppHandle, line: &str) {

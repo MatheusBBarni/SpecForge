@@ -3,6 +3,7 @@ import { Folder, GitSolid, NavArrowRight, Refresh } from "iconoir-react";
 import { memo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
+import { CliHealthCard } from "../components/CliHealthCard";
 import {
   FIELD_LABEL_CLASS,
   INPUT_CLASS,
@@ -25,8 +26,9 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
   onOpenRecentProject,
   onRefresh
 }: ConfigurationScreenProps) {
-  const { recentProjects } = useSettingsStore(
+  const { environment, recentProjects } = useSettingsStore(
     useShallow((state) => ({
+      environment: state.environment,
       recentProjects: state.recentProjects
     }))
   );
@@ -143,6 +145,23 @@ export const ConfigurationScreen = memo(function ConfigurationScreen({
             </Card.Content>
           </Card>
         </div>
+
+        <section className="grid gap-4">
+          <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-2">
+            <h2 className="m-0 text-xl font-semibold text-[var(--text-main)]">
+              Runtime Readiness
+            </h2>
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+              Sandcastle / Codex / Docker
+            </span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <CliHealthCard entry={environment.cursor} />
+            <CliHealthCard entry={environment.codex} />
+            <CliHealthCard entry={environment.docker} />
+            <CliHealthCard entry={environment.git} />
+          </div>
+        </section>
 
         <section className="grid gap-4">
           <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-2">

@@ -1,5 +1,6 @@
 export type ModelId = string;
-export type ModelProvider = "cursor";
+export type ModelProvider = "codex";
+export type ProviderAuthMode = "subscription" | "api_key";
 export type ReasoningProfileId = string;
 export type AutonomyMode = "stepped" | "milestone" | "god_mode";
 export type ThemeMode = "dracula" | "light" | "system";
@@ -15,7 +16,7 @@ export type AgentStatus =
   | "halted"
   | "error"
   | "completed";
-export type CliHealth = "found" | "missing" | "unauthorized";
+export type CliHealth = "found" | "missing" | "unauthorized" | "unavailable";
 export type AnnotationTone = "info" | "warning" | "success";
 export type ChatContextKind =
   | "prd"
@@ -57,6 +58,8 @@ export interface CliStatus {
 export interface EnvironmentStatus {
   scannedAt: string;
   cursor: CliStatus;
+  codex: CliStatus;
+  docker: CliStatus;
   git: CliStatus;
 }
 
@@ -98,6 +101,8 @@ export interface CursorModel {
 }
 
 export interface ProjectSettings {
+  agentProvider: ModelProvider;
+  providerAuthMode: ProviderAuthMode;
   selectedModel: ModelId;
   selectedReasoning: ReasoningProfileId;
   prdAgentDescription: string;
@@ -118,6 +123,8 @@ export interface ProjectContext {
   ignoredFileCount: number;
   prdDocument: WorkspaceDocument | null;
   specDocument: WorkspaceDocument | null;
+  prdPreview: WorkspaceDocument | null;
+  specPreview: WorkspaceDocument | null;
   chatSessions: ChatSessionSummary[];
   lastActiveSessionId: string | null;
 }

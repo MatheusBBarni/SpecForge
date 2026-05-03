@@ -35,10 +35,22 @@ function createEnvironmentPlaceholder(): EnvironmentStatus {
   return {
     scannedAt: "",
     cursor: {
-      name: "Cursor SDK",
+      name: "Codex Provider",
       status: "missing",
       path: null,
-      detail: "Save a Cursor API key to enable PRD and spec generation."
+      detail: "Configure Codex authentication to enable Sandcastle turns."
+    },
+    codex: {
+      name: "Codex CLI",
+      status: "missing",
+      path: null,
+      detail: "Install Codex CLI to discover models and prepare runtime turns."
+    },
+    docker: {
+      name: "Docker",
+      status: "missing",
+      path: null,
+      detail: "Install Docker and start the daemon to enable the runtime sandbox."
     },
     git: {
       name: "Git",

@@ -24,6 +24,10 @@ interface UseAppUiHandlersOptions {
   handleGenerateSpec: () => Promise<void>;
   handleGrillPrd: () => Promise<void>;
   handleGrillSpec: () => Promise<void>;
+  handleSavePrdPreview: () => Promise<void>;
+  handleDiscardPrdPreview: () => Promise<void>;
+  handleSaveSpecPreview: () => Promise<void>;
+  handleDiscardSpecPreview: () => Promise<void>;
   handleOpenImportFile: (target: DocumentTarget) => Promise<void>;
   handleStartBuild: () => Promise<void>;
   handleWorkspaceFileOpen: (path: string) => Promise<void>;
@@ -41,6 +45,10 @@ export function useAppUiHandlers({
   handleGenerateSpec,
   handleGrillPrd,
   handleGrillSpec,
+  handleSavePrdPreview,
+  handleDiscardPrdPreview,
+  handleSaveSpecPreview,
+  handleDiscardSpecPreview,
   handleOpenImportFile,
   handleStartBuild,
   handleWorkspaceFileOpen,
@@ -149,7 +157,7 @@ export function useAppUiHandlers({
       await refreshDiagnostics();
     } catch (error) {
       workspaceUiState.setPrdGenerationError(
-        error instanceof Error ? error.message : "Unable to save the Cursor API key."
+        error instanceof Error ? error.message : "Unable to save the Codex API key."
       );
     }
   }, [refreshDiagnostics, settingsState, workspaceUiState]);
@@ -161,7 +169,7 @@ export function useAppUiHandlers({
       await refreshDiagnostics();
     } catch (error) {
       workspaceUiState.setPrdGenerationError(
-        error instanceof Error ? error.message : "Unable to delete the Cursor API key."
+        error instanceof Error ? error.message : "Unable to delete the Codex API key."
       );
     }
   }, [refreshDiagnostics, settingsState, workspaceUiState]);
@@ -214,6 +222,22 @@ export function useAppUiHandlers({
     void handleGrillSpec();
   }, [handleGrillSpec]);
 
+  const handleSavePrdPreviewClick = useCallback(() => {
+    void handleSavePrdPreview();
+  }, [handleSavePrdPreview]);
+
+  const handleDiscardPrdPreviewClick = useCallback(() => {
+    void handleDiscardPrdPreview();
+  }, [handleDiscardPrdPreview]);
+
+  const handleSaveSpecPreviewClick = useCallback(() => {
+    void handleSaveSpecPreview();
+  }, [handleSaveSpecPreview]);
+
+  const handleDiscardSpecPreviewClick = useCallback(() => {
+    void handleDiscardSpecPreview();
+  }, [handleDiscardSpecPreview]);
+
   return {
     handlePrdContentChange,
     handleSpecContentChange,
@@ -235,7 +259,11 @@ export function useAppUiHandlers({
     handleGeneratePrdClick,
     handleGenerateSpecClick,
     handleGrillPrdClick,
-    handleGrillSpecClick
+    handleGrillSpecClick,
+    handleSavePrdPreviewClick,
+    handleDiscardPrdPreviewClick,
+    handleSaveSpecPreviewClick,
+    handleDiscardSpecPreviewClick
   };
 }
 

@@ -95,7 +95,7 @@ export async function runCursorAgentPrompt({
   }
 
   if (!result.content.trim()) {
-    throw new Error("Cursor SDK returned an empty response.");
+    throw new Error("Sandcastle Runtime returned an empty response.");
   }
 
   return stripWrappingCodeFence(result.content);

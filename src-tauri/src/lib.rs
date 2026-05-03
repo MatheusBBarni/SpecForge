@@ -2,6 +2,7 @@ mod agent;
 mod chat;
 mod constants;
 mod cursor_agent;
+mod docker;
 mod documents;
 mod environment;
 mod external_editors;
@@ -20,7 +21,10 @@ use chat::{
     rename_chat_session, save_chat_session, send_chat_message, stop_chat_session,
 };
 use cursor_agent::{list_cursor_models, run_cursor_agent_prompt};
-use documents::{parse_document, pick_document, save_workspace_document};
+use documents::{
+    delete_document_preview, parse_document, pick_document, save_document_preview,
+    save_workspace_document,
+};
 use environment::run_environment_scan;
 use external_editors::{list_external_editors, open_workspace_file_in_editor};
 use git::git_get_diff;
@@ -41,6 +45,8 @@ pub fn run() {
             parse_document,
             pick_document,
             save_workspace_document,
+            save_document_preview,
+            delete_document_preview,
             pick_project_folder,
             load_project_context,
             save_project_settings,

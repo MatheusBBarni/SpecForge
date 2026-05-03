@@ -37,6 +37,10 @@ const REASONING_COPY: Partial<Record<
     label: "Max",
     description: "Maximum reasoning depth when accuracy matters more than speed."
   },
+  xhigh: {
+    label: "Extra High",
+    description: "Extra high reasoning for complex Codex turns."
+  },
   thinking: {
     label: "Thinking",
     description: "Use the model's explicit reasoning/thinking mode when available."
@@ -47,101 +51,45 @@ const REASONING_COPY: Partial<Record<
   }
 };
 
-const FULL_REASONING_RANGE: ReasoningProfileId[] = ["low", "medium", "high", "max"];
+const FULL_REASONING_RANGE: ReasoningProfileId[] = ["low", "medium", "high", "xhigh"];
 
-export const DEFAULT_MODEL_ID: ModelId = "composer-2";
+export const DEFAULT_MODEL_ID: ModelId = "gpt-5.2";
 export const DEFAULT_REASONING_PROFILE: ReasoningProfileId = "medium";
 
 const AGENT_MODELS: AgentModelOption[] = [
   {
     id: "auto",
     label: "Auto",
-    provider: "cursor",
-    description: "Let Cursor choose the best available model for the request.",
-    reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "composer-2",
-    label: "Composer 2",
-    provider: "cursor",
-    description: "Cursor's agent model for product, spec, and implementation workflows.",
-    reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "claude-4-sonnet",
-    label: "Claude 4 Sonnet",
-    provider: "cursor",
-    description: "Reliable daily-driver coding model with agent support.",
-    reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "claude-4-sonnet-thinking",
-    label: "Claude 4 Sonnet Thinking",
-    provider: "cursor",
-    description: "Claude Sonnet preset with thinking enabled.",
-    reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "claude-4-opus",
-    label: "Claude 4 Opus",
-    provider: "cursor",
-    description: "Stronger planning and complex problem-solving model.",
-    reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "claude-4-opus-thinking",
-    label: "Claude 4 Opus Thinking",
-    provider: "cursor",
-    description: "Claude Opus preset with thinking enabled.",
-    reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "gemini-2.5-pro",
-    label: "Gemini 2.5 Pro",
-    provider: "cursor",
-    description: "Large-context model for codebase navigation and planning.",
-    reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "gemini-2.5-flash",
-    label: "Gemini 2.5 Flash",
-    provider: "cursor",
-    description: "Fast large-context model.",
+    provider: "codex",
+    description: "Let Codex choose the best available model for the request.",
     reasoningProfiles: FULL_REASONING_RANGE
   },
   {
     id: "gpt-5.2",
     label: "GPT-5.2",
-    provider: "cursor",
-    description: "Cursor-recommended OpenAI model when available to the account.",
+    provider: "codex",
+    description: "Codex default model for product, spec, and implementation workflows.",
     reasoningProfiles: FULL_REASONING_RANGE
   },
   {
-    id: "gpt-4.1",
-    label: "GPT-4.1",
-    provider: "cursor",
-    description: "Controlled OpenAI coding model with agent support.",
+    id: "gpt-5.4",
+    label: "GPT-5.4",
+    provider: "codex",
+    description: "Stronger Codex model for everyday coding work.",
     reasoningProfiles: FULL_REASONING_RANGE
   },
   {
-    id: "gpt-4o",
-    label: "GPT-4o",
-    provider: "cursor",
-    description: "OpenAI general-purpose coding model.",
+    id: "gpt-5.4-mini",
+    label: "GPT-5.4 Mini",
+    provider: "codex",
+    description: "Fast Codex model for smaller edits and review turns.",
     reasoningProfiles: FULL_REASONING_RANGE
   },
   {
-    id: "o3",
-    label: "o3",
-    provider: "cursor",
-    description: "Deep reasoning model for complex bugs and ambiguous problems.",
-    reasoningProfiles: FULL_REASONING_RANGE
-  },
-  {
-    id: "grok-4",
-    label: "Grok 4",
-    provider: "cursor",
-    description: "xAI large-context model available in Cursor where enabled.",
+    id: "gpt-5.3-codex",
+    label: "GPT-5.3 Codex",
+    provider: "codex",
+    description: "Coding-optimized Codex model.",
     reasoningProfiles: FULL_REASONING_RANGE
   }
 ];
@@ -241,9 +189,9 @@ function cursorModelToAgentModelOption(model: CursorModel): AgentModelOption {
 
   return {
     id: model.id,
-    label: model.label || formatModelLabel(model.id),
-    provider: "cursor",
-    description: model.description || "Cursor SDK model available to this account.",
+    label: model.label.trim() || formatModelLabel(model.id),
+    provider: "codex",
+    description: model.description || "Codex model available to this account.",
     reasoningProfiles: reasoningParameter?.values.map((entry) => entry.value) ?? FULL_REASONING_RANGE
   };
 }
@@ -256,14 +204,29 @@ function getCursorReasoningParameter(modelId: ModelId, cursorModels: CursorModel
 }
 
 function formatModelLabel(modelId: string) {
-  return modelId
+  const normalized = modelId.trim();
+  const gptMatch = normalized.match(/^gpt[-_](\d+(?:\.\d+)?)(.*)$/i);
+
+  if (gptMatch) {
+    const suffix = gptMatch[2]
+      ?.split(/[-_]/)
+      .filter(Boolean)
+      .map(capitalizeModelLabelPart)
+      .join(" ");
+
+    return suffix ? `GPT-${gptMatch[1]} ${suffix}` : `GPT-${gptMatch[1]}`;
+  }
+
+  return normalized
     .split("-")
     .filter(Boolean)
-    .map((part) => {
-      const upper = part.toUpperCase();
-      return upper === "GPT" || upper === "O3" ? upper : `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`;
-    })
+    .map(capitalizeModelLabelPart)
     .join(" ");
+}
+
+function capitalizeModelLabelPart(part: string) {
+  const upper = part.toUpperCase();
+  return upper === "GPT" || upper === "O3" ? upper : `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`;
 }
 
 function formatReasoningValue(value: string) {
@@ -275,11 +238,11 @@ function formatReasoningValue(value: string) {
 }
 
 function getReasoningDescription(value: string) {
-  return REASONING_COPY[value]?.description ?? "Cursor model parameter value for this account.";
+  return REASONING_COPY[value]?.description ?? "Codex model parameter value for this account.";
 }
 
 function formatProvider(_provider: ModelProvider) {
-  return "Cursor";
+  return "Codex";
 }
 
 export function getProviderLabel(provider: ModelProvider) {

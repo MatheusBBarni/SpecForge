@@ -41,6 +41,15 @@ const corepackHomePath = `${sandcastleRuntimePath}/corepack`;
 const npmCachePath = `${sandcastleRuntimePath}/npm-cache`;
 const pnpmStorePath = `${sandcastleRuntimePath}/pnpm-store`;
 const hostCodexHome = path.join(os.homedir(), ".codex");
+const hostGhConfigPath = [
+  process.env.GH_CONFIG_DIR,
+  process.env.APPDATA
+    ? path.join(process.env.APPDATA, "GitHub CLI")
+    : undefined,
+  path.join(os.homedir(), ".config", "gh"),
+].find((candidate): candidate is string =>
+  Boolean(candidate && existsSync(candidate)),
+);
 
 mkdirSync(sandcastleRuntimePath, { recursive: true });
 mkdirSync(corepackHomePath, { recursive: true });
@@ -83,11 +92,15 @@ const sandboxConfig = {
     npm_config_cache: `/home/agent/workspace/${npmCachePath}`,
   },
   mounts: [
-    {
-      hostPath: "~/.config/gh",
-      sandboxPath: "/home/agent/.config/gh",
-      readonly: true,
-    },
+    ...(hostGhConfigPath
+      ? [
+          {
+            hostPath: hostGhConfigPath,
+            sandboxPath: "/home/agent/.config/gh",
+            readonly: true,
+          },
+        ]
+      : []),
     {
       hostPath: hostCodexHome,
       sandboxPath: "/mnt/host-codex",

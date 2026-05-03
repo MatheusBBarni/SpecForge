@@ -60,7 +60,9 @@ export async function runEnvironmentScan(): Promise<EnvironmentStatus> {
   if (!isTauriRuntime()) {
     return {
       scannedAt: new Date().toISOString(),
-      cursor: fallbackStatus("Cursor SDK", "Desktop runtime not detected. Start Tauri to read the saved Cursor key."),
+      cursor: fallbackStatus("Codex Provider", "Desktop runtime not detected. Start Tauri to read Codex authentication."),
+      codex: fallbackStatus("Codex CLI", "Desktop runtime not detected. Start Tauri to inspect Codex."),
+      docker: fallbackStatus("Docker", "Desktop runtime not detected. Start Tauri to inspect Docker."),
       git: fallbackStatus("Git", "Desktop runtime not detected. Diff output falls back to the sample review.")
     };
   }
@@ -211,6 +213,36 @@ export async function generatePrdDocument(payload: {
   });
 }
 
+export async function saveDocumentPreview(payload: {
+  workspaceRoot: string;
+  target: "prd" | "spec";
+  content: string;
+}): Promise<WorkspaceDocument> {
+  if (!isTauriRuntime()) {
+    throw new Error("Document previews require the desktop runtime.");
+  }
+
+  return invoke<WorkspaceDocument>("save_document_preview", {
+    workspaceRoot: payload.workspaceRoot,
+    target: payload.target,
+    content: payload.content
+  });
+}
+
+export async function deleteDocumentPreview(payload: {
+  workspaceRoot: string;
+  target: "prd" | "spec";
+}): Promise<void> {
+  if (!isTauriRuntime()) {
+    throw new Error("Document previews require the desktop runtime.");
+  }
+
+  await invoke("delete_document_preview", {
+    workspaceRoot: payload.workspaceRoot,
+    target: payload.target
+  });
+}
+
 export async function generateSpecDocument(payload: {
   workspaceRoot: string;
   outputPath: string;
@@ -235,7 +267,7 @@ export async function executeCursorAgentPrompt(payload: {
   prompt: string;
 }): Promise<{ content: string; events: string[] }> {
   if (!isTauriRuntime()) {
-    throw new Error("Cursor SDK generation requires the desktop runtime.");
+    throw new Error("Sandcastle generation requires the desktop runtime.");
   }
 
   return invoke<{ content: string; events: string[] }>("run_cursor_agent_prompt", { payload });
@@ -243,7 +275,7 @@ export async function executeCursorAgentPrompt(payload: {
 
 export async function saveCursorApiKey(apiKey: string): Promise<void> {
   if (!isTauriRuntime()) {
-    throw new Error("Cursor API key storage requires the desktop runtime.");
+    throw new Error("Codex API key storage requires the desktop runtime.");
   }
 
   await invoke("save_cursor_api_key", { apiKey });
@@ -251,7 +283,7 @@ export async function saveCursorApiKey(apiKey: string): Promise<void> {
 
 export async function deleteCursorApiKey(): Promise<void> {
   if (!isTauriRuntime()) {
-    throw new Error("Cursor API key storage requires the desktop runtime.");
+    throw new Error("Codex API key storage requires the desktop runtime.");
   }
 
   await invoke("delete_cursor_api_key");

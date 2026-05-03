@@ -15,9 +15,12 @@ import {
   runCursorAgentPrompt
 } from "../lib/cursorAgentRuntime";
 import {
+  deleteDocumentPreview,
   generatePrdDocument,
   generateSpecDocument,
-  pickDocument
+  loadProjectContext,
+  pickDocument,
+  saveDocumentPreview
 } from "../lib/runtime";
 import {
   type ImportableFile, 
@@ -56,14 +59,16 @@ export function useDocumentHandlers({
   const assignDocument = useCallback(
     (target: DocumentTarget, content: string, path: string) => {
       startTransition(() => {
-        if (target === "prd") {
-          projectState.setPrdContent(content, path);
-          projectState.setPrdPaneMode("preview");
-          return;
-        }
+      if (target === "prd") {
+        projectState.setPrdContent(content, path);
+        projectState.setPrdPaneMode("preview");
+        projectState.setPrdPreviewState(false);
+        return;
+      }
 
-        projectState.setSpecContent(content, path);
-        projectState.setSpecPaneMode("preview");
+      projectState.setSpecContent(content, path);
+      projectState.setSpecPaneMode("preview");
+      projectState.setSpecPreviewState(false);
       });
 
       if (target === "prd") {
@@ -129,7 +134,9 @@ export function useDocumentHandlers({
     const validationError = getPrdGenerationValidationError({
       currentProjectSettings: derivedState.currentProjectSettings,
       desktopRuntime,
+      environmentCodexStatus: settingsState.environment.codex.status,
       environmentCursorStatus: settingsState.environment.cursor.status,
+      environmentDockerStatus: settingsState.environment.docker.status,
       projectRootPath: workspaceUiState.projectRootPath,
       trimmedPrompt
     });
@@ -158,25 +165,26 @@ export function useDocumentHandlers({
           agentDescription: derivedState.currentProjectSettings.prdAgentDescription,
           userPrompt: trimmedPrompt
         }),
-        onEvent: (line) => agentState.appendTerminalOutput(stampLog("cursor", line))
+        onEvent: (line) => agentState.appendTerminalOutput(stampLog("sandcastle", line))
       });
 
-      const generatedPrd = await generatePrdDocument({
+      const generatedPrd = await saveDocumentPreview({
         workspaceRoot: workspaceUiState.projectRootPath,
-        outputPath: derivedState.currentProjectSettings.prdPath,
+        target: "prd",
         content: generatedContent
       });
 
       startTransition(() => {
         projectState.setPrdContent(generatedPrd.content, generatedPrd.sourcePath);
         projectState.setPrdPaneMode("preview");
+        projectState.setPrdPreviewState(true);
       });
       workspaceUiState.setPrdGenerationPrompt("");
       agentState.setStatus("idle");
       agentState.appendTerminalOutput(
         stampLog(
           "prd",
-          `PRD draft generated, saved to ${generatedPrd.fileName}, and loaded into the review pane.`
+          `PRD preview generated, saved to ${generatedPrd.fileName}, and loaded into the review pane.`
         )
       );
     } catch (error) {
@@ -199,7 +207,9 @@ export function useDocumentHandlers({
     const validationError = getPrdGenerationValidationError({
       currentProjectSettings: derivedState.currentProjectSettings,
       desktopRuntime,
+      environmentCodexStatus: settingsState.environment.codex.status,
       environmentCursorStatus: settingsState.environment.cursor.status,
+      environmentDockerStatus: settingsState.environment.docker.status,
       projectRootPath: workspaceUiState.projectRootPath,
       trimmedPrompt
     });
@@ -223,7 +233,7 @@ export function useDocumentHandlers({
           agentDescription: derivedState.currentProjectSettings.prdAgentDescription,
           userPrompt: trimmedPrompt
         }),
-        onEvent: (line) => agentState.appendTerminalOutput(stampLog("cursor", line))
+        onEvent: (line) => agentState.appendTerminalOutput(stampLog("sandcastle", line))
       });
 
       workspaceUiState.setPrdGenerationPrompt(appendGrillResponse(trimmedPrompt, grillResponse));
@@ -249,7 +259,9 @@ export function useDocumentHandlers({
     const validationError = getSpecGenerationValidationError({
       currentProjectSettings: derivedState.currentProjectSettings,
       desktopRuntime,
+      environmentCodexStatus: settingsState.environment.codex.status,
       environmentCursorStatus: settingsState.environment.cursor.status,
+      environmentDockerStatus: settingsState.environment.docker.status,
       prdContent: projectState.prdContent,
       projectRootPath: workspaceUiState.projectRootPath,
       trimmedPrompt
@@ -280,25 +292,26 @@ export function useDocumentHandlers({
           userPrompt: trimmedPrompt,
           prdContent: projectState.prdContent
         }),
-        onEvent: (line) => agentState.appendTerminalOutput(stampLog("cursor", line))
+        onEvent: (line) => agentState.appendTerminalOutput(stampLog("sandcastle", line))
       });
 
-      const generatedSpec = await generateSpecDocument({
+      const generatedSpec = await saveDocumentPreview({
         workspaceRoot: workspaceUiState.projectRootPath,
-        outputPath: derivedState.currentProjectSettings.specPath,
+        target: "spec",
         content: generatedContent
       });
 
       startTransition(() => {
         projectState.setSpecContent(generatedSpec.content, generatedSpec.sourcePath);
         projectState.setSpecPaneMode("preview");
+        projectState.setSpecPreviewState(true);
       });
       workspaceUiState.setSpecGenerationPrompt("");
       agentState.setStatus("idle");
       agentState.appendTerminalOutput(
         stampLog(
           "spec",
-          `Specification draft generated, saved to ${generatedSpec.fileName}, and loaded into the review pane.`
+          `Specification preview generated, saved to ${generatedSpec.fileName}, and loaded into the review pane.`
         )
       );
     } catch (error) {
@@ -322,7 +335,9 @@ export function useDocumentHandlers({
     const validationError = getSpecGenerationValidationError({
       currentProjectSettings: derivedState.currentProjectSettings,
       desktopRuntime,
+      environmentCodexStatus: settingsState.environment.codex.status,
       environmentCursorStatus: settingsState.environment.cursor.status,
+      environmentDockerStatus: settingsState.environment.docker.status,
       prdContent: projectState.prdContent,
       projectRootPath: workspaceUiState.projectRootPath,
       requirePrompt: false,
@@ -349,7 +364,7 @@ export function useDocumentHandlers({
           userPrompt: trimmedPrompt,
           prdContent: projectState.prdContent
         }),
-        onEvent: (line) => agentState.appendTerminalOutput(stampLog("cursor", line))
+        onEvent: (line) => agentState.appendTerminalOutput(stampLog("sandcastle", line))
       });
 
       workspaceUiState.setSpecGenerationPrompt(appendGrillResponse(trimmedPrompt, grillResponse));
@@ -370,6 +385,56 @@ export function useDocumentHandlers({
     workspaceUiState
   ]);
 
+  const handleSavePrdPreview = useCallback(async () => {
+    await savePreviewDocument({
+      target: "prd",
+      content: projectState.prdContent,
+      outputPath: derivedState.currentProjectSettings.prdPath,
+      projectRootPath: workspaceUiState.projectRootPath,
+      setContent: projectState.setPrdContent,
+      setPreviewState: projectState.setPrdPreviewState,
+      setPaneMode: projectState.setPrdPaneMode,
+      appendTerminalOutput: agentState.appendTerminalOutput
+    });
+  }, [agentState, derivedState.currentProjectSettings.prdPath, projectState, workspaceUiState.projectRootPath]);
+
+  const handleDiscardPrdPreview = useCallback(async () => {
+    await discardPreviewDocument({
+      target: "prd",
+      projectRootPath: workspaceUiState.projectRootPath,
+      fallbackPath: derivedState.currentProjectSettings.prdPath,
+      setContent: projectState.setPrdContent,
+      setPreviewState: projectState.setPrdPreviewState,
+      setPaneMode: projectState.setPrdPaneMode,
+      appendTerminalOutput: agentState.appendTerminalOutput
+    });
+  }, [agentState, derivedState.currentProjectSettings.prdPath, projectState, workspaceUiState.projectRootPath]);
+
+  const handleSaveSpecPreview = useCallback(async () => {
+    await savePreviewDocument({
+      target: "spec",
+      content: projectState.specContent,
+      outputPath: derivedState.currentProjectSettings.specPath,
+      projectRootPath: workspaceUiState.projectRootPath,
+      setContent: projectState.setSpecContent,
+      setPreviewState: projectState.setSpecPreviewState,
+      setPaneMode: projectState.setSpecPaneMode,
+      appendTerminalOutput: agentState.appendTerminalOutput
+    });
+  }, [agentState, derivedState.currentProjectSettings.specPath, projectState, workspaceUiState.projectRootPath]);
+
+  const handleDiscardSpecPreview = useCallback(async () => {
+    await discardPreviewDocument({
+      target: "spec",
+      projectRootPath: workspaceUiState.projectRootPath,
+      fallbackPath: derivedState.currentProjectSettings.specPath,
+      setContent: projectState.setSpecContent,
+      setPreviewState: projectState.setSpecPreviewState,
+      setPaneMode: projectState.setSpecPaneMode,
+      appendTerminalOutput: agentState.appendTerminalOutput
+    });
+  }, [agentState, derivedState.currentProjectSettings.specPath, projectState, workspaceUiState.projectRootPath]);
+
   return {
     assignDocument,
     handleOpenImportFile,
@@ -377,7 +442,11 @@ export function useDocumentHandlers({
     handleGrillPrd,
     handleGeneratePrd,
     handleGrillSpec,
-    handleGenerateSpec
+    handleGenerateSpec,
+    handleSavePrdPreview,
+    handleDiscardPrdPreview,
+    handleSaveSpecPreview,
+    handleDiscardSpecPreview
   };
 }
 
@@ -400,18 +469,22 @@ function reportImportError(
 function getPrdGenerationValidationError({
   currentProjectSettings,
   desktopRuntime,
+  environmentCodexStatus,
   environmentCursorStatus,
+  environmentDockerStatus,
   projectRootPath,
   trimmedPrompt
 }: {
   currentProjectSettings: ProjectSettings;
   desktopRuntime: boolean;
   environmentCursorStatus: CliHealth;
+  environmentCodexStatus: CliHealth;
+  environmentDockerStatus: CliHealth;
   projectRootPath: string;
   trimmedPrompt: string;
 }) {
   if (!desktopRuntime) {
-    return "Cursor key access and document saving require the desktop runtime.";
+    return "Sandcastle access and document saving require the desktop runtime.";
   }
 
   if (!projectRootPath.trim()) {
@@ -426,15 +499,20 @@ function getPrdGenerationValidationError({
     return "Add the product context you want the AI to consider.";
   }
 
-  return environmentCursorStatus === "found"
-    ? ""
-    : "Save a Cursor API key in Settings before generating a PRD.";
+  return getRuntimeReadinessError({
+    environmentCodexStatus,
+    environmentCursorStatus,
+    environmentDockerStatus,
+    target: "PRD"
+  });
 }
 
 function getSpecGenerationValidationError({
   currentProjectSettings,
   desktopRuntime,
+  environmentCodexStatus,
   environmentCursorStatus,
+  environmentDockerStatus,
   prdContent,
   projectRootPath,
   requirePrompt = true,
@@ -443,13 +521,15 @@ function getSpecGenerationValidationError({
   currentProjectSettings: ProjectSettings;
   desktopRuntime: boolean;
   environmentCursorStatus: CliHealth;
+  environmentCodexStatus: CliHealth;
+  environmentDockerStatus: CliHealth;
   prdContent: string;
   projectRootPath: string;
   requirePrompt?: boolean;
   trimmedPrompt: string;
 }) {
   if (!desktopRuntime) {
-    return "Cursor key access and document saving require the desktop runtime.";
+    return "Sandcastle access and document saving require the desktop runtime.";
   }
 
   if (!projectRootPath.trim()) {
@@ -468,9 +548,46 @@ function getSpecGenerationValidationError({
     return "Add the technical guidance you want the AI to consider.";
   }
 
-  return environmentCursorStatus === "found"
-    ? ""
-    : "Save a Cursor API key in Settings before generating a spec.";
+  return getRuntimeReadinessError({
+    environmentCodexStatus,
+    environmentCursorStatus,
+    environmentDockerStatus,
+    target: "spec"
+  });
+}
+
+function getRuntimeReadinessError({
+  environmentCodexStatus,
+  environmentCursorStatus,
+  environmentDockerStatus,
+  target
+}: {
+  environmentCursorStatus: CliHealth;
+  environmentCodexStatus: CliHealth;
+  environmentDockerStatus: CliHealth;
+  target: "PRD" | "spec";
+}) {
+  if (environmentCursorStatus !== "found") {
+    return `Configure Codex authentication in Settings before generating a ${target}.`;
+  }
+
+  if (environmentCodexStatus !== "found") {
+    return `Install or repair Codex CLI before generating a ${target}.`;
+  }
+
+  if (environmentDockerStatus === "missing") {
+    return `Start Docker before generating a ${target}.`;
+  }
+
+  if (environmentDockerStatus === "unavailable") {
+    return `Docker Desktop is open, but the Docker engine is unavailable. Restart Docker Desktop or run wsl --shutdown before generating a ${target}.`;
+  }
+
+  if (environmentDockerStatus !== "found") {
+    return `Repair Docker before generating a ${target}.`;
+  }
+
+  return "";
 }
 
 function appendGrillResponse(currentPrompt: string, grillResponse: string) {
@@ -485,4 +602,83 @@ My answer:
   return trimmedCurrentPrompt
     ? `${trimmedCurrentPrompt}\n\n${nextBlock}`
     : nextBlock;
+}
+
+async function savePreviewDocument({
+  target,
+  content,
+  outputPath,
+  projectRootPath,
+  setContent,
+  setPreviewState,
+  setPaneMode,
+  appendTerminalOutput
+}: {
+  target: DocumentTarget;
+  content: string;
+  outputPath: string;
+  projectRootPath: string;
+  setContent: (content: string, path?: string) => void;
+  setPreviewState: (hasPreview: boolean) => void;
+  setPaneMode: (mode: "preview") => void;
+  appendTerminalOutput: (line: string) => void;
+}) {
+  try {
+    const savedDocument = target === "prd"
+      ? await generatePrdDocument({ workspaceRoot: projectRootPath, outputPath, content })
+      : await generateSpecDocument({ workspaceRoot: projectRootPath, outputPath, content });
+
+    await deleteDocumentPreview({ workspaceRoot: projectRootPath, target });
+    setContent(savedDocument.content, savedDocument.sourcePath);
+    setPreviewState(false);
+    setPaneMode("preview");
+    appendTerminalOutput(
+      stampLog(target, `Saved ${target.toUpperCase()} preview to ${savedDocument.fileName}.`)
+    );
+  } catch (error) {
+    appendTerminalOutput(
+      stampLog(
+        "error",
+        error instanceof Error ? error.message : `Unable to save the ${target.toUpperCase()} preview.`
+      )
+    );
+  }
+}
+
+async function discardPreviewDocument({
+  target,
+  projectRootPath,
+  fallbackPath,
+  setContent,
+  setPreviewState,
+  setPaneMode,
+  appendTerminalOutput
+}: {
+  target: DocumentTarget;
+  projectRootPath: string;
+  fallbackPath: string;
+  setContent: (content: string, path?: string) => void;
+  setPreviewState: (hasPreview: boolean) => void;
+  setPaneMode: (mode: "preview") => void;
+  appendTerminalOutput: (line: string) => void;
+}) {
+  try {
+    await deleteDocumentPreview({ workspaceRoot: projectRootPath, target });
+    const context = await loadProjectContext(projectRootPath);
+    const canonicalDocument = target === "prd" ? context.prdDocument : context.specDocument;
+
+    setContent(canonicalDocument?.content ?? "", canonicalDocument?.sourcePath ?? fallbackPath);
+    setPreviewState(false);
+    setPaneMode("preview");
+    appendTerminalOutput(stampLog(target, `Discarded ${target.toUpperCase()} preview.`));
+  } catch (error) {
+    appendTerminalOutput(
+      stampLog(
+        "error",
+        error instanceof Error
+          ? error.message
+          : `Unable to discard the ${target.toUpperCase()} preview.`
+      )
+    );
+  }
 }

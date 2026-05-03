@@ -378,6 +378,8 @@ function formatMcpStatus(status: string) {
       return "Ready";
     case "unauthorized":
       return "Check";
+    case "unavailable":
+      return "Unavailable";
     default:
       return status;
   }
@@ -388,6 +390,8 @@ function getMcpBadgeClassName(status: string) {
     case "found":
       return "shrink-0 rounded-full border border-emerald-400/30 bg-emerald-400/12 px-3 py-1 text-xs font-medium uppercase tracking-[0.08em] text-emerald-100";
     case "unauthorized":
+      return "shrink-0 rounded-full border border-amber-300/30 bg-amber-300/12 px-3 py-1 text-xs font-medium uppercase tracking-[0.08em] text-amber-100";
+    case "unavailable":
       return "shrink-0 rounded-full border border-amber-300/30 bg-amber-300/12 px-3 py-1 text-xs font-medium uppercase tracking-[0.08em] text-amber-100";
     default:
       return "shrink-0 rounded-full border border-[var(--border-soft)] bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.08em] text-[var(--text-subtle)]";

@@ -14,6 +14,7 @@ import type {
   CursorModel,
   EnvironmentStatus,
   ModelId,
+  ProviderAuthMode,
   ReasoningProfileId,
   SpecAnnotation,
   ThemeMode
@@ -41,6 +42,7 @@ interface SettingsViewProps {
   workspaceRootName: string;
   cursorModels: CursorModel[];
   selectedModel: ModelId;
+  providerAuthMode: ProviderAuthMode;
   selectedReasoning: ReasoningProfileId;
   prdPrompt: string;
   specPrompt: string;
@@ -55,6 +57,7 @@ interface SettingsViewProps {
   onSaveCursorApiKey: () => void;
   onDeleteCursorApiKey: () => void;
   onModelChange: (model: ModelId) => void;
+  onProviderAuthModeChange: (mode: ProviderAuthMode) => void;
   onReasoningChange: (reasoning: ReasoningProfileId) => void;
   onPrdPromptChange: (value: string) => void;
   onSpecPromptChange: (value: string) => void;
@@ -85,6 +88,7 @@ export const SettingsView = memo(function SettingsView({
   workspaceRootName,
   cursorModels,
   selectedModel,
+  providerAuthMode,
   selectedReasoning,
   prdPrompt,
   specPrompt,
@@ -98,6 +102,7 @@ export const SettingsView = memo(function SettingsView({
   onSaveCursorApiKey,
   onDeleteCursorApiKey,
   onModelChange,
+  onProviderAuthModeChange,
   onReasoningChange,
   onPrdPromptChange,
   onSpecPromptChange,
@@ -160,37 +165,47 @@ export const SettingsView = memo(function SettingsView({
                 <SettingsSectionHeader icon={<Terminal className="size-5" />} title="General" />
               </div>
               <Card.Content className={SETTINGS_CARD_BODY_CLASS}>
-                <div className="grid gap-5 xl:grid-cols-2">
+                <div className="grid gap-5">
                   <section className="grid content-start gap-4">
                     <h3 className="m-0 text-base font-semibold text-[var(--text-main)]">
-                      Cursor SDK
+                      Sandcastle Runtime
                     </h3>
-                    <CliHealthCard entry={environment.cursor} />
-                    <label className="grid gap-2" htmlFor="settings-cursor-key">
-                      <span className={FIELD_LABEL_CLASS}>Cursor API key</span>
-                      <Input
-                        className={INPUT_CLASS}
-                        id="settings-cursor-key"
-                        onChange={(event) => onCursorApiKeyInputChange(event.target.value)}
-                        placeholder="key_..."
-                        type="password"
-                        value={cursorApiKeyInput}
-                      />
-                    </label>
-                    <div className="flex flex-wrap gap-3">
-                      <Button className={PRIMARY_BUTTON_CLASS} onPress={onSaveCursorApiKey}>
-                        Save Key
-                      </Button>
-                      <Button className={SECONDARY_BUTTON_CLASS} onPress={onDeleteCursorApiKey}>
-                        Clear Key
-                      </Button>
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <CliHealthCard entry={environment.cursor} />
+                      <CliHealthCard entry={environment.codex} />
+                      <CliHealthCard entry={environment.docker} />
+                      <CliHealthCard entry={environment.git} />
                     </div>
+                    {providerAuthMode === "api_key" ? (
+                      <>
+                        <label className="grid gap-2" htmlFor="settings-cursor-key">
+                          <span className={FIELD_LABEL_CLASS}>Codex API key</span>
+                          <Input
+                            className={INPUT_CLASS}
+                            id="settings-cursor-key"
+                            onChange={(event) => onCursorApiKeyInputChange(event.target.value)}
+                            placeholder="sk-..."
+                            type="password"
+                            value={cursorApiKeyInput}
+                          />
+                        </label>
+                        <div className="flex flex-wrap gap-3">
+                          <Button className={PRIMARY_BUTTON_CLASS} onPress={onSaveCursorApiKey}>
+                            Save Key
+                          </Button>
+                          <Button className={SECONDARY_BUTTON_CLASS} onPress={onDeleteCursorApiKey}>
+                            Clear Key
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="m-0 text-sm leading-6 text-[var(--text-subtle)]">
+                        Local subscription mode uses the Codex authentication available on this
+                        machine. No provider secret is written to project settings.
+                      </p>
+                    )}
                   </section>
 
-                  <section className="grid content-start gap-4">
-                    <h3 className="m-0 text-base font-semibold text-[var(--text-main)]">Git</h3>
-                    <CliHealthCard entry={environment.git} />
-                  </section>
                 </div>
               </Card.Content>
             </Card>
@@ -201,12 +216,14 @@ export const SettingsView = memo(function SettingsView({
               configPath={configPath}
               cursorModels={cursorModels}
               onModelChange={onModelChange}
+              onProviderAuthModeChange={onProviderAuthModeChange}
               onPrdPromptChange={onPrdPromptChange}
               onReasoningChange={onReasoningChange}
               onExecutionAgentDescriptionChange={onExecutionAgentDescriptionChange}
               onSpecPromptChange={onSpecPromptChange}
               executionAgentDescription={executionAgentDescription}
               prdPrompt={prdPrompt}
+              providerAuthMode={providerAuthMode}
               selectedModel={selectedModel}
               selectedReasoning={selectedReasoning}
               specPrompt={specPrompt}

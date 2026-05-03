@@ -3,6 +3,7 @@ import type {
   ModelId,
   ModelProvider,
   ProjectContext,
+  ProviderAuthMode,
   ReasoningProfileId
 } from "../types";
 import { getModelLabel } from "./agentConfig";
@@ -10,7 +11,7 @@ import {
   DEFAULT_PROJECT_PRD_PATH,
   DEFAULT_PROJECT_SPEC_PATH,
   getWorkspaceDisplayPath,
-  normalizeProjectSettings, 
+  normalizeProjectSettings,
   SPECFORGE_SETTINGS_RELATIVE_PATH
 } from "./projectConfig";
 
@@ -18,6 +19,7 @@ interface BuildCurrentProjectSettingsOptions {
   configuredPrdPath: string;
   configuredSpecPath: string;
   prdAgentDescription: string;
+  providerAuthMode: ProviderAuthMode;
   selectedModel: ModelId;
   selectedReasoning: ReasoningProfileId;
   specAgentDescription: string;
@@ -51,7 +53,7 @@ export function buildConfiguredModelProviders(
   const providers: ModelProvider[] = [];
 
   if (environment.cursor.status === "found") {
-    providers.push("cursor");
+    providers.push("codex");
   }
 
   return providers;
@@ -65,6 +67,16 @@ export function buildMcpItems(environment: EnvironmentStatus): McpListItem[] {
       status: environment.cursor.status
     },
     {
+      name: environment.codex.name,
+      detail: environment.codex.detail,
+      status: environment.codex.status
+    },
+    {
+      name: environment.docker.name,
+      detail: environment.docker.detail,
+      status: environment.docker.status
+    },
+    {
       name: environment.git.name,
       detail: environment.git.detail,
       status: environment.git.status
@@ -76,6 +88,7 @@ export function buildCurrentProjectSettings({
   configuredPrdPath,
   configuredSpecPath,
   prdAgentDescription,
+  providerAuthMode,
   selectedModel,
   selectedReasoning,
   specAgentDescription,
@@ -85,6 +98,7 @@ export function buildCurrentProjectSettings({
   return normalizeProjectSettings({
     selectedModel,
     selectedReasoning,
+    providerAuthMode,
     prdAgentDescription,
     specAgentDescription,
     executionAgentDescription,
@@ -135,10 +149,10 @@ export function getPrdGenerationHelperText({
   }
 
   if (selectedProviderStatus.status !== "found") {
-    return "Save a Cursor API key in Settings before generating a PRD.";
+    return "Configure Codex authentication in Settings before generating a PRD.";
   }
 
-  return `This appends your note after the saved PRD agent description from ${configPathDisplay}, runs ${getModelLabel(selectedModel)} through Cursor SDK, and writes markdown to ${configuredDocumentPath}.`;
+  return `This appends your note after the saved PRD agent description from ${configPathDisplay}, runs ${getModelLabel(selectedModel)} through Sandcastle, and writes markdown to ${configuredDocumentPath}.`;
 }
 
 export function getSpecGenerationHelperText({
@@ -175,7 +189,7 @@ export function getSpecGenerationHelperText({
   }
 
   if (selectedProviderStatus.status !== "found") {
-    return "Save a Cursor API key in Settings before generating a spec.";
+    return "Configure Codex authentication in Settings before generating a spec.";
   }
 
   return `This appends your note after the saved spec agent description from ${configPathDisplay}, includes the current PRD content, and writes markdown to ${configuredDocumentPath}.`;

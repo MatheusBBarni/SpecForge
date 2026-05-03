@@ -1,4 +1,4 @@
-import type { ProjectSettings, ReasoningProfileId } from "../types";
+import type { ModelProvider, ProjectSettings, ProviderAuthMode, ReasoningProfileId } from "../types";
 import {
   DEFAULT_MODEL_ID,
   DEFAULT_REASONING_PROFILE,
@@ -52,6 +52,8 @@ export const DEFAULT_SPEC_PROMPT = DEFAULT_SPEC_AGENT_DESCRIPTION;
 
 export function buildDefaultProjectSettings(): ProjectSettings {
   return {
+    agentProvider: "codex",
+    providerAuthMode: "subscription",
     selectedModel: DEFAULT_MODEL_ID,
     selectedReasoning: DEFAULT_REASONING_PROFILE,
     prdAgentDescription: DEFAULT_PRD_AGENT_DESCRIPTION,
@@ -76,6 +78,8 @@ export function normalizeProjectSettings(
   );
 
   return {
+    agentProvider: normalizeAgentProvider(value?.agentProvider),
+    providerAuthMode: normalizeProviderAuthMode(value?.providerAuthMode),
     selectedModel,
     selectedReasoning,
     prdAgentDescription:
@@ -88,6 +92,14 @@ export function normalizeProjectSettings(
     specPath: normalizeProjectRelativePath(value?.specPath) || defaults.specPath,
     supportingDocumentPaths: normalizeSupportingDocumentPaths(value?.supportingDocumentPaths)
   };
+}
+
+export function normalizeAgentProvider(value?: string | null): ModelProvider {
+  return value === "codex" ? "codex" : "codex";
+}
+
+export function normalizeProviderAuthMode(value?: string | null): ProviderAuthMode {
+  return value === "api_key" ? "api_key" : "subscription";
 }
 
 export function normalizeProjectRelativePath(value?: string | null) {
