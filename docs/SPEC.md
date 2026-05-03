@@ -10,7 +10,7 @@ The product Sandcastle runtime lives in the app source tree. `src/sandcastle/Doc
 
 * React owns view state, prompt composition, and rendering runtime events.
 * `src/lib/runtime.ts` owns all Tauri `invoke` calls and event subscriptions.
-* `src-tauri/src/environment.rs` reports Runtime Readiness for Codex auth, Codex CLI, Docker CLI/daemon, and Git.
+* `src-tauri/src/environment.rs` reports Runtime Readiness for Codex auth, Codex CLI, Docker CLI/daemon, and Git. Docker readiness delegates to `src-tauri/src/docker.rs`, which prefers host Docker and falls back to WSL Docker integration on Windows when a WSL distro can reach the daemon.
 * `src-tauri/src/secrets.rs` stores Codex API keys in the OS credential store and detects local Codex subscription auth from `CODEX_HOME`, `%USERPROFILE%\.codex`, or `$HOME/.codex`.
 * `src-tauri/src/cursor_agent.rs` is legacy-named migration scaffolding; its PRD/spec command now builds and runs the Docker-backed Sandcastle Codex runtime.
 * `src-tauri/src/project.rs` reads and writes `.specforge/settings.json`.
@@ -35,14 +35,14 @@ Configuration and Settings both display:
 
 * Codex Provider authentication status
 * Codex CLI status
-* Docker CLI and daemon status
+* Docker CLI and daemon status, including Windows WSL Docker fallback status
 * Git status
 
 Model discovery runs on the host through `codex debug models`. If live discovery returns no models, the backend tries `codex debug models --bundled`.
 
 ## PRD And Spec Generation
 
-PRD and spec generation keep separate workflow-specific agent descriptions. The frontend composes the prompt, then calls the desktop runtime command. Rust builds the `specforge-sandcastle-runtime:latest` Docker image from `src/sandcastle/Dockerfile`, mounts the selected workspace read-only at `/home/agent/workspace`, mounts a temporary output directory, passes Codex auth through either `OPENAI_API_KEY` or a read-only `.codex` mount, and runs `codex exec` inside the container.
+PRD and spec generation keep separate workflow-specific agent descriptions. The frontend composes the prompt, then calls the desktop runtime command. Rust resolves a Docker runtime through `src-tauri/src/docker.rs`, builds the `specforge-sandcastle-runtime:latest` Docker image from `src/sandcastle/Dockerfile`, mounts the selected workspace read-only at `/home/agent/workspace`, mounts a temporary output directory, passes Codex auth through either `OPENAI_API_KEY` or a read-only `.codex` mount, and runs `codex exec` inside the container. When the Windows WSL Docker fallback is selected, Windows host paths are converted to `/mnt/<drive>/...` before being passed to Docker. The fallback tries the default WSL distro first, then other user distros while skipping Docker Desktop's internal `docker-desktop` distros.
 
 Generated markdown is written first to `.specforge/previews/prd.md` or `.specforge/previews/spec.md`. Project context loads previews separately from canonical PRD/spec documents and the review pane shows a preview action group. Save writes the current preview content to the configured canonical document path, then deletes the preview. Edit switches the preview into the existing edit mode before saving. Discard deletes the preview and restores the canonical document from the workspace. Running generation again replaces the persisted preview.
 

@@ -1,4 +1,5 @@
 use crate::{
+    docker::{DockerRuntime, docker_mount_arg, sandcastle_build_args},
     environment::{current_timestamp, resolve_cli_binary},
     generation::{
         create_spec_generation_temp_dir, format_process_failure, map_claude_reasoning,
@@ -532,11 +533,12 @@ fn run_codex_chat_request(
     let temp_dir = create_spec_generation_temp_dir("codex-chat")?;
     let output_path = temp_dir.join("assistant-message.md");
     let diff_path = temp_dir.join("sandbox.diff");
-    let image = ensure_sandcastle_image()?;
+    let docker = DockerRuntime::detect()?;
+    let image = ensure_sandcastle_image(&docker)?;
     let owned_container_name = container_name
         .map(str::to_string)
         .unwrap_or_else(|| format!("specforge-chat-{}", current_timestamp()));
-    let mut command = Command::new("docker");
+    let mut command = docker.command();
     command
         .arg("run")
         .arg("--rm")
@@ -544,9 +546,19 @@ fn run_codex_chat_request(
         .arg("--name")
         .arg(&owned_container_name)
         .arg("-v")
-        .arg(format!("{}:/home/agent/input:ro", workspace_root.display()))
+        .arg(docker_mount_arg(
+            &docker,
+            workspace_root,
+            "/home/agent/input",
+            "ro",
+        ))
         .arg("-v")
-        .arg(format!("{}:/home/agent/output", temp_dir.display()))
+        .arg(docker_mount_arg(
+            &docker,
+            &temp_dir,
+            "/home/agent/output",
+            "rw",
+        ))
         .arg("-e")
         .arg(format!("SPECFORGE_CODEX_MODEL={model}"))
         .arg("-e")
@@ -560,7 +572,7 @@ fn run_codex_chat_request(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    configure_codex_auth(&mut command)?;
+    configure_codex_auth(&mut command, &docker)?;
 
     command
         .arg(image)
@@ -600,8 +612,7 @@ fn run_codex_chat_request(
         let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
         if stdout.is_empty() {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            Err(std::io::Error::other(
                 "The Sandcastle Runtime returned no assistant content.",
             ))
         } else {
@@ -618,11 +629,11 @@ fn run_codex_chat_request(
             ));
         }
     };
-    if let Ok(diff) = fs::read_to_string(&diff_path) {
-        if !diff.trim().is_empty() {
-            result.push_str("\n\n--- Sandbox Diff ---\n");
-            result.push_str(diff.trim());
-        }
+    if let Ok(diff) = fs::read_to_string(&diff_path)
+        && !diff.trim().is_empty()
+    {
+        result.push_str("\n\n--- Sandbox Diff ---\n");
+        result.push_str(diff.trim());
     }
     let _ = fs::remove_dir_all(&temp_dir);
 
@@ -707,7 +718,7 @@ fn sanitize_container_segment(value: &str) -> String {
         .collect()
 }
 
-fn ensure_sandcastle_image() -> Result<String, String> {
+fn ensure_sandcastle_image(docker: &DockerRuntime) -> Result<String, String> {
     let app_root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .map(Path::to_path_buf)
@@ -722,13 +733,9 @@ fn ensure_sandcastle_image() -> Result<String, String> {
     }
 
     let image = "specforge-sandcastle-runtime:latest";
-    let output = Command::new("docker")
-        .arg("build")
-        .arg("-t")
-        .arg(image)
-        .arg("-f")
-        .arg(&dockerfile)
-        .current_dir(&app_root)
+    let mut command = docker.command();
+    let output = command
+        .args(sandcastle_build_args(docker, image, &dockerfile, &app_root))
         .env("NO_COLOR", "1")
         .output()
         .map_err(|error| format!("Unable to build the Sandcastle runtime image: {error}"))?;
@@ -740,7 +747,7 @@ fn ensure_sandcastle_image() -> Result<String, String> {
     Ok(String::from(image))
 }
 
-fn configure_codex_auth(command: &mut Command) -> Result<(), String> {
+fn configure_codex_auth(command: &mut Command, docker: &DockerRuntime) -> Result<(), String> {
     if let Some(api_key) = read_cursor_api_key()?.filter(|value| !value.trim().is_empty()) {
         command.arg("-e").arg(format!("OPENAI_API_KEY={api_key}"));
         return Ok(());
@@ -751,9 +758,12 @@ fn configure_codex_auth(command: &mut Command) -> Result<(), String> {
         .ok_or_else(|| {
             String::from("Codex authentication is required before running Sandcastle.")
         })?;
-    command
-        .arg("-v")
-        .arg(format!("{}:/home/agent/.codex:ro", codex_home.display()));
+    command.arg("-v").arg(docker_mount_arg(
+        docker,
+        &codex_home,
+        "/home/agent/.codex",
+        "ro",
+    ));
 
     Ok(())
 }

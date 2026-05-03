@@ -1,10 +1,18 @@
+use crate::docker::DockerRuntime;
 use crate::models::{CliStatus, EnvironmentStatus};
 use crate::paths::resolve_override_path;
 use crate::secrets::cursor_key_status;
 use std::path::Path;
-use std::process::{Command, ExitStatus, Stdio};
+use std::process::Command;
+#[cfg(windows)]
+use std::process::Output;
+#[cfg(windows)]
+use std::process::Stdio;
+#[cfg(windows)]
 use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+#[cfg(windows)]
+use std::time::{Duration, Instant};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[tauri::command]
 pub(crate) fn run_environment_scan() -> Result<EnvironmentStatus, String> {
@@ -121,62 +129,84 @@ fn probe_binary_version(path: &Path) -> Result<String, String> {
 }
 
 fn inspect_docker() -> CliStatus {
-    let status = inspect_binary("Docker", "docker", None);
-
-    if status.status != "found" {
-        return status;
-    }
-
-    let Some(path) = status.path.clone() else {
-        return status;
-    };
-    let output = run_status_with_timeout(
-        Command::new(&path)
-            .arg("info")
-            .stdout(Stdio::null())
-            .stderr(Stdio::null()),
-        Duration::from_secs(5),
-    );
-
-    docker_status_from_probe_result(Some(path), output, status)
-}
-
-fn docker_status_from_probe_result(
-    path: Option<String>,
-    output: Result<ExitStatus, String>,
-    mut found_status: CliStatus,
-) -> CliStatus {
-    match output {
-        Ok(status_code) if status_code.success() => {
-            found_status.detail = format!("{} Docker daemon is reachable.", found_status.detail);
-            found_status
+    match DockerRuntime::detect() {
+        Ok(runtime) => {
+            let label = runtime.label();
+            CliStatus {
+                name: String::from("Docker"),
+                status: String::from("found"),
+                path: Some(label.clone()),
+                detail: format!("Docker daemon is reachable through {label}."),
+            }
         }
-        Ok(status_code) => CliStatus {
-            name: String::from("Docker"),
-            status: String::from("unavailable"),
-            path,
-            detail: format!(
-                "Docker CLI was found, but the daemon is not reachable. Exit status: {status_code}"
-            ),
-        },
         Err(error) => CliStatus {
             name: String::from("Docker"),
             status: String::from("unavailable"),
-            path,
-            detail: format!(
-                "Docker CLI was found, but the Docker engine did not respond. Docker Desktop may still be starting or its WSL engine may be unhealthy. Probe failed: {error}"
-            ),
+            path: which::which("docker")
+                .ok()
+                .map(|path| path.display().to_string()),
+            detail: docker_unavailable_detail(&error, windows_docker_service_hint()),
         },
     }
 }
 
-fn run_status_with_timeout(command: &mut Command, timeout: Duration) -> Result<ExitStatus, String> {
+fn docker_unavailable_detail(error: &str, service_hint: Option<String>) -> String {
+    let mut detail = format!(
+        "Docker CLI was found, but the Docker engine did not respond. Docker Desktop may still be starting or its WSL engine may be unhealthy. Probe failed: {error}"
+    );
+
+    if let Some(hint) = service_hint {
+        detail.push(' ');
+        detail.push_str(&hint);
+    }
+
+    detail
+}
+
+#[cfg(windows)]
+fn windows_docker_service_hint() -> Option<String> {
+    let output = run_output_with_timeout(
+        Command::new("sc")
+            .arg("query")
+            .arg("com.docker.service")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped()),
+        Duration::from_secs(2),
+    )
+    .ok()?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{stdout}\n{stderr}");
+
+    if combined.contains("STOPPED") {
+        return Some(String::from(
+            "Windows also reports com.docker.service is stopped. Restart Docker Desktop as an administrator or start the Docker Desktop Service, then refresh the scan.",
+        ));
+    }
+
+    if combined.contains("RUNNING") {
+        return Some(String::from(
+            "Windows reports com.docker.service is running, so the issue is likely in Docker Desktop's WSL engine or daemon startup.",
+        ));
+    }
+
+    None
+}
+
+#[cfg(not(windows))]
+fn windows_docker_service_hint() -> Option<String> {
+    None
+}
+
+#[cfg(windows)]
+fn run_output_with_timeout(command: &mut Command, timeout: Duration) -> Result<Output, String> {
     let mut child = command.spawn().map_err(|error| error.to_string())?;
     let started_at = Instant::now();
 
     loop {
         match child.try_wait().map_err(|error| error.to_string())? {
-            Some(status) => return Ok(status),
+            Some(_) => return child.wait_with_output().map_err(|error| error.to_string()),
             None if started_at.elapsed() >= timeout => {
                 let _ = child.kill();
                 let _ = child.wait();
@@ -189,53 +219,18 @@ fn run_status_with_timeout(command: &mut Command, timeout: Duration) -> Result<E
 
 #[cfg(test)]
 mod tests {
-    use super::{docker_status_from_probe_result, run_status_with_timeout};
-    use crate::models::CliStatus;
-    use std::process::{Command, Stdio};
-    use std::time::{Duration, Instant};
+    use super::docker_unavailable_detail;
 
     #[test]
-    fn command_timeout_returns_before_process_finishes() {
-        let started_at = Instant::now();
-        let result = run_status_with_timeout(
-            sleeper_command()
-                .stdout(Stdio::null())
-                .stderr(Stdio::null()),
-            Duration::from_millis(100),
+    fn docker_unavailable_detail_includes_windows_service_hint_when_present() {
+        let detail = docker_unavailable_detail(
+            "process timed out after 5s",
+            Some(String::from(
+                "Windows reports com.docker.service is stopped.",
+            )),
         );
 
-        assert!(result.is_err());
-        assert!(started_at.elapsed() < Duration::from_secs(2));
-    }
-
-    #[test]
-    fn docker_probe_timeout_is_reported_as_unavailable() {
-        let status = docker_status_from_probe_result(
-            Some(String::from("docker")),
-            Err(String::from("process timed out after 5s")),
-            CliStatus {
-                name: String::from("Docker"),
-                status: String::from("found"),
-                path: Some(String::from("docker")),
-                detail: String::from("Detected on PATH. Docker version 1.0"),
-            },
-        );
-
-        assert_eq!(status.status, "unavailable");
-        assert!(status.detail.contains("Docker engine did not respond"));
-    }
-
-    #[cfg(windows)]
-    fn sleeper_command() -> Command {
-        let mut command = Command::new("powershell");
-        command.args(["-NoProfile", "-Command", "Start-Sleep -Seconds 5"]);
-        command
-    }
-
-    #[cfg(not(windows))]
-    fn sleeper_command() -> Command {
-        let mut command = Command::new("sh");
-        command.args(["-c", "sleep 5"]);
-        command
+        assert!(detail.contains("process timed out after 5s"));
+        assert!(detail.contains("com.docker.service is stopped"));
     }
 }

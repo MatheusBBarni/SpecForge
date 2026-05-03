@@ -47,7 +47,7 @@ This replaces the previous Cursor-centered product direction. Legacy Cursor SDK 
 2. The Configuration screen shows Sandcastle Runtime Readiness.
 3. The user chooses Codex as the Agent Provider.
 4. The user chooses a Provider Auth Mode: local subscription auth or API-key auth stored through the OS credential store.
-5. SpecForge checks Docker CLI, Docker daemon, Codex CLI, Codex auth, Git, project readability, runtime working directories, and runtime launch capability.
+5. SpecForge checks Docker CLI, Docker daemon, Codex CLI, Codex auth, Git, project readability, runtime working directories, and runtime launch capability. On Windows, host Docker is preferred, but a healthy WSL Docker integration is accepted when the host Docker pipe is unavailable.
 6. The user selects a discovered Codex model and reasoning effort.
 7. The user generates or refines a PRD/spec, chats, or starts execution.
 8. SpecForge launches an App Sandcastle Runtime turn inside Docker.
@@ -63,6 +63,7 @@ This replaces the previous Cursor-centered product direction. Legacy Cursor SDK 
 * Tauri/Rust owns process control, filesystem access, credential access, Docker/Codex readiness checks, and stop handling.
 * Real PRD/spec agent turns run inside Docker through Sandcastle.
 * If Docker is unavailable, the Sandcastle Runtime is unavailable.
+* On Windows, Docker readiness and Sandcastle launches may use Docker from WSL when host Docker is unavailable and a WSL distro can reach the daemon.
 * SpecForge must not silently fall back to direct host execution for real AI agent work.
 * API keys are stored through the OS credential store and never written to `.specforge/settings.json`.
 * Subscription auth uses local Codex authentication material such as `~/.codex` when preparing the Runtime Sandbox.

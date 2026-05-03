@@ -1,4 +1,5 @@
 use crate::{
+    docker::DockerRuntime,
     environment::current_timestamp,
     models::{
         AutonomyMode, ChatContextItem, ChatRuntimeState, ChatSessionIndexPayload,
@@ -7,7 +8,6 @@ use crate::{
     project::{normalize_project_model, normalize_project_reasoning},
     state::SharedState,
 };
-use std::process::Command;
 use std::{fs, thread};
 use tauri::{AppHandle, State};
 
@@ -186,8 +186,11 @@ pub(crate) fn stop_chat_session(
     state.chat_runtime.signal.notify_all();
     drop(controls);
 
-    if let Some(container_name) = active_container {
-        let _ = Command::new("docker")
+    if let Some(container_name) = active_container
+        && let Ok(docker) = DockerRuntime::detect()
+    {
+        let _ = docker
+            .command()
             .arg("rm")
             .arg("-f")
             .arg(container_name)

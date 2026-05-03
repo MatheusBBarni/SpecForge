@@ -2,6 +2,7 @@ mod agent;
 mod chat;
 mod constants;
 mod cursor_agent;
+mod docker;
 mod documents;
 mod environment;
 mod external_editors;
